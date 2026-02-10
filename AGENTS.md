@@ -1,15 +1,30 @@
 # AGENTS.md: Agent Collaboration Rules for JARVISv5
 
-> **Purpose**: Define how agents work on JARVISv5 to prevent confusion, sprawl, and incomplete work
+> **Purpose**: Define how Agents work on JARVISv5 to prevent confusion, sprawl, and incomplete work
 > **Last Updated**: 2026-02-10
 
 ## Core Principle
+
+Always respect User's  
 **One agent, one task, one deliverable, clear evidence of success**
+
 Agents work on **isolated, testable, verifiable tasks** with **no coordination required**.
+
+---
 
 ## The Rules (NON-NEGOTIABLE)
 
-### Rule 1: Single Source of Truth
+### Rule 1: Python Environment Isolation (High Priority)
+
+- Python Environment
+  - Use `backend/.venv` only to execute Python commands (`backend/.venv/Scripts/python <cmd>`).
+  - Respect User's global Python environment; Never use or install packages globally.
+- Dependencies
+  - Single source of truth: `backend/requirements.txt`.
+  - Any dependency change updates that file in the same mini‑phase.
+  - If the venv is missing or broken, stop and propose minimal repair steps.
+
+### Rule 2: Single Source of Truth
 
 **Project.md defines WHAT to build**
 - Read Project.md before starting any task
@@ -35,7 +50,7 @@ Agents work on **isolated, testable, verifiable tasks** with **no coordination r
 - States: Planned → Implemented → Verified
 - No aspirational claims
 
-### Rule 2: No Legacy References
+### Rule 3: No Legacy References
 
 **Do NOT**:
 - ❌ Look at JARVISv1/v2/v3/v4 code
@@ -52,13 +67,13 @@ Agents work on **isolated, testable, verifiable tasks** with **no coordination r
 - ✅ Use standard libraries and patterns
 - ✅ Create clean, simple code
 
-### Rule 3: Test-First Development
+### Rule 4: Test-First Development
 
 **Workflow** (must follow this order):
 1. **Read Task Specification** - Understand requirements completely
 2. **Write Test First** - Create `tests/test_[component].py` with expected behavior
 3. **Write Implementation** - Create component code to make tests pass
-4. **Run Tests** - Execute `pytest tests/test_[component].py`
+4. **Run Tests** - Execute `backend/.venv/scripts/pytest tests/test_[component].py`
 5. **Fix Until Pass** - If tests fail, debug and fix (no user intervention)
 6. **Provide Evidence** - Show test output proving success
 7. **Integration Test** - Verify component works with existing system
@@ -66,7 +81,7 @@ Agents work on **isolated, testable, verifiable tasks** with **no coordination r
 
 **No "I implemented X"** - only **"Tests pass for X (evidence: ...)"**
 
-### Rule 4: Single-File Tasks
+### Rule 5: Single-File Tasks
 **Good Task Structure**:
 - Creates 1 primary file (e.g., `backend/llm.py`)
 - Creates 1 test file (e.g., `tests/test_llm.py`)
@@ -85,7 +100,7 @@ Agents work on **isolated, testable, verifiable tasks** with **no coordination r
 - Completable in one work session
 - No multi-day tasks
 
-### Rule 5: Evidence Required
+### Rule 6: Evidence Required
 Every task completion must include:
 
 ## Task: [Component Name]
@@ -117,7 +132,7 @@ test_function_name_3 PASSED
 
 **No evidence = incomplete task**
 
-### Rule 6: No Scope Creep
+### Rule 7: No Scope Creep
 
 **Stay within task boundaries**:
 - Build only what's specified
@@ -130,7 +145,7 @@ test_function_name_3 PASSED
 - ✅ Suggest as separate future task
 - ❌ Don't implement it now
 
-### Rule 7: Simple > Perfect
+### Rule 8: Simple > Perfect
 
 **Prefer**:
 - ✅ Simple, readable code
@@ -310,7 +325,7 @@ pytest tests/test_integration.py -v
   - Notes: [Optional 1-line description]
 ```
 
-**Rules**:
+**Entry Rules** (Detailed Rules exist at the top SYSTEM_INVENTORY.md itself):
 - Add entry at TOP of Inventory section
 - State starts as "Implemented" (tests pass, not yet integrated)
 - Include file locations
@@ -346,7 +361,7 @@ curl http://localhost:8000/[endpoint]
   - Notes: Integrated with [other components]
 ```
 
-**Rules** (Detailed Rules exist at the top `SYSTEM_INVENTORY.md` itself):
+**Update Rules** 
 - Update SAME entry (don't create new one)
 - Change State: Planned → Implemented → Verified -or- Defferred # Reason
 - Update Validation command to include integration test
@@ -362,7 +377,7 @@ curl http://localhost:8000/[endpoint]
 - YYYY-MM-DD HH:MM
   - Summary: Implemented [Component Name] with [key features]
   - Scope: backend/file.py, tests/test_file.py, SYSTEM_INVENTORY.md
-  - Evidence: `pytest tests/test_file.py -v`
+  - Evidence: `backend/.venv/scripts/pytest tests/test_file.py -v`
     ```
     test_component_feature_1 PASSED
     test_component_feature_2 PASSED
@@ -370,7 +385,7 @@ curl http://localhost:8000/[endpoint]
     ```
 ```
 
-**Rules** (Detailed Rules exist at the top `CHANGE_LOG.md` itself):
+**Entry Rules** (Detailed Rules exist at the top `CHANGE_LOG.md` itself):
 - Add at TOP of Entries section (newest first)
 - Include timestamp in YYYY-MM-DD HH:MM format
 - Summary: past tense, 1-2 lines
@@ -454,23 +469,19 @@ Agents work on components **in this exact order**:
 
 ## Common Failure Patterns (AVOID THESE)
 
-### ❌ Pattern 1: "I looked at v2 for reference"
-**Why Bad**: Imports legacy confusion and technical debt
-**Correct**: Read Project.md requirements, implement from scratch
-
-### ❌ Pattern 2: "I added some extra features while I was there"
+### ❌ Pattern 1: "I added some extra features while I was there"
 **Why Bad**: Scope creep, untested functionality
 **Correct**: Build only what's specified
 
-### ❌ Pattern 3: "The tests are failing but the code looks right"
+### ❌ Pattern 2: "The tests are failing but the code looks right"
 **Why Bad**: Unvalidated assumptions
 **Correct**: Fix until tests pass, no exceptions
 
-### ❌ Pattern 4: "I'll integrate with the frontend later"
+### ❌ Pattern 3: "I'll integrate with the frontend later"
 **Why Bad**: Deferred integration causes accumulating issues
 **Correct**: Validate integration immediately after implementation
 
-### ❌ Pattern 5: "I refactored the existing code to be cleaner"
+### ❌ Pattern 4: "I refactored the existing code to be cleaner"
 **Why Bad**: Unrelated changes, untested modifications
 **Correct**: Only touch files specified in task
 
