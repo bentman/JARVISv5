@@ -21,4 +21,34 @@ Authoritative capability ledger. This is not a roadmap or config reference. Inve
 
 ## Inventory
 
+- **Component 5: Tool Execution** - 2026-02-10 12:00
+  - State: Planned
+  - Location: `backend/tools.py`, `tests/test_tools.py` (planned)
+  - Validation: Not yet implemented
+  - Notes: Single tool (read_file), LLM function calling integration
+
+- **Component 4: Memory Persistence** - 2026-02-10 12:00
+  - State: Planned
+  - Location: `backend/memory.py`, `tests/test_memory.py` (planned)
+  - Validation: Not yet implemented
+  - Notes: SQLite conversation history, schema: conversations(id, timestamp, user_msg, assistant_msg)
+
+- **Component 3: Frontend UI** - 2026-02-10 12:00
+  - State: Planned
+  - Location: `frontend/src/App.jsx`, `frontend/src/api.js`, `frontend/src/main.jsx` (planned)
+  - Validation: Not yet implemented
+  - Notes: React + Vite chat interface, calls backend /chat endpoint
+
+- **Component 2: LLM Integration** - 2026-02-10 12:00
+  - State: Planned
+  - Location: `backend/llm.py`, `tests/test_llm.py` (planned)
+  - Validation: Not yet implemented
+  - Notes: llama.cpp wrapper, TinyLlama GGUF, replaces echo with actual LLM responses
+
+- **Component 1: Backend API** - 2026-02-10 12:00
+  - State: Planned
+  - Location: `backend/main.py`, `backend/models.py`, `tests/test_backend.py` (planned)
+  - Validation: Not yet implemented
+  - Notes: FastAPI with /health and /chat endpoints, initial echo implementation
+
 

@@ -195,7 +195,7 @@ JARVISv5/
 
 **Manual Validation**: Real usage
 - Start system: `docker compose up`
-- Use browser: Visit http://localhost:5173
+- Use browser: Visit http://localhost:3000
 - Test workflow: Chat, refresh page (check history), ask to read file
 
 ---

@@ -1,7 +1,7 @@
 # AGENTS.md: Agent Collaboration Rules for JARVISv5
 
 > **Purpose**: Define how agents work on JARVISv5 to prevent confusion, sprawl, and incomplete work
-> **Last Updated**: 2026-02-07
+> **Last Updated**: 2026-02-10
 
 ---
 
@@ -28,6 +28,18 @@ Agents work on **isolated, testable, verifiable tasks** with **no coordination r
 - No shortcuts
 - No assumptions
 - Evidence required
+
+**CHANGE_LOG.md tracks WHAT was done**
+- Append-only work record
+- Updated after each task completion
+- Timestamp + summary + evidence
+- Never edit past entries
+
+**SYSTEM_INVENTORY.md tracks WHAT exists**
+- Capability ledger (observable artifacts only)
+- Updated when component state changes
+- States: Planned → Implemented → Verified
+- No aspirational claims
 
 ### Rule 2: No Legacy References
 
@@ -293,13 +305,97 @@ pytest tests/test_integration.py -v
 - Explain attempts made
 - Request guidance
 
-### Step 7: Done
+### Step 7: Update SYSTEM_INVENTORY.md (Implemented State)
+
+**Agent adds component entry** to SYSTEM_INVENTORY.md:
+
+```markdown
+## Inventory
+
+- **[Component Name]** - YYYY-MM-DD HH:MM
+  - State: Implemented
+  - Location: `path/to/file.py`, `tests/test_file.py`
+  - Validation: `pytest tests/test_file.py -v`
+  - Notes: [Optional 1-line description]
+```
+
+**Rules**:
+- Add entry at TOP of Inventory section
+- State starts as "Implemented" (tests pass, not yet integrated)
+- Include file locations
+- Include validation command
+
+### Step 8: Integration Validation (Full System)
+
+**Agent verifies component works with existing system**:
+
+For backend components:
+```bash
+# Start all services
+docker compose up -d
+
+# Test integrated workflow
+curl http://localhost:8000/[endpoint]
+
+# Check component works with other components
+# (e.g., backend + database, backend + frontend)
+```
+
+**If integration succeeds**, proceed to Step 9.
+
+### Step 9: Update SYSTEM_INVENTORY.md (Verified State)
+
+**Agent updates component entry**:
+
+```markdown
+- **[Component Name]** - YYYY-MM-DD HH:MM
+  - State: Verified  # Changed from Implemented
+  - Location: `path/to/file.py`, `tests/test_file.py`
+  - Validation: `pytest tests/test_file.py -v && docker compose up -d`
+  - Notes: Integrated with [other components]
+```
+
+**Rules**:
+- Update SAME entry (don't create new one)
+- Change State: Implemented → Verified
+- Update Validation command to include integration test
+- Add Notes about integration points
+
+### Step 10: Append to CHANGE_LOG.md
+
+**Agent adds work record** to CHANGE_LOG.md:
+
+```markdown
+## Entries
+
+- YYYY-MM-DD HH:MM
+  - Summary: Implemented [Component Name] with [key features]
+  - Scope: backend/file.py, tests/test_file.py, SYSTEM_INVENTORY.md
+  - Evidence: `pytest tests/test_file.py -v`
+    ```
+    test_component_feature_1 PASSED
+    test_component_feature_2 PASSED
+    === 2 passed in 0.3s ===
+    ```
+```
+
+**Rules**:
+- Add at TOP of Entries section (newest first)
+- Include timestamp in YYYY-MM-DD HH:MM format
+- Summary: past tense, 1-2 lines
+- Scope: list files touched (including SYSTEM_INVENTORY.md)
+- Evidence: exact command + minimal output excerpt (≤10 lines)
+- NEVER edit existing entries (append-only)
+
+### Step 11: Done
 
 **Task is complete when**:
 1. ✅ All unit tests pass
 2. ✅ Integration validation succeeds
 3. ✅ Evidence provided
-4. ✅ Code committed/documented
+4. ✅ SYSTEM_INVENTORY.md updated (Verified state)
+5. ✅ CHANGE_LOG.md appended
+6. ✅ Code committed/documented
 
 **User approves** and assigns next task
 

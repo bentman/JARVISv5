@@ -38,7 +38,7 @@ Create a FastAPI backend server with a `/chat` endpoint that accepts user messag
   - Behavior: Echo back the user message with conversation ID
 
 **CORS Configuration**:
-- Allow origins: `["http://localhost:5173"]` (frontend dev server)
+- Allow origins: `["http://localhost:3000"]` (frontend dev server)
 - Allow methods: `["GET", "POST"]`
 - Allow headers: `["*"]`
 
