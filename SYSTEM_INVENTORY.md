@@ -52,3 +52,4 @@ Authoritative capability ledger. This is not a roadmap or config reference. Inve
   - Notes: FastAPI with /health and /chat endpoints, initial echo implementation
 
 
+## Appendix

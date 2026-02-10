@@ -346,9 +346,9 @@ curl http://localhost:8000/[endpoint]
   - Notes: Integrated with [other components]
 ```
 
-**Rules**:
+**Rules** (Detailed Rules exist at the top `SYSTEM_INVENTORY.md` itself):
 - Update SAME entry (don't create new one)
-- Change State: Implemented → Verified
+- Change State: Planned → Implemented → Verified -or- Defferred # Reason
 - Update Validation command to include integration test
 - Add Notes about integration points
 
@@ -370,7 +370,7 @@ curl http://localhost:8000/[endpoint]
     ```
 ```
 
-**Rules**:
+**Rules** (Detailed Rules exist at the top `CHANGE_LOG.md` itself):
 - Add at TOP of Entries section (newest first)
 - Include timestamp in YYYY-MM-DD HH:MM format
 - Summary: past tense, 1-2 lines
@@ -578,7 +578,7 @@ When assigning tasks to agents, use this format:
 This AGENTS.md file establishes the **working discipline** for JARVISv5.
 
 Follow these rules strictly to:
-- Avoid legacy confusion (no v2/v4 references)
+- Avoid legacy confusion (no v2/v3/v4 references)
 - Prevent scope creep (build only what's specified)
 - Ensure quality (tests must pass)
 - Enable progress (evidence-gated milestones)
