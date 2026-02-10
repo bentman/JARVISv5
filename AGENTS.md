@@ -3,15 +3,9 @@
 > **Purpose**: Define how agents work on JARVISv5 to prevent confusion, sprawl, and incomplete work
 > **Last Updated**: 2026-02-10
 
----
-
 ## Core Principle
-
 **One agent, one task, one deliverable, clear evidence of success**
-
 Agents work on **isolated, testable, verifiable tasks** with **no coordination required**.
-
----
 
 ## The Rules (NON-NEGOTIABLE)
 
@@ -61,7 +55,6 @@ Agents work on **isolated, testable, verifiable tasks** with **no coordination r
 ### Rule 3: Test-First Development
 
 **Workflow** (must follow this order):
-
 1. **Read Task Specification** - Understand requirements completely
 2. **Write Test First** - Create `tests/test_[component].py` with expected behavior
 3. **Write Implementation** - Create component code to make tests pass
@@ -74,7 +67,6 @@ Agents work on **isolated, testable, verifiable tasks** with **no coordination r
 **No "I implemented X"** - only **"Tests pass for X (evidence: ...)"**
 
 ### Rule 4: Single-File Tasks
-
 **Good Task Structure**:
 - Creates 1 primary file (e.g., `backend/llm.py`)
 - Creates 1 test file (e.g., `tests/test_llm.py`)
@@ -94,15 +86,15 @@ Agents work on **isolated, testable, verifiable tasks** with **no coordination r
 - No multi-day tasks
 
 ### Rule 5: Evidence Required
-
 Every task completion must include:
 
-```markdown
 ## Task: [Component Name]
 
 **Files Created**:
+```bash
 - /path/to/implementation.py (XXX lines)
 - /path/to/test_implementation.py (YYY lines)
+```
 
 **Tests Executed**:
 ```bash
@@ -110,7 +102,7 @@ pytest tests/test_implementation.py -v
 ```
 
 **Test Results**:
-```
+```bash
 test_function_name_1 PASSED
 test_function_name_2 PASSED
 test_function_name_3 PASSED
@@ -122,7 +114,6 @@ test_function_name_3 PASSED
 [Describe how component integrates, show manual test if applicable]
 
 **Status**: ✅ COMPLETE
-```
 
 **No evidence = incomplete task**
 
@@ -244,7 +235,7 @@ class ComponentClass:
 
 **Agent executes**:
 ```bash
-pytest tests/test_[component].py -v
+backend/.venv/scripts/pytest tests/test_[component].py -v
 ```
 
 **Expected Output**:
