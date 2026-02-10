@@ -3,7 +3,7 @@
 ## Just A Rewrite, Verging Into Sorcery
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Status: Active](https://img.shields.io/badge/status-Reference-green)](#)
+[![Status: Active](https://img.shields.io/badge/status-Active-green)](#)
 
 JARVISv5 is the latest rewrite in a long line of rewrites.  
 It currently does very little, but it does it with suspicious confidence.  
