@@ -1,4 +1,3 @@
-
 # J.A.R.V.I.S. AI Local Assistant (Mark5)
 ## Just A Rewrite, Verging Into Sorcery
 
@@ -31,51 +30,11 @@ Because v4 taught me exactly one thing:
 - Reduce the number of rewrites per version  
 - Eventually become a usable system  
 
-## Quick Start
-
 ### Prerequisites
 
 - **Docker** & **Docker Compose**
 - **8GB+ RAM** (for local LLM inference)
 - **5GB disk space** (for model files)
-
-### Installation
-
-1. **Clone repository**:
-   ```bash
-   git clone https://github.com/bentman/JARVISv5.git
-   pushd JARVISv5
-   ```
-
-2. **Download models** (coming soon):
-   ```bash
-   # Script will be created in Component 2
-   ./scripts/download_models.sh
-   ```
-
-3. **Start system**:
-   ```bash
-   docker compose up
-   ```
-
-4. **Open browser**:
-   ```
-   http://localhost:3000
-   ```
-
----
-
-## Project Status
-
-### Phase 1 Components (Target: 4 Weeks)
-
-- [ ] **Component 1**: Backend API (Week 1)
-- [ ] **Component 2**: LLM Integration (Week 1-2)
-- [ ] **Component 3**: Frontend UI (Week 2)
-- [ ] **Component 4**: Memory Persistence (Week 3)
-- [ ] **Component 5**: Tool Execution (Week 4)
-
-**Current**: Bootstrap - Repository structure created
 
 ---
 
@@ -100,141 +59,7 @@ Phase 1 focuses on core functionality. These features are **deferred to Phase 2+
 - Multiple LLM models
 - Cloud escalation
 
-**Why**: Prove basics work first, add complexity based on real usage needs.
-
 ---
-
-## Architecture
-
-### Stack
-
-**Backend**:
-- Python 3.12+
-- FastAPI
-- llama.cpp (via llama-cpp-python)
-- SQLite
-
-**Frontend**:
-- React 18
-- Vite
-- Native fetch API
-
-**Infrastructure**:
-- Docker + docker-compose
-- Development and production configurations
-
-### Data Flow
-
-```
-User Input (Browser)
-  ↓
-Frontend (React on :3000)
-  ↓ HTTP POST /chat
-Backend (FastAPI on :8000)
-  ↓
-LLM (llama.cpp, TinyLlama GGUF)
-  ↓ (optional)
-Tools (read_file, etc.)
-  ↓
-Memory (SQLite) ← saves conversation
-  ↓
-Response → Frontend → User
-```
-
----
-
-## Development
-
-### Local Development (Without Docker)
-
-**Backend**:
-```bash
-pushd backend
-python -m venv .venv
-source backend/.venv/bin/activate  # or backend\.venv\Scripts\activate on Windows
-pip install -r requirements.txt
-uvicorn main:app --reload
-```
-
----
-
-**Frontend**:
-```bash
-pushd frontend
-npm install
-npm run dev
-```
-
----
-
-### Running Tests
-
-```bash
-# Backend tests
-backend\.venv\Scripts\pytest tests/
-
-# Specific component
-backend\.venv\Scripts\pytest tests/test_backend.py -v
-
-# With coverage
-backend\.venv\Scripts\pytest --cov=backend tests/
-```
-
-## Project Structure
-
-```
-JARVISv5/
-├── Project.md              # Source of truth - what to build
-├── AGENTS.md              # Agent collaboration rules
-├── README.md              # This file
-├── docker-compose.yml     # Service orchestration
-├── .env.example           # Configuration template
-│
-├── backend/               # Python/FastAPI backend
-│   ├── main.py           # API endpoints
-│   ├── llm.py            # LLM wrapper
-│   ├── memory.py         # Database operations
-│   ├── tools.py          # Tool execution
-│   └── requirements.txt  # Dependencies
-│
-├── frontend/             # React frontend
-│   ├── src/
-│   │   ├── App.jsx       # Main component
-│   │   └── api.js        # Backend client
-│   └── package.json      # Dependencies
-│
-├── tests/                # Test suite
-│   ├── test_backend.py
-│   ├── test_llm.py
-│   ├── test_memory.py
-│   ├── test_tools.py
-│   └── test_integration.py
-│
-├── data/                 # SQLite database (runtime)
-└── models/               # GGUF model files (download)
-```
-
----
-
-## Configuration
-
-Copy `.env.example` to `.env` and configure:
-
-```bash
-# Backend
-BACKEND_PORT=8000
-MODEL_PATH=/models/tinyllama.gguf
-DATABASE_PATH=/data/jarvis.db
-
-# Frontend
-VITE_API_URL=http://localhost:8000
-```
-
----
-
-## Contributing
-
-### For Agents
 
 Read `AGENTS.md` before starting work. Key rules:
 
@@ -250,10 +75,6 @@ Read `AGENTS.md` before starting work. Key rules:
 2. Propose changes via issues (don't modify specs directly)
 3. Follow test-first development
 4. Keep changes minimal and focused
-
----
-
-
 
 ---
 
