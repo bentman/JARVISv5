@@ -1,9 +1,9 @@
 # CHANGE_LOG.md
+> Append-only record of reported work; corrections may be appended to entries.
+> No edits/reorders/deletes of past entries. If an entry is wrong, append a corrective entry.
 
 ## Rules
-- Append-only record of reported work; corrections may be appended to entries.
-- Write an entry only after the mini-phase objective is “done” and supported by evidence.
-- No edits/reorders/deletes of past entries. If an entry is wrong, append a corrective entry.
+- Write an entry only after task objective is “done” and supported by evidence.
 - **Ordering:** Entries are maintained in **descending chronological order** (newest first, oldest last).
 - **Append location:** New entries must be added **at the top of the Entries section**, directly under `## Entries`.
 - Each entry must include:

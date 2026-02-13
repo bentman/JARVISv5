@@ -1,352 +1,325 @@
-# Project.md: JARVISv5 - Local-First AI Assistant
+# Project.md: JARVISv5 (Mark5) — Local‑First Agent System
 
-> **Status**: Bootstrap Phase - Initial Structure Creation
-> **Last Updated**: 2026-02-07
-
----
-
-## Vision
-Daily-use AI assistant that runs locally, persists memory, and executes tools.
-
-**Core Purpose**: Help with daily work (research, writing, planning, code assistance) using local resources.
-
-**Core Constraints**:
-1. **Local-First**: Runs on your machine, no cloud required
-2. **Evidence-Gated**: Tests must pass before moving to next component
-3. **Minimal Scope**: Build only what's specified, defer everything else
-4. **Clean Implementation**: No legacy code references, start fresh
+> **Vision Only**
+> This document describes the **target architecture and invariants** for JARVISv5. The structure below reflects intended organization and capabilities, **not completed implementation**. The presence of paths in the proposed tree indicates design intent only. This baseline is open to refinement as future agentic development progresses.
 
 ---
 
-## Phase 1 Scope (Target: 4 Weeks)
+## 1. 🎯 Vision
 
-### Components to Build
+JARVISv5 is a **daily‑use personal assistant** that is **local‑first by default** and **policy‑guided for escalation** when local resources are insufficient. It supports day‑to‑day work such as **search, research, writing, planning, and code assistance**, while remaining traceable, reproducible, and privacy‑aware.
 
-**Component 1: Backend API** (Week 1)
-- FastAPI server with `/chat` endpoint
-- Request: `{message: str}`
-- Response: `{response: str, conversation_id: str}`
-- Initial implementation: echo response (LLM integration in Component 2)
-- Docker-ready (Dockerfile + docker-compose.yml)
+### Core Invariants
 
-**Component 2: LLM Integration** (Week 1-2)
-- llama.cpp wrapper for local inference
-- Load TinyLlama GGUF model
-- Replace echo with actual LLM responses
-- Simple prompt template (no complex orchestration)
-
-**Component 3: Frontend UI** (Week 2)
-- React + Vite single-page app
-- Chat input box + message display
-- Calls backend `/chat` endpoint
-- Simple, functional, no styling complexity
-
-**Component 4: Memory Persistence** (Week 3)
-- SQLite database for conversation history
-- Schema: `conversations(id, timestamp, user_msg, assistant_msg)`
-- Backend saves each exchange
-- Frontend fetches and displays history
-
-**Component 5: Tool Execution** (Week 4)
-- Single tool: `read_file(path: str) -> str`
-- LLM function calling integration
-- Tool registry with JSON schema
-- Execute tool, return result to LLM
+1. **Local‑First Execution:** Tasks run locally unless policy permits escalation.
+2. **Deterministic Control:** A state machine / DAG controls execution, not the LLM.
+3. **Externalized Memory:** Working, episodic, and semantic artifacts are the source of truth.
+4. **Traceability:** Every action produces replayable artifacts.
+5. **Policy‑Bound Escalation:** Cloud usage is explicit, budgeted, and auditable.
 
 ---
 
-## Success Criteria (End of Phase 1)
+## 2. 🧭 Product Intent (Pragmatic Scope)
 
-System is considered successful when:
-
-✅ **Functional**: Can chat with local LLM via browser
-✅ **Persistent**: Conversations saved, history visible after page refresh
-✅ **Capable**: Can read local files when asked
-✅ **Runnable**: Single command starts entire system (`docker compose up`)
-✅ **Tested**: All components have passing tests
-✅ **Daily-Usable**: Actually helps with work for 2+ weeks without critical bugs
+- **Daily Assistant:** search, research synthesis, task planning, code help, and knowledge recall.
+- **Voice Optional:** STT/TTS and wake word, but not required for core usage.
+- **Minimal Friction:** one‑command start, predictable outputs, and clear failure states.
 
 ---
 
-## Architecture (Current Phase 1)
+## 3. 🏗️ Target Architecture
 
-### Backend Stack
-- **Language**: Python 3.11+
-- **Framework**: FastAPI
-- **LLM Runtime**: llama.cpp (via llama-cpp-python)
-- **Memory**: SQLite
-- **Containerization**: Docker + docker-compose
+### 3.1 Control Plane
 
-### Frontend Stack
-- **Language**: JavaScript/JSX
-- **Framework**: React 18
-- **Build Tool**: Vite
-- **HTTP Client**: fetch API (native)
+- **Controller FSM/DAG:** `INIT → PLAN → EXECUTE → VALIDATE → COMMIT → ARCHIVE`.
+- **Plan‑to‑Workflow Compiler:** Converts plan steps into executable nodes.
+- **Validation Gates:** Fail‑closed policies with explicit error artifacts.
 
-### Data Flow
+### 3.2 Memory System
+
+- **Working State:** JSON state for active tasks.
+- **Episodic Trace:** SQLite event log for deterministic replay.
+- **Semantic Memory:** Vector store + SQLite for retrieval, tagging, and recall.
+
+### 3.3 Model & Routing Layer
+
+- **Local LLM Routing:** GGUF/llama.cpp or local provider abstraction.
+- **Hardware‑Aware Selection:** CPU/GPU/NPU profiling.
+- **Escalation Policy:** Configurable rules for cloud model fallback.
+
+### 3.4 Tools & Extensions
+
+- **Tool Registry:** JSON‑schema validation for tool calls.
+- **Sandboxed Execution:** deterministic tooling with constrained IO.
+- **Search Providers:** pluggable sources with privacy redaction.
+
+### 3.5 User Experience
+
+- **Web Client:** chat + workflow status + memory/search controls.
+- **Voice Panel:** optional mic/wake word controls (non‑blocking).
+- **Settings:** hardware profiles, privacy levels, budget governance.
+
+---
+
+## 4. 🧠 Memory Architecture
+
+### 4.1 Working State (Ephemeral)
+
+- **Storage:** JSON files on disk.
+- **Schema:** `task_id`, `goal`, `status`, `current_step`, `completed_steps`, `next_steps`.
+- **Lifecycle:** Created at task start, archived upon completion.
+
+### 4.2 Episodic Trace (Immutable)
+
+- **Storage:** SQLite (`decisions`, `tool_calls`, `validations` tables).
+- **Function:** Append-only log of every action, input, output, and outcome.
+- **Key Feature:** Enables deterministic replay of any episode.
+
+### 4.3 Semantic Memory (Curated)
+
+- **Storage:** Vector embeddings (FAISS) + SQLite metadata.
+- **Function:** Stores validated patterns, user preferences, and knowledge.
+- **Retrieval:** Hybrid search (semantic similarity + symbolic filtering).
+- **Privacy:** Local-first with optional redaction for sensitive content.
+
+---
+
+## 5. ⚙️ Workflow Engine
+
+### 5.1 Node Types
+
+| Node Type | Purpose |
+|-----------|---------|
+| `router` | Determines task intent (chat, code, research). |
+| `context_builder` | Retrieves relevant memory artifacts. |
+| `llm_worker` | Executes model inference with injected context. |
+| `validator` | Verifies output quality and format compliance. |
+| `tool_call` | Invokes registered tools with sandboxed execution. |
+| `search_web` | Aggregates results from search providers. |
+
+### 5.2 Execution Flow
+
+1. **Task Received:** User input enters system.
+2. **Routing:** `router` node classifies intent.
+3. **Context Assembly:** `context_builder` retrieves relevant memory.
+4. **Execution:** Workflow DAG executes nodes in dependency order.
+5. **Validation:** Each node output validated before proceeding.
+6. **Commit:** Successful execution updates memory and returns result.
+7. **Archive:** Task state and artifacts stored for replay.
+
+---
+
+## 6. 🖥️ Model & Hardware Integration
+
+### 6.1 Hardware Detection
+
+Automatic profiling of:
+- CPU architecture and core count
+- GPU vendor, memory, and compute capabilities
+- Memory capacity and available resources
+- Specialized processors (NPU)
+
+### 6.2 Model Router
+
+- **Local Inference:** GGUF models via llama.cpp.
+- **Provider Abstraction:** Standardized interface for local/remote models.
+- **Hardware Routing:** Matches model requirements to available hardware.
+- **Integrity Verification:** Model checksums and validation.
+
+### 6.3 Escalation Policy
+
+- **Local Priority:** All tasks attempt local execution first.
+- **Policy Triggers:** Resource constraints, capability gaps, explicit user request.
+- **Budget Governance:** Configurable limits with real-time tracking.
+- **Privacy Controls:** Automatic redaction before external API calls.
+
+---
+
+## 7. 🎙️ Voice System
+
+### 7.1 Components
+
+- **STT Engine:** Whisper for speech-to-text.
+- **TTS Engine:** Piper for text-to-speech with fallback options.
+- **Wake Word:** openWakeWord for activation detection.
+
+### 7.2 Workflow Integration
+
+- **Voice Session:** Dedicated workflow path for continuous conversation.
+- **Artifact Lifecycle:** Voice interactions stored as episodic traces.
+- **Deterministic Runtime:** Reproducible voice processing with explicit state.
+
+---
+
+## 8. 🔒 Privacy & Security
+
+### 8.1 Data Handling
+
+- **Local-First Processing:** All computation occurs locally by default.
+- **Data Classification:** Sensitive content identified and handled appropriately.
+- **Selective Redaction:** PII removed before external API calls.
+- **Encryption:** Conversation storage encrypted at rest.
+
+### 8.2 Security Implementation
+
+- **Model Integrity:** Checksum verification for all models.
+- **Sandboxed Execution:** Tool calls isolated from system.
+- **Inter-Component Security:** Secure communication between services.
+- **User Controls:** Explicit permissions for data retention and sharing.
+
+---
+
+## 9. 🧰 Operational Stack
+
+### 9.1 Docker Services
+
+- **Backend:** FastAPI application with controller and agents.
+- **Frontend:** React web client with Vite build.
+- **Redis:** Cache for frequent queries and context snippets.
+- **Vector Store:** FAISS or Qdrant for semantic memory.
+- **Validation:** Dedicated service for regression testing.
+
+### 9.2 Configuration
+
+- **Environment Variables:** All configuration via `.env` file.
+- **Hardware Profiles:** Light, Medium, Heavy, NPU-optimized.
+- **Privacy Levels:** Configurable data handling policies.
+- **Budget Limits:** Per-provider cost thresholds.
+
+---
+
+## 10. ✅ Verification & Quality
+
+### 10.1 Testing Strategy
+
+- **Unit Tests:** Component-level validation.
+- **Integration Tests:** Service interaction verification.
+- **Agentic Tests:** End-to-end workflow validation.
+- **Regression Harness:** `scripts/validate_backend.py` as authoritative suite.
+
+### 10.2 Success Metrics
+
+| Metric | Target | Definition |
+|--------|--------|------------|
+| **Reproducibility** | 100% | Replaying episode produces identical artifacts. |
+| **Memory Recall** | >95% | Accuracy of retrieving relevant past decisions. |
+| **Task Success** | >85% | Tasks completed without human intervention. |
+| **Drift Rate** | <5% | Behavioral variance over time. |
+| **Latency** | <200ms | P95 Controller overhead (excluding inference). |
+
+---
+
+## 11. 🎨 User Interface
+
+### 11.1 Visual Design
+
+**Palette:**
+- Background: Deep navy `#050810`
+- Header: `#0a0e1a`
+- Panels: `#1a2332`
+- Accent: Cyan `#00d4ff`
+- User messages: Blue `#3b82f6`
+- Success: Green `#10b981`
+- Error: Red `#ef4444`
+
+**Typography:**
+- System UI stack: `-apple-system`, `BlinkMacSystemFont`, `Segoe UI`
+- Header: 32px
+- Message text: 18px
+
+**Layout:**
+- Full-screen fixed layout
+- Top status header
+- Scrollable message pane
+- Docked input bar
+
+**Components:**
+- Message bubbles: 20px rounded corners
+- AI bubbles: Cyan border glow
+- User bubbles: Solid blue
+- Error bubbles: Deep red with red border
+- Icons: Lucide React (Bot/User/Wifi/Cpu) in circular avatars
+
+### 11.2 Interface Elements
+
+- **Chat Interface:** Message display with streaming responses and markdown support.
+- **Workflow Visualizer:** Live node status and execution graph.
+- **Voice Panel:** Microphone controls, wake word indicator, activation feedback.
+- **Settings Panel:** Hardware profiles, privacy controls, budget monitoring.
+- **Status Indicators:** Real-time system health, model routing, resource usage.
+
+---
+
+## 12. 🛠️ Development Approach
+
+### 12.1 Prerequisites
+
+- Docker and Docker Compose
+- Python 3.11+
+- Node.js 18+
+- Modern browser (Chrome, Firefox, Edge)
+
+### 12.2 Quick Start
+
+Single-command deployment:
+```bash
+docker compose up
 ```
-User Input (Browser)
-  ↓
-Frontend (React)
-  ↓ HTTP POST /chat
-Backend (FastAPI)
-  ↓
-LLM (llama.cpp)
-  ↓ (optional)
-Tools (read_file)
-  ↓
-Memory (SQLite) ← saves conversation
-  ↓
-Response → Frontend → User
-```
+
+Access web interface at `http://localhost:3000`
+
+### 12.3 Project Organization
+
+- **Modular Services:** Independently deployable components.
+- **Clear Boundaries:** Strict separation between controller, agents, and tools.
+- **Configuration-Driven:** All behavior controlled via environment variables.
+- **Test-First:** Validation suite guards against regression.
 
 ---
 
-## Repository Structure
+## 13. 🗂️ Repository Structure
 
-```
+```text
 JARVISv5/
-├── Project.md              # This file - source of truth
-├── AGENTS.md              # Agent collaboration rules
-├── README.md              # Setup and usage instructions
-├── .env.example           # Configuration template
-├── .gitignore             # Git exclusions
-├── docker-compose.yml     # Service orchestration
-│
-├── backend/
-│   ├── Dockerfile         # Backend container image
-│   ├── main.py            # FastAPI application
-│   ├── models.py          # Pydantic request/response schemas
-│   ├── llm.py             # llama.cpp wrapper
-│   ├── memory.py          # SQLite operations
-│   ├── tools.py           # Tool registry and execution
-│   └── requirements.txt   # Python dependencies
-│
-├── frontend/
-│   ├── Dockerfile         # Frontend container image (production)
-│   ├── index.html         # HTML entry point
-│   ├── src/
-│   │   ├── App.jsx        # Main React component
-│   │   ├── api.js         # Backend API client
-│   │   └── main.jsx       # React entry point
-│   ├── package.json       # Node dependencies
-│   └── vite.config.js     # Vite configuration
-│
-├── data/                  # SQLite database storage (created at runtime)
-├── models/                # GGUF model files (download separately)
-│   └── .gitkeep
-│
-└── tests/
-    ├── test_backend.py        # Backend unit tests
-    ├── test_llm.py            # LLM integration tests
-    ├── test_memory.py         # Memory persistence tests
-    ├── test_tools.py          # Tool execution tests
-    └── test_integration.py    # End-to-end tests
+├── backend/                              # Python backend service (control plane, memory, tools, model routing)
+│   ├── Dockerfile                        # Backend container image definition
+│   ├── api/                              # Backend API surface (chat/workflow/memory/voice/settings)
+│   ├── config/                           # Environment-driven configuration (hardware/privacy/budget)
+│   ├── controller/                       # Deterministic FSM/DAG orchestration and validation gates
+│   ├── memory/                           # Working state, episodic trace, semantic memory access
+│   ├── models/                           # Local-first model/provider abstraction and routing policy
+│   ├── security/                         # Redaction, permissions, and data protection controls
+│   ├── tools/                            # Tool registry and sandboxed execution
+│   ├── voice/                            # Optional STT/TTS/wake-word workflow path
+│   └── workflow/                         # Executable workflow nodes and runtime engine
+├── data/                                 # Local runtime artifacts and memory persistence
+│   ├── archives/                         # Archived task artifacts for replay/history
+│   ├── cache/                            # Cached context/query artifacts
+│   ├── episodic/                         # Immutable episodic trace storage
+│   ├── logs/                             # Structured runtime logs
+│   ├── semantic/                         # Semantic memory index/metadata storage
+│   └── working_state/                    # Ephemeral task state JSON files
+├── frontend/                             # React web client (chat, status, settings, voice panel)
+│   ├── Dockerfile                        # Frontend container image definition
+│   └── src/                              # UI application source
+│       ├── api/                          # Client API bindings to backend services
+│       ├── components/                   # UI components (chat/workflow/voice/settings/status)
+│       ├── state/                        # Client-side state management
+│       ├── styles/                       # Theme, layout, and global styles
+│       └── utils/                        # Shared UI utility helpers
+├── models/                               # Local model assets and integrity metadata
+├── scripts/                              # Operational utilities and validation helpers
+│   └── validate_backend.py               # Authoritative backend regression harness
+├── tests/                                # Validation suite
+│   ├── agentic/                          # End-to-end workflow validation
+│   ├── integration/                      # Service interaction validation
+│   └── unit/                             # Component-level validation
+├── .env.example                          # Configuration template
+├── AGENTS.md                             # Agent workflow and repo operating rules
+├── CHANGE_LOG.md                         # Append-only record of completed work
+├── docker-compose.yml                    # Root service orchestration entrypoint
+├── LICENSE                               # Project license
+├── Project.md                            # Source-of-truth vision and architecture definition
+├── README.md                             # Setup, run, and usage instructions
+└── SYSTEM_INVENTORY.md                   # Capability ledger with verification state
 ```
-
-**Total Core Files**: 20 files
-**Complexity**: Minimal, single-purpose files
-
----
-
-## What NOT to Build (Phase 1)
-
-**Deferred to Phase 2+** (only if daily use proves necessary):
-
-- ❌ Voice interface (STT/TTS/wake word)
-- ❌ Web search integration
-- ❌ Code execution sandbox
-- ❌ Semantic memory (vector store)
-- ❌ Controller FSM/DAG workflow
-- ❌ Multiple LLM models
-- ❌ Policy-based cloud escalation
-- ❌ Hardware-aware model selection
-- ❌ Desktop application shell
-- ❌ Observability infrastructure
-- ❌ Complex tool sandboxing
-- ❌ Multi-user support
-
-**Why Defer**: Prove basics work first. Add complexity only when real usage demands it.
-
----
-
-## Development Workflow
-
-### For Each Component
-
-1. **Specification**: Clear task description with requirements
-2. **Test First**: Write `tests/test_[component].py` with expected behavior
-3. **Implementation**: Write component code to make tests pass
-4. **Validation**: Run tests, must pass before proceeding
-5. **Integration**: Ensure component works with existing system
-6. **Evidence**: Document test results and working state
-7. **Move Forward**: Only proceed to next component after validation
-
-### Testing Approach
-
-**Unit Tests**: Each component tested in isolation
-- `pytest tests/test_backend.py` - API endpoints
-- `pytest tests/test_llm.py` - LLM wrapper
-- `pytest tests/test_memory.py` - Database operations
-- `pytest tests/test_tools.py` - Tool execution
-
-**Integration Tests**: Complete workflows
-- `pytest tests/test_integration.py` - User query → LLM → tool → response
-
-**Manual Validation**: Real usage
-- Start system: `docker compose up`
-- Use browser: Visit http://localhost:3000
-- Test workflow: Chat, refresh page (check history), ask to read file
-
----
-
-## Dependencies
-
-### Backend (Python)
-```
-fastapi==0.109.0
-uvicorn[standard]==0.27.0
-pydantic==2.5.3
-llama-cpp-python==0.2.38
-python-multipart==0.0.6
-pytest==7.4.4
-httpx==0.26.0
-```
-
-### Frontend (Node)
-```json
-{
-  "react": "^18.2.0",
-  "react-dom": "^18.2.0",
-  "vite": "^5.0.8"
-}
-```
-
-### System Requirements
-- Docker & Docker Compose
-- 8GB+ RAM (for TinyLlama inference)
-- 5GB disk space (model files)
-
----
-
-## Phase 1 Timeline
-
-**Week 1**: Backend API + LLM Integration
-- Days 1-2: FastAPI server with echo endpoint
-- Days 3-5: llama.cpp integration, actual LLM responses
-- Milestone: Can send message, get LLM response via curl
-
-**Week 2**: Frontend UI
-- Days 1-3: React app with chat interface
-- Days 4-5: Integration with backend, polish UI flow
-- Milestone: Can chat via browser
-
-**Week 3**: Memory Persistence
-- Days 1-2: SQLite schema and operations
-- Days 3-4: Backend integration, save conversations
-- Day 5: Frontend shows history
-- Milestone: History persists across page refreshes
-
-**Week 4**: Tool Execution
-- Days 1-2: Tool registry and read_file implementation
-- Days 3-4: Function calling integration with LLM
-- Day 5: End-to-end testing and validation
-- Milestone: Can ask LLM to read files, see contents
-
-**End of Week 4**: Phase 1 complete, start daily use trial
-
----
-
-## Phase 2 Planning (Future)
-
-**Only proceed to Phase 2 if**:
-1. ✅ Phase 1 system used daily for 2+ weeks
-2. ✅ No critical bugs preventing daily use
-3. ✅ Evidence of which features are actually needed
-
-**Phase 2 Feature Selection**: Based on real usage patterns
-- If you use voice commands → Add STT/TTS
-- If local knowledge insufficient → Add web search
-- If need to run code → Add code execution
-- If recall is poor → Add semantic memory
-
-**Phase 2 Approach**: One feature at a time
-- 1-2 weeks per feature
-- Test-first development
-- Validate before next feature
-- Evidence-gated progress
-
----
-
-## Migration from v2/v4 (Optional, Later)
-
-**IF Phase 1 succeeds AND you need specific v2/v4 capabilities**:
-
-**Approach**: Feature extraction, not code porting
-1. Use v5 working system daily
-2. Identify specific missing feature from v2/v4
-3. Understand what that feature did (behavior, not code)
-4. Reimplement cleanly in v5 from scratch
-5. Test, validate, integrate
-
-**Do NOT**:
-- Copy v2/v4 code files
-- Port entire services
-- Reference old architecture
-- Import legacy patterns
-
-**Why**: Clean implementation prevents confusion, reduces technical debt
-
----
-
-## Key Principles
-
-### Local-First
-- Primary compute: Your machine
-- Primary storage: Your disk
-- Primary control: You
-- Cloud usage: Explicit opt-in only
-
-### Evidence-Gated
-- No component without tests
-- No integration without validation
-- No "I think it works" - only "tests pass"
-- Evidence required for every claim
-
-### Minimal Scope
-- Build only what's specified
-- No feature creep
-- No "nice to have" additions
-- Defer unless proven necessary
-
-### Clean Implementation
-- No legacy references
-- Simple, readable code
-- Single-purpose files
-- Clear dependencies
-
----
-
-## Current Status
-
-**Phase**: Bootstrap - Repository Structure Creation
-**Date**: 2026-02-07
-**Next Step**: Create initial files, define Component 1 task
-
----
-
-## Notes for Future Updates
-
-This Project.md is the **single source of truth** for JARVISv5. 
-
-Update this document when:
-- Completing a component (mark status)
-- Discovering new requirements (document decision)
-- Changing architecture (explain why)
-- Planning next phase (based on evidence)
-
-Keep this document:
-- Concise (< 500 lines)
-- Evidence-based (cite real usage, not theory)
-- Current (update with each milestone)
-- Clear (readable by humans and agents)
