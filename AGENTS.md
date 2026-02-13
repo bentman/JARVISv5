@@ -1,599 +1,212 @@
-# AGENTS.md: Agent Collaboration Rules for JARVISv5
-
-> **Purpose**: Define how Agents work on JARVISv5 to prevent confusion, sprawl, and incomplete work
-> **Last Updated**: 2026-02-10
-
-## Core Principle
-
-Always respect User's  
-**One agent, one task, one deliverable, clear evidence of success**
-
-Agents work on **isolated, testable, verifiable tasks** with **no coordination required**.
-
----
-
-## The Rules (NON-NEGOTIABLE)
-
-### Rule 1: Python Environment Isolation (High Priority)
-
-- Python Environment
-  - Use `backend/.venv` only to execute Python commands (`backend/.venv/Scripts/python <cmd>`).
-  - Respect User's global Python environment; Never use or install packages globally.
-- Dependencies
-  - Single source of truth: `backend/requirements.txt`.
-  - Any dependency change updates that file in the same mini‑phase.
-  - If the venv is missing or broken, stop and propose minimal repair steps.
-
-### Rule 2: Single Source of Truth
-
-**Project.md defines WHAT to build**
-- Read Project.md before starting any task
-- Follow specifications exactly
-- Do NOT add features not in Project.md
-- Do NOT defer features that ARE in Project.md
-
-**AGENTS.md (this file) defines HOW to work**
-- Follow workflow exactly
-- No shortcuts
-- No assumptions
-- Evidence required
-
-**CHANGE_LOG.md tracks WHAT was done**
-- Append-only work record
-- Updated after each task completion
-- Timestamp + summary + evidence
-- Never edit past entries
-
-**SYSTEM_INVENTORY.md tracks WHAT exists**
-- Capability ledger (observable artifacts only)
-- Updated when component state changes
-- States: Planned → Implemented → Verified
-- No aspirational claims
-
-### Rule 3: No Legacy References
-
-**Do NOT**:
-- ❌ Look at JARVISv1/v2/v3/v4 code
-- ❌ Port code from previous versions
-- ❌ Reference old patterns or architecture
-- ❌ Copy file structures from legacy repos
-- ❌ Import legacy libraries or dependencies
-
-**Why**: Legacy references cause agent confusion and import technical debt
-
-**DO**:
-- ✅ Read Project.md for specifications
-- ✅ Implement from scratch based on requirements
-- ✅ Use standard libraries and patterns
-- ✅ Create clean, simple code
-
-### Rule 4: Test-First Development
-
-**Workflow** (must follow this order):
-1. **Read Task Specification** - Understand requirements completely
-2. **Write Test First** - Create `tests/test_[component].py` with expected behavior
-3. **Write Implementation** - Create component code to make tests pass
-4. **Run Tests** - Execute `backend/.venv/scripts/pytest tests/test_[component].py`
-5. **Fix Until Pass** - If tests fail, debug and fix (no user intervention)
-6. **Provide Evidence** - Show test output proving success
-7. **Integration Test** - Verify component works with existing system
-8. **Done** - Only when all tests pass
-
-**No "I implemented X"** - only **"Tests pass for X (evidence: ...)"**
-
-### Rule 5: Single-File Tasks
-**Good Task Structure**:
-- Creates 1 primary file (e.g., `backend/llm.py`)
-- Creates 1 test file (e.g., `tests/test_llm.py`)
-- Clear, specific requirements
-- Independently testable
-- No dependencies on other in-progress work
-
-**Bad Task Structure**:
-- "Implement memory system" (too broad, multiple files)
-- "Integrate frontend and backend" (too vague, coordination required)
-- "Fix bugs" (no clear scope or test criteria)
-
-**Task Complexity Limit**:
-- ≤ 200 lines of implementation code
-- ≤ 100 lines of test code
-- Completable in one work session
-- No multi-day tasks
+# AGENTS.md: Agent Operating Contract for JARVISv5
 
-### Rule 6: Evidence Required
-Every task completion must include:
+This file is the authoritative operating contract for all AI (and Human) Agents in this repository.
 
-## Task: [Component Name]
+## 1. Highest Priority Rule: Python Environment Isolation
 
-**Files Created**:
-```bash
-- /path/to/implementation.py (XXX lines)
-- /path/to/test_implementation.py (YYY lines)
-```
+- All Python commands must use `backend/.venv`.
+- Never use global Python packages for this project.
+- Never install Python dependencies globally.
 
-**Tests Executed**:
-```bash
-pytest tests/test_implementation.py -v
-```
+Dependency source of truth:
 
-**Test Results**:
-```bash
-test_function_name_1 PASSED
-test_function_name_2 PASSED
-test_function_name_3 PASSED
+- `backend/requirements.txt` is the single source of truth for backend Python dependencies.
+- Any backend dependency add, remove, or version change must update `backend/requirements.txt` in the same task.
+- `backend/requirements.txt` entries must be grouped with clear category headers by backend area (for example: `# backend/core`, `# backend/main`, `# backend/memory`).
+- Default version operator is `>=`.
+- Use `==` only when there is a strong, explicit reason and it is documented in the task evidence.
 
-=== 3 passed in 0.5s ===
-```
+Required command pattern:
 
-**Integration Validation**:
-[Describe how component integrates, show manual test if applicable]
+- Windows PowerShell:
+  - `backend/.venv/Scripts/python <command>`
 
-**Status**: ✅ COMPLETE
+If the virtual environment is missing:
 
-**No evidence = incomplete task**
-
-### Rule 7: No Scope Creep
-
-**Stay within task boundaries**:
-- Build only what's specified
-- Don't add "helpful" features
-- Don't optimize prematurely
-- Don't refactor unrelated code
-
-**If you notice something that could be improved**:
-- ✅ Note it in task completion comments
-- ✅ Suggest as separate future task
-- ❌ Don't implement it now
-
-### Rule 8: Simple > Perfect
-
-**Prefer**:
-- ✅ Simple, readable code
-- ✅ Minimal dependencies
-- ✅ Standard patterns
-- ✅ Clear variable names
-- ✅ Inline comments for complex logic
-
-**Avoid**:
-- ❌ Clever abstractions
-- ❌ Premature optimization
-- ❌ Excessive modularity
-- ❌ Design patterns unless necessary
-- ❌ Over-engineering
-
-**Measure**: "Can another agent understand this in 5 minutes?"
-
----
-
-## Agent Workflow (Step-by-Step)
-
-### Step 1: Task Assignment
-
-**User provides**:
-- Task name
-- Component to build
-- Specific requirements
-- Success criteria
-
-**Agent confirms**:
-- "I understand I need to build [X]"
-- "Requirements: [list]"
-- "I will create [files]"
-- "Success = [criteria]"
-
-### Step 2: Write Tests
-
-**Agent creates** `tests/test_[component].py`:
-
-```python
-import pytest
-from backend.component import ComponentClass
-
-def test_component_basic_functionality():
-    """Test the core behavior"""
-    component = ComponentClass()
-    result = component.do_something()
-    assert result == expected_value
-
-def test_component_error_handling():
-    """Test error cases"""
-    component = ComponentClass()
-    with pytest.raises(ValueError):
-        component.do_something_invalid()
-
-# More tests as needed
-```
-
-**Requirements**:
-- Cover core functionality
-- Test error cases
-- Use clear test names
-- Include docstrings
-
-### Step 3: Write Implementation
-
-**Agent creates implementation file**:
-
-```python
-"""
-Component Name: Brief description
-
-Purpose: Why this component exists
-Dependencies: What it requires
-"""
-
-class ComponentClass:
-    """Component description"""
-    
-    def __init__(self, config: dict = None):
-        """Initialize component"""
-        self.config = config or {}
-    
-    def do_something(self) -> str:
-        """
-        Do the main thing this component does
-        
-        Returns:
-            Result of operation
-        """
-        # Implementation
-        return result
-```
-
-**Requirements**:
-- Docstrings for module, class, methods
-- Type hints where helpful
-- Error handling
-- Simple, clear logic
-
-### Step 4: Run Tests
-
-**Agent executes**:
-```bash
-backend/.venv/scripts/pytest tests/test_[component].py -v
-```
-
-**Expected Output**:
-```
-tests/test_component.py::test_component_basic_functionality PASSED
-tests/test_component.py::test_component_error_handling PASSED
-
-=== 2 passed in 0.3s ===
-```
-
-**If tests fail**:
-1. Read error output
-2. Identify issue
-3. Fix code
-4. Rerun tests
-5. Repeat until all pass
-
-**Do NOT** ask user for help unless tests fail after 3 fix attempts
-
-### Step 5: Integration Validation
-
-**Agent verifies component works with existing system**:
-
-For backend components:
-```bash
-# Start backend
-uvicorn backend.main:app --reload
-
-# Test endpoint
-curl http://localhost:8000/[endpoint]
-```
-
-For frontend components:
-```bash
-# Start frontend
-npm run dev
-
-# Manual test: Open browser, verify behavior
-```
-
-For integration:
-```bash
-# Run integration tests
-pytest tests/test_integration.py -v
-```
-
-### Step 6: Provide Evidence
-
-**Agent reports**:
-- Files created (with line counts)
-- Test execution output
-- Integration validation results
-- Status: COMPLETE or BLOCKED
-
-**If BLOCKED**:
-- Describe specific issue
-- Show error messages
-- Explain attempts made
-- Request guidance
-
-### Step 7: Update SYSTEM_INVENTORY.md (Implemented State)
-
-**Agent adds component entry** to SYSTEM_INVENTORY.md:
-
-```markdown
-## Inventory
-
-- **[Component Name]** - YYYY-MM-DD HH:MM
-  - State: Implemented
-  - Location: `path/to/file.py`, `tests/test_file.py`
-  - Validation: `pytest tests/test_file.py -v`
-  - Notes: [Optional 1-line description]
-```
-
-**Entry Rules** (Detailed Rules exist at the top SYSTEM_INVENTORY.md itself):
-- Add entry at TOP of Inventory section
-- State starts as "Implemented" (tests pass, not yet integrated)
-- Include file locations
-- Include validation command
-
-### Step 8: Integration Validation (Full System)
-
-**Agent verifies component works with existing system**:
-
-For backend components:
-```bash
-# Start all services
-docker compose up -d
-
-# Test integrated workflow
-curl http://localhost:8000/[endpoint]
-
-# Check component works with other components
-# (e.g., backend + database, backend + frontend)
-```
-
-**If integration succeeds**, proceed to Step 9.
-
-### Step 9: Update SYSTEM_INVENTORY.md (Verified State)
-
-**Agent updates component entry**:
-
-```markdown
-- **[Component Name]** - YYYY-MM-DD HH:MM
-  - State: Verified  # Changed from Implemented
-  - Location: `path/to/file.py`, `tests/test_file.py`
-  - Validation: `pytest tests/test_file.py -v && docker compose up -d`
-  - Notes: Integrated with [other components]
-```
-
-**Update Rules** 
-- Update SAME entry (don't create new one)
-- Change State: Planned → Implemented → Verified -or- Defferred # Reason
-- Update Validation command to include integration test
-- Add Notes about integration points
-
-### Step 10: Append to CHANGE_LOG.md
-
-**Agent adds work record** to CHANGE_LOG.md:
-
-```markdown
-## Entries
-
-- YYYY-MM-DD HH:MM
-  - Summary: Implemented [Component Name] with [key features]
-  - Scope: backend/file.py, tests/test_file.py, SYSTEM_INVENTORY.md
-  - Evidence: `backend/.venv/scripts/pytest tests/test_file.py -v`
-    ```
-    test_component_feature_1 PASSED
-    test_component_feature_2 PASSED
-    === 2 passed in 0.3s ===
-    ```
-```
-
-**Entry Rules** (Detailed Rules exist at the top `CHANGE_LOG.md` itself):
-- Add at TOP of Entries section (newest first)
-- Include timestamp in YYYY-MM-DD HH:MM format
-- Summary: past tense, 1-2 lines
-- Scope: list files touched (including SYSTEM_INVENTORY.md)
-- Evidence: exact command + minimal output excerpt (≤10 lines)
-- NEVER edit existing entries (append-only)
-
-### Step 11: Done
-
-**Task is complete when**:
-1. ✅ All unit tests pass
-2. ✅ Integration validation succeeds
-3. ✅ Evidence provided
-4. ✅ SYSTEM_INVENTORY.md updated (Verified state)
-5. ✅ CHANGE_LOG.md appended
-6. ✅ Code committed/documented
-
-**User approves** and assigns next task
-
----
-
-## Component Build Order (Phase 1)
-
-Agents work on components **in this exact order**:
-
-1. **Backend API** (Week 1)
-   - File: `backend/main.py`
-   - Test: `tests/test_backend.py`
-   - Depends on: Nothing
-   
-2. **LLM Integration** (Week 1-2)
-   - File: `backend/llm.py`
-   - Test: `tests/test_llm.py`
-   - Depends on: Backend API
-   
-3. **Frontend UI** (Week 2)
-   - Files: `frontend/src/App.jsx`, `frontend/src/api.js`
-   - Test: Manual browser test
-   - Depends on: Backend API, LLM Integration
-   
-4. **Memory Persistence** (Week 3)
-   - File: `backend/memory.py`
-   - Test: `tests/test_memory.py`
-   - Depends on: Backend API
-   
-5. **Tool Execution** (Week 4)
-   - File: `backend/tools.py`
-   - Test: `tests/test_tools.py`
-   - Depends on: Backend API, LLM Integration
-
-**Do NOT skip order**. Component N+1 depends on Component N working.
-
----
-
-## What Agents Do
-
-✅ **Read specifications** - Understand requirements from Project.md
-✅ **Write tests first** - Define expected behavior
-✅ **Implement to spec** - Build what's specified, no more
-✅ **Run tests** - Verify functionality
-✅ **Fix bugs** - Debug until tests pass
-✅ **Provide evidence** - Show proof of success
-✅ **Stay focused** - One task at a time
-✅ **Ask for clarification** - If requirements unclear
-
----
-
-## What Agents DON'T Do
-
-❌ **Reference legacy code** - No v1/v2/v3/v4 lookups
-❌ **Port from previous versions** - Always implement fresh
-❌ **Add features** - Build only what's specified
-❌ **Skip tests** - Tests are mandatory
-❌ **Coordinate with other agents** - Tasks are independent
-❌ **Make architectural decisions** - Follow Project.md
-❌ **Modify specifications** - Suggest changes, don't implement
-❌ **Assume anything works** - Test everything
-❌ **Over-engineer** - Simple solutions preferred
-
----
-
-## Common Failure Patterns (AVOID THESE)
-
-### ❌ Pattern 1: "I added some extra features while I was there"
-**Why Bad**: Scope creep, untested functionality
-**Correct**: Build only what's specified
-
-### ❌ Pattern 2: "The tests are failing but the code looks right"
-**Why Bad**: Unvalidated assumptions
-**Correct**: Fix until tests pass, no exceptions
-
-### ❌ Pattern 3: "I'll integrate with the frontend later"
-**Why Bad**: Deferred integration causes accumulating issues
-**Correct**: Validate integration immediately after implementation
-
-### ❌ Pattern 4: "I refactored the existing code to be cleaner"
-**Why Bad**: Unrelated changes, untested modifications
-**Correct**: Only touch files specified in task
-
----
-
-## Success Metrics
-
-**Good Agent Performance**:
-- ✅ Tasks completed in 1-2 sessions
-- ✅ All tests pass on first submission
-- ✅ Clear evidence provided
-- ✅ No scope creep
-- ✅ Code is simple and readable
-- ✅ Integration validated
-- ✅ No legacy references
-
-**Poor Agent Performance**:
-- ❌ Tasks take multiple days
-- ❌ Tests fail repeatedly
-- ❌ No clear evidence
-- ❌ Added unspecified features
-- ❌ Complex, hard-to-read code
-- ❌ Integration not tested
-- ❌ Referenced v2/v4 code
-
----
-
-## Task Template (For User to Provide)
-
-When assigning tasks to agents, use this format:
-
-```markdown
-## Task: [Component Name]
-
-**Objective**: [One sentence description]
-
-**Files to Create**:
-- [path/to/file.py] - [purpose]
-- [path/to/test_file.py] - [test coverage]
-
-**Requirements**:
-1. [Specific requirement 1]
-2. [Specific requirement 2]
-3. [Specific requirement 3]
-
-**Dependencies**: [List of required components/libraries]
-
-**Test Criteria**:
-- [ ] [Test case 1]
-- [ ] [Test case 2]
-- [ ] [Test case 3]
-
-**Success Criteria**:
-- All tests pass
-- Integration with [component] validated
-- Evidence provided
-
-**Constraints**:
-- No legacy references
-- No feature additions
-- Keep it simple
-- Must complete in 1-2 sessions
-```
-
----
-
-## Emergency Procedures
-
-### If Agent Gets Stuck (After 3 Attempts)
-
-**Agent should**:
-1. Document exact error
-2. Show all attempts made
-3. Request specific guidance
-4. Do NOT proceed without resolution
-
-**User will**:
-1. Review error and attempts
-2. Provide specific fix OR
-3. Simplify task scope OR
-4. Reassign to different agent
-
-### If Requirements Are Unclear
-
-**Agent should**:
-1. Ask specific clarifying questions
-2. Do NOT assume or guess
-3. Wait for user confirmation
-4. Proceed only after clarity
-
-### If Tests Keep Failing
-
-**Agent should**:
-1. Show test output
-2. Show code implementation
-3. Explain fix attempts
-4. Request review after 3 failures
-
-**Do NOT** proceed with failing tests
-
----
-
-## Notes for Future Agents
-
-This AGENTS.md file establishes the **working discipline** for JARVISv5.
-
-Follow these rules strictly to:
-- Avoid legacy confusion (no v2/v3/v4 references)
-- Prevent scope creep (build only what's specified)
-- Ensure quality (tests must pass)
-- Enable progress (evidence-gated milestones)
-
-**If you're an agent reading this**: Your job is to build clean, tested, working components. Nothing more, nothing less.
-
-**Trust the process**. Simple, testable, incremental progress wins.
+- Create: `python -m venv backend/.venv`
+- Install dependencies: `backend/.venv/Scripts/python -m pip install -r backend/requirements.txt`
+
+If `backend/.venv` is broken or inconsistent, stop and report minimal repair steps before continuing.
+
+## 2. Core Operating Constraints
+
+- Do not guess. If something cannot be verified from repository evidence, state what was checked and stop.
+- Do not claim completion without reproducible evidence.
+- Do not expand scope beyond the explicit request.
+- Do not create new repo artifacts unless explicitly requested.
+- Do not introduce parallel architectures, shadow systems, or alternate workflows.
+- Prefer existing repository patterns and minimal diffs.
+- Keep output concise and evidence-focused.
+
+Programming principles (non-negotiable):
+
+- Reinforce existing patterns: before adding new structure, reuse existing repository patterns for file placement, naming, command flow, and validation approach. If no pattern exists, propose the smallest consistent extension.
+- Test-Configure-Install: for dependency or runtime setup, test if present, configure if exists, install if missing. For updates, always reconfigure and re-validate.
+- KISS: keep implementations simple, direct, and easy to follow.
+- Idempotency: commands and changes must be safe to re-run without unintended side effects.
+- DRY: reuse shared logic and existing utilities; avoid duplicating logic.
+- YAGNI: add only what is required for the current approved scope.
+- Separation of concerns: each module or change addresses one responsibility.
+- Deterministic operations: prioritize efficient, repeatable, and deterministic command sequences and outcomes.
+
+## 3. Deterministic Execution Rules
+
+- Execution must be deterministic and approval-gated.
+- Use explicit, reproducible command sequences.
+- Prefer non-interactive command flags and explicit paths to keep runs reproducible.
+- Use smallest viable validation first, then broaden only when required.
+- If repeated attempts do not change failure mode, stop and report.
+- Do not silently iterate after failed validation.
+
+## 4. Approval-Gated Change Control
+
+Before editing, provide a short proposal and wait for explicit approval when work touches any of the following:
+
+- Multiple files
+- Core backend systems
+- Tests or validation harnesses
+- Docker/compose surfaces
+- Dependency changes
+- Environment repair steps
+
+Proposal format:
+
+- Files to modify
+- Commands to run
+- Expected evidence
+
+Then stop until approved.
+
+## 5. Authoritative Truth Sources
+
+Use this precedence order:
+
+1. `AGENTS.md`
+2. `Project.md`
+3. `SYSTEM_INVENTORY.md`
+4. `CHANGE_LOG.md`
+
+If a conflict is observed between files and runtime behavior, report the conflict and propose the smallest correction.
+
+## 6. Task Execution Workflow
+
+Apply Section 2 programming principles at each step.
+
+For each task:
+
+1. Discover: identify smallest relevant file set and validation path.
+2. Confirm scope and constraints.
+3. Propose when required by Section 4.
+4. Implement only approved changes.
+5. Validate with explicit commands.
+6. Report exact outcomes with minimal proof.
+7. Stop when objective is complete.
+
+Python test expectation:
+
+- Add or maintain a standard `pytest` test for almost every backend `*.py` module.
+- Place tests under `tests/unit`, `tests/integration`, or `tests/agentic` as appropriate.
+- For scoped tasks, required tests apply to changed/affected modules; broad repository backfill is separate scope unless explicitly requested.
+- Minimum bar: import/structure validation for the module.
+- Preferred bar: behavior/function validation for the module.
+
+Do not add follow-up work unless explicitly requested.
+
+## 7. Validation Requirements
+
+General:
+
+- Validation must test observable behavior.
+- Include exact command(s) and outcome (`PASS`, `FAIL`, `SKIPPED`, or equivalent).
+- Include a minimal output excerpt needed to prove the claim.
+- Validation evidence should confirm repeatability for deterministic operations (same command path, same expected result class).
+- If command output is inherently non-deterministic, validate using stable assertions and expected outcome class.
+
+Backend:
+
+- Run Python validation via `backend/.venv/Scripts/python`.
+- Primary harness: `scripts/validate_backend.py`.
+- Tests are under `tests/unit`, `tests/integration`, and `tests/agentic`.
+- Standard test command pattern:
+  - Targeted first: `backend/.venv/Scripts/python -m pytest tests/unit -q` (or matching integration/agentic path for scope)
+  - Full suite when required by scope: `backend/.venv/Scripts/python -m pytest tests/`
+- Coverage expectation: maintain pytest coverage for almost every backend `*.py` file; minimum import/structure test, preferably function/behavior test.
+
+Frontend:
+
+- Use existing project-defined commands and runtime surfaces.
+- Do not invent alternate tooling paths.
+
+Warnings:
+
+- Treat warnings as backlog unless they break correctness, safety, or required behavior.
+
+## 8. File and Artifact Boundaries
+
+- Keep runtime artifacts out of repository root.
+- Use existing project locations for generated data (for example, `data/` and project-defined paths).
+- Do not introduce new storage locations without explicit approval.
+- Ensure ignore rules cover generated artifacts when changes require it.
+
+## 9. CHANGE_LOG.md Requirements
+
+`CHANGE_LOG.md` is append-only and records completed, verified work.
+
+Rules:
+
+- Never rewrite or delete prior entries.
+- Maintain entries in descending chronological order (newest first).
+- Add new entries directly under `## Entries`.
+- Log only after validation evidence exists.
+- Use factual, past-tense statements.
+- If prior record is inaccurate, append a corrective entry; do not edit history.
+
+Minimum entry content:
+
+- Timestamp
+- Short summary of what changed
+- Scope (files/areas)
+- Evidence (exact command(s) run + minimal excerpt pointer or excerpt)
+
+## 10. SYSTEM_INVENTORY.md Requirements
+
+`SYSTEM_INVENTORY.md` is the capability truth ledger.
+
+Rules:
+
+- Record only observable repository artifacts (files, directories, executable code, configuration, scripts, explicit UI text).
+- Do not include intent, plans, or inferred behavior.
+- One component entry equals one observed capability/feature.
+- New capabilities must be added at the top under `## Inventory` and above `## Observed Initial Inventory`.
+- Corrections and clarifications must be added only below `## Appendix`.
+- Required entry fields:
+  - Capability: brief descriptive component name with date/time
+  - State: `Planned`, `Implemented`, `Verified`, `Deferred`
+  - Location: relative file path(s)
+  - Validation: method and/or relative script path(s)
+  - Notes: optional, one line max
+- Do not promote state without validation evidence.
+
+## 11. Git Safety Rules
+
+Never run destructive git operations without explicit approval, including:
+
+- `git restore`
+- `git reset`
+- `git clean`
+- `git rebase`
+- history rewrites
+
+If rollback is requested, propose the safest approach based on whether changes are committed or uncommitted.
+
+## 12. Reporting Format for Agent Responses
+
+When reporting completion or progress, use:
+
+- Summary
+- Files inspected and changed
+- Commands executed and outcomes
+- Minimal evidence excerpt
+- Stop (unless next action is explicitly requested)
+
+Do not state or imply verification without corresponding command evidence.

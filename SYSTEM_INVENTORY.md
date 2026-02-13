@@ -9,7 +9,7 @@
 - Corrections or clarifications go only below the `## Appendix` section.
 - Entries must include: 
   - Capability: **Brief Descriptive Component Name** - Date/Time
-  - State: Planned, Implemented, Verified, Defferred
+  - State: Planned, Implemented, Verified, Deferred
   - Location: `Relative File Path(s)`
   - Validation: Method &/or `Relative Script Path(s)`
   - Notes: Optional (1 line max).
