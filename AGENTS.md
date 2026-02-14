@@ -24,7 +24,10 @@ Required command pattern:
 If the virtual environment is missing:
 
 - Create: `python -m venv backend/.venv`
-- Install dependencies: `backend/.venv/Scripts/python -m pip install -r backend/requirements.txt`
+- After creating the virtual environment, always upgrade pip in that environment:
+  - `backend/.venv/Scripts/python -m pip install --upgrade pip`
+- Then install dependencies:
+  - `backend/.venv/Scripts/python -m pip install -r backend/requirements.txt`
 
 If `backend/.venv` is broken or inconsistent, stop and report minimal repair steps before continuing.
 

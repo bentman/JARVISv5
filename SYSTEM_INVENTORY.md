@@ -23,6 +23,30 @@
 
 ## Inventory
 
+- Capability: Dockerized Backend Service - 2026-02-14 13:35
+  - State: Implemented
+  - Location: `docker-compose.yml`, `backend/Dockerfile`
+  - Validation: `docker compose up -d` + `curl http://localhost:8000/health`
+  - Notes: Python 3.12, FastAPI, Uvicorn.
+
+- Capability: Dockerized Frontend Service - 2026-02-14 13:35
+  - State: Implemented
+  - Location: `docker-compose.yml`, `frontend/Dockerfile`
+  - Validation: `docker compose build frontend`
+  - Notes: Node 18, Vite, React.
+
+- Capability: Configuration Management - 2026-02-14 13:35
+  - State: Implemented
+  - Location: `backend/config/settings.py`
+  - Validation: `backend/.venv/Scripts/python -c "from backend.config.settings import Settings..."`
+  - Notes: Pydantic-based, loads from .env.
+
+- Capability: API Health Check - 2026-02-14 13:35
+  - State: Implemented
+  - Location: `backend/api/main.py`
+  - Validation: `GET /health returns 200 OK.`
+  - Notes: CORS enabled for dev.
+
 
 ## Observed Initial Inventory
 

@@ -50,7 +50,9 @@ Because v4 taught me exactly one thing:
 
 ## What It Doesn't Do (Yet)
 
-Phase 1 focuses on core functionality. These features are **deferred to Phase 2+**:
+Phase 1 focuses on core functionality. 
+
+These features are **deferred to Phase 2+**:
 
 - Voice interface (STT/TTS)
 - Web search integration
@@ -58,23 +60,6 @@ Phase 1 focuses on core functionality. These features are **deferred to Phase 2+
 - Semantic memory (vector store)
 - Multiple LLM models
 - Cloud escalation
-
----
-
-Read `AGENTS.md` before starting work. Key rules:
-
-1. **No legacy references** - Don't look at v1/v2/v3/v4 code
-2. **Test-first** - Write tests before implementation
-3. **Evidence required** - Show test results proving success
-4. **Single-file tasks** - One component at a time
-5. **Follow specifications** - Build only what's in Project.md
-
-### For Humans
-
-1. Check `Project.md` for current scope and status
-2. Propose changes via issues (don't modify specs directly)
-3. Follow test-first development
-4. Keep changes minimal and focused
 
 ---
 
