@@ -82,7 +82,10 @@ Thumbs.db
 # ------------------------------------------------------------
 # Runtime data artifacts (local-first architecture)
 # ------------------------------------------------------------
-data/
+data/*
+!data/models.yaml.example
+!data/.gitkeep
+data/models.yaml
 data/*.db
 data/*.db-journal
 data/*.db-wal

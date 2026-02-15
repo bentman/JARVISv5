@@ -23,6 +23,18 @@
 
 ## Inventory
 
+- Capability: Finite State Machine (FSM) - 2026-02-15 07:41
+  - State: Implemented
+  - Location: `backend/controller/fsm.py`
+  - Validation: `pytest tests/unit/test_controller_fsm.py`
+  - Notes: Defines INIT, PLAN, EXECUTE, VALIDATE, COMMIT, ARCHIVE, FAILED states.
+
+- Capability: Deterministic Controller Service - 2026-02-15 07:41
+  - State: Implemented
+  - Location: `backend/controller/controller_service.py`
+  - Validation: `pytest tests/unit/test_controller_service.py`
+  - Notes: Orchestrates tasks through FSM and integrates with MemoryManager.
+
 - Capability: Episodic Trace (SQLite) - 2026-02-14 18:13
   - State: Implemented
   - Location: `backend/memory/episodic_db.py`

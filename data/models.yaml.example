@@ -1,0 +1,11 @@
+models:
+  - id: "llama-3-8b-instruct"
+    filename: "models/llama-3-8b-instruct.gguf"
+    role: "general"
+    hardware_type: "GPU_CUDA"
+    min_vram_gb: 6
+  - id: "tinyllama-chat"
+    filename: "models/tinyllama-1.1b-chat.gguf"
+    role: "chat"
+    hardware_type: "CPU_ONLY"
+    min_vram_gb: 1

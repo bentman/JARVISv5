@@ -15,6 +15,11 @@
 
 ## Entries
 
+- 2026-02-15 07:41
+  - Summary: Completed Milestone 4: Deterministic Controller. Implemented Finite State Machine (FSM) and Controller Service orchestration. Cleaned up Host dependencies to align with Docker-First execution model.
+  - Scope: `backend/controller/fsm.py`, `backend/controller/controller_service.py`
+  - Evidence: Unit tests passed: test_controller_fsm.py and test_controller_service.py.
+
 - 2026-02-14 18:13
   - Summary: Completed Milestone 2: Memory System. Implemented Episodic Trace (SQLite), Working State (JSON), Semantic Memory (FAISS), and unified Memory Manager.
   - Scope: `backend/memory/episodic_db.py`, `backend/memory/working_state.py`, `backend/memory/semantic_store.py`, `backend/memory/memory_manager.py`
