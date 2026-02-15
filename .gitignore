@@ -82,6 +82,7 @@ Thumbs.db
 # ------------------------------------------------------------
 # Runtime data artifacts (local-first architecture)
 # ------------------------------------------------------------
+data/
 data/*.db
 data/*.db-journal
 data/*.db-wal
@@ -98,10 +99,14 @@ data/**/archives/**
 # Logs
 *.log
 logs/
+reports/*.txt
+reports/*.log
 
 # ------------------------------------------------------------
 # Model artifacts (prevent large binary commits anywhere)
 # ------------------------------------------------------------
+models/*.gguf
+models/*.bin
 **/*.gguf
 **/*.bin
 **/*.safetensors

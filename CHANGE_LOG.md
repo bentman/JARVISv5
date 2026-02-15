@@ -15,6 +15,11 @@
 
 ## Entries
 
+- 2026-02-14 18:13
+  - Summary: Completed Milestone 2: Memory System. Implemented Episodic Trace (SQLite), Working State (JSON), Semantic Memory (FAISS), and unified Memory Manager.
+  - Scope: `backend/memory/episodic_db.py`, `backend/memory/working_state.py`, `backend/memory/semantic_store.py`, `backend/memory/memory_manager.py`
+  - Evidence: 18 unit tests passed in Validation Harness.
+
 - 2026-02-14 13:34
   - Summary: Completed Milestone 1: Docker Environment & Base API. Established containerized backend/frontend stack, configuration management, and health check endpoint.
   - Scope: docker-compose.yml; backend/Dockerfile; frontend/Dockerfile; backend/api/main.py; backend/config/settings.py; frontend/package.json; frontend/src/App.jsx

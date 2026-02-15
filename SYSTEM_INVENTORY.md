@@ -23,6 +23,30 @@
 
 ## Inventory
 
+- Capability: Episodic Trace (SQLite) - 2026-02-14 18:13
+  - State: Implemented
+  - Location: `backend/memory/episodic_db.py`
+  - Validation: `pytest tests/unit/test_episodic_db.py`
+  - Notes: Append-only log of decisions, tool calls, and validations.
+
+- Capability: Working State (JSON) - 2026-02-14 18:13
+  - State: Implemented
+  - Location: `backend/memory/working_state.py`
+  - Validation: `pytest tests/unit/test_working_state.py`
+  - Notes: Ephemeral task state managed via JSON files.
+
+- Capability: Semantic Memory (Vector Store) - 2026-02-14 18:13
+  - State: Implemented
+  - Location: `backend/memory/semantic_store.py`
+  - Validation: `pytest tests/unit/test_semantic_store.py`
+  - Notes: FAISS index + SQLite metadata; uses all-MiniLM-L6-v2.
+
+- Capability: Unified Memory Manager - 2026-02-14 18:13
+  - State: Implemented
+  - Location: `backend/memory/memory_manager.py`
+  - Validation: `pytest tests/unit/test_memory_manager.py`
+  - Notes: Single interface for all memory layers.
+
 - Capability: Dockerized Backend Service - 2026-02-14 13:35
   - State: Implemented
   - Location: `docker-compose.yml`, `backend/Dockerfile`
