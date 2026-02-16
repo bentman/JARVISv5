@@ -23,6 +23,24 @@
 
 ## Inventory
 
+- Capability: Controller Node-Orchestrated Run Path - 2026-02-16 07:55
+  - State: Verified
+  - Location: `backend/controller/controller_service.py`
+  - Validation: `docker compose run backend python -m pytest tests/unit/test_controller_service_integration.py -v`
+  - Notes: Deterministic FSM invokes workflow nodes and degrades to FAILED on node errors.
+
+- Capability: Workflow Node Layer (Router/Context/LLM/Validator) - 2026-02-16 07:11
+  - State: Verified
+  - Location: `backend/workflow/nodes/base_node.py`, `backend/workflow/nodes/router_node.py`, `backend/workflow/nodes/context_builder_node.py`, `backend/workflow/nodes/llm_worker_node.py`, `backend/workflow/nodes/validator_node.py`, `backend/workflow/__init__.py`, `tests/unit/test_nodes.py`
+  - Validation: `docker compose run backend python -m pytest tests/unit/test_nodes.py -v`
+  - Notes: LLM node attempts real llama_cpp import and handles missing model gracefully.
+
+- Capability: Backend Source Bind Mount for Runtime Sync - 2026-02-16 07:31
+  - State: Verified
+  - Location: `docker-compose.yml`
+  - Validation: `docker compose run backend python -m pytest tests/unit/test_nodes.py -v`
+  - Notes: Backend mounts `./:/app` while retaining `./data:/app/data` and `./models:/app/models`.
+
 - Capability: Dockerized Backend Runtime (Layer 0) - 2026-02-16 05:17
   - State: Implemented
   - Location: `backend/Dockerfile`, `docker-compose.yml`

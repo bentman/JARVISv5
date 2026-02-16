@@ -15,6 +15,39 @@
 
 ## Entries
 
+- 2026-02-16 07:55
+  - Summary: Integrated workflow nodes into ControllerService deterministic execution path and added integration coverage for graceful node-failure handling.
+  - Scope: `backend/controller/controller_service.py`, `tests/unit/test_controller_service_integration.py`
+  - Evidence:
+    - `docker compose run backend python -m pytest tests/unit/test_controller_service_integration.py -v`
+      ```text
+      collected 1 item
+      tests/unit/test_controller_service_integration.py::test_controller_service_run_executes_nodes_and_handles_llm_gracefully PASSED
+      ============================== 1 passed in 0.45s ===============================
+      ```
+
+- 2026-02-16 07:31
+  - Summary: Added persistent backend source bind mount in compose while preserving data/models mounts, then verified node tests run without manual volume override.
+  - Scope: `docker-compose.yml`
+  - Evidence:
+    - `docker compose run backend python -m pytest tests/unit/test_nodes.py -v`
+      ```text
+      collected 7 items
+      tests/unit/test_nodes.py::test_llm_worker_node_imports_llama_cpp_and_handles_missing_model PASSED
+      ============================== 7 passed in 0.53s ===============================
+      ```
+
+- 2026-02-16 07:11
+  - Summary: Implemented workflow node layer (router/context builder/LLM worker/validator + base node) and validated deterministic node behavior in Docker runtime.
+  - Scope: `backend/workflow/nodes/base_node.py`, `backend/workflow/nodes/router_node.py`, `backend/workflow/nodes/context_builder_node.py`, `backend/workflow/nodes/llm_worker_node.py`, `backend/workflow/nodes/validator_node.py`, `backend/workflow/__init__.py`, `tests/unit/test_nodes.py`
+  - Evidence:
+    - `docker compose run backend python -m pytest tests/unit/test_nodes.py -v`
+      ```text
+      collected 7 items
+      tests/unit/test_nodes.py::test_llm_worker_node_imports_llama_cpp_and_handles_missing_model PASSED
+      ============================== 7 passed in 0.53s ===============================
+      ```
+
 - 2026-02-16 05:17
   - Summary: Pivoted to Docker-First execution model (Layer 0). Successfully compiled llama-cpp-python and llama.cpp inside a multi-stage Python 3.12 Docker container. Verified API health.
   - Scope: `backend/Dockerfile`, `backend/requirements.txt` (removed `llama-cpp-python` from Host).
