@@ -15,6 +15,11 @@
 
 ## Entries
 
+- 2026-02-16 05:17
+  - Summary: Pivoted to Docker-First execution model (Layer 0). Successfully compiled llama-cpp-python and llama.cpp inside a multi-stage Python 3.12 Docker container. Verified API health.
+  - Scope: `backend/Dockerfile`, `backend/requirements.txt` (removed `llama-cpp-python` from Host).
+  - Evidence: Docker build completed. llama-cpp-python import check passed. Health endpoint returned OK.
+
 - 2026-02-15 07:41
   - Summary: Completed Milestone 4: Deterministic Controller. Implemented Finite State Machine (FSM) and Controller Service orchestration. Cleaned up Host dependencies to align with Docker-First execution model.
   - Scope: `backend/controller/fsm.py`, `backend/controller/controller_service.py`

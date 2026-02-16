@@ -23,6 +23,12 @@
 
 ## Inventory
 
+- Capability: Dockerized Backend Runtime (Layer 0) - 2026-02-16 05:17
+  - State: Implemented
+  - Location: `backend/Dockerfile`, `docker-compose.yml`
+  - Validation: `docker compose build backend` + `curl http://localhost:8000/health`
+  - Notes: Multi-stage build compiles `llama.cpp` from source; Python 3.12 runtime.
+
 - Capability: Finite State Machine (FSM) - 2026-02-15 07:41
   - State: Implemented
   - Location: `backend/controller/fsm.py`

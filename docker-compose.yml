@@ -8,6 +8,11 @@ services:
       - ./models:/app/models
     environment:
       - PYTHONUNBUFFERED=1
+      - REDIS_URL=redis://redis:6379/0
+      - MODEL_PATH=/app/models
+      - LOG_LEVEL=DEBUG
+    depends_on:
+      - redis
 
   frontend:
     build: ./frontend
