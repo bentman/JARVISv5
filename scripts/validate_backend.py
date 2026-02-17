@@ -11,6 +11,20 @@ SUITES = {
 }
 
 
+def resolve_python_executable() -> str:
+    """Resolve the Python executable to use for validation runs.
+
+    Policy:
+    - Prefer repo-local venv `backend/.venv` on Windows (per AGENTS.md).
+    - If not present (e.g., running inside Docker), fall back to current interpreter.
+    """
+
+    venv_python = os.path.join("backend", ".venv", "Scripts", "python")
+    if os.path.exists(venv_python):
+        return venv_python
+    return sys.executable
+
+
 def parse_scope(argv: list[str]) -> list[str]:
     scope = "all"
     if "--scope" in argv:
@@ -36,7 +50,7 @@ def run_suite(suite_name: str, suite_path: str) -> tuple[str, str]:
         return "WARN", terminal_output
 
     command = [
-        "backend/.venv/Scripts/python",
+        resolve_python_executable(),
         "-m",
         "pytest",
         suite_path,

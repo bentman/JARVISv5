@@ -17,7 +17,7 @@ def test_hardware_service_system_info_and_profiles() -> None:
 
     profile = service.get_hardware_profile()
     assert isinstance(profile, str)
-    assert profile in {"Light", "Medium", "Heavy", "NPU-optimized"}
+    assert profile in {"light", "medium", "heavy", "npu-optimized"}
 
 
 def test_refresh_hardware_info_populates_internal_state() -> None:
@@ -40,6 +40,7 @@ def test_get_optimized_model_config_for_each_hardware_type() -> None:
         HardwareType.GPU_CUDA: "cuda",
         HardwareType.NPU_APPLE: "gpu",
         HardwareType.NPU_INTEL: "npu",
+        HardwareType.QUALCOMM_NPU: "npu",
         HardwareType.GPU_GENERAL: "gpu",
         HardwareType.CPU_ONLY: "cpu",
     }
