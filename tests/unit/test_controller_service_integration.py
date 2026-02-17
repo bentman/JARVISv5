@@ -3,6 +3,8 @@ from pathlib import Path
 
 from backend.controller.controller_service import ControllerService
 from backend.memory.memory_manager import MemoryManager
+from backend.models.hardware_profiler import HardwareService, HardwareType
+from backend.models.model_registry import ModelRegistry
 
 
 class TestEmbeddingFunction:
@@ -22,9 +24,38 @@ def build_memory(tmp_dir: str) -> MemoryManager:
     )
 
 
+class StubHardwareService(HardwareService):
+    def detect_hardware_type(self) -> HardwareType:
+        return HardwareType.CPU_ONLY
+
+    def get_hardware_profile(self) -> str:
+        return "light"
+
+
+class StubModelRegistry(ModelRegistry):
+    def __init__(self) -> None:
+        self.models = []
+
+    def select_model(self, profile: str, hardware: str, role: str) -> dict | None:
+        return {
+            "id": "test-chat-model",
+            "path": "models/test-chat.gguf",
+            "role": role,
+            "supported_hardware": ["cpu"],
+            "min_profile": "test",
+            "max_profile": "heavy",
+            "priority": 1,
+            "enabled": True,
+        }
+
+
 def test_controller_service_run_executes_nodes_and_handles_llm_gracefully() -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
-        service = ControllerService(memory_manager=build_memory(tmp_dir))
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=StubModelRegistry(),
+        )
 
         result = service.run(user_input="test code")
 
@@ -33,6 +64,8 @@ def test_controller_service_run_executes_nodes_and_handles_llm_gracefully() -> N
 
         context = result["context"]
         assert context.get("intent") == "code"
+        assert context.get("selected_model") is not None
+        assert context.get("llm_model_path") == "models/test-chat.gguf"
         assert "llm_output" in context
         assert isinstance(context["llm_output"], str)
         assert context["llm_output"].strip() != ""

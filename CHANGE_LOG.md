@@ -15,6 +15,11 @@
 
 ## Entries
 
+- 2026-02-17 12:48
+  - Summary: Pivoted to Docker-First execution model (Layer 0). Implemented Workflow Nodes (Router, LLM, Validator) and integrated them into the Controller Service. Created API Entry Point (/task) for external access. Fixed Docker volume mounts and runtime commands to support the new structure.
+  - Scope: `backend/Dockerfile` (Multi-stage build), `backend/workflow/nodes/` (all nodes), `backend/controller/controller_service.py` (wiring), `backend/api/main.py` (endpoints), `docker-compose.yml` (volumes, command).
+  - Evidence: Docker build succeeded. Tests for nodes and controller integration passed in Docker. Curl to /task returned JSON with task_id and state.
+
 - 2026-02-16 07:55
   - Summary: Integrated workflow nodes into ControllerService deterministic execution path and added integration coverage for graceful node-failure handling.
   - Scope: `backend/controller/controller_service.py`, `tests/unit/test_controller_service_integration.py`

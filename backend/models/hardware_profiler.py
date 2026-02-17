@@ -11,6 +11,7 @@ class HardwareType(str, Enum):
     GPU_GENERAL = "GPU_GENERAL"
     NPU_APPLE = "NPU_APPLE"
     NPU_INTEL = "NPU_INTEL"
+    QUALCOMM_NPU = "QUALCOMM_NPU"
 
 
 class HardwareService:
@@ -169,6 +170,20 @@ class HardwareService:
         # even when OpenVINO is unavailable or does not expose NPU directly.
         return False
 
+    def _detect_qualcomm_npu(self) -> bool:
+        try:
+            import qaic  # type: ignore  # pragma: no cover - optional runtime dep
+
+            if qaic is not None:
+                return True
+        except Exception:
+            pass
+
+        architecture = (platform.machine() or "").lower()
+        processor = (platform.processor() or "").lower()
+        hints = (architecture + " " + processor)
+        return "qcom" in hints or "qualcomm" in hints
+
     def _detect_general_gpu(self) -> list[dict[str, Any]]:
         gpu_info: list[dict[str, Any]] = []
 
@@ -216,24 +231,32 @@ class HardwareService:
         if self._detect_intel_npu():
             return HardwareType.NPU_INTEL
 
-        # 4) GPU_GENERAL
+        # 4) QUALCOMM_NPU (best effort)
+        if self._detect_qualcomm_npu():
+            return HardwareType.QUALCOMM_NPU
+
+        # 5) GPU_GENERAL
         if self._gpu_info or self._detect_general_gpu():
             return HardwareType.GPU_GENERAL
 
-        # 5) CPU_ONLY
+        # 6) CPU_ONLY
         return HardwareType.CPU_ONLY
 
     def get_hardware_profile(self) -> str:
         hardware_type = self.detect_hardware_type()
-        if hardware_type in {HardwareType.NPU_APPLE, HardwareType.NPU_INTEL}:
-            return "NPU-optimized"
+        if hardware_type in {
+            HardwareType.NPU_APPLE,
+            HardwareType.NPU_INTEL,
+            HardwareType.QUALCOMM_NPU,
+        }:
+            return "npu-optimized"
 
         total_ram_gb = psutil.virtual_memory().total / (1024**3)
         if total_ram_gb >= 32:
-            return "Heavy"
+            return "heavy"
         if total_ram_gb >= 16:
-            return "Medium"
-        return "Light"
+            return "medium"
+        return "light"
 
     def get_optimized_model_config(self, model_type: HardwareType | None = None) -> dict[str, Any]:
         hardware_type = model_type or self.detect_hardware_type()
@@ -252,6 +275,12 @@ class HardwareService:
                 "provider": "gpu",
             },
             HardwareType.NPU_INTEL: {
+                "batch_size": 1,
+                "quantization": "int8",
+                "precision": "int8",
+                "provider": "npu",
+            },
+            HardwareType.QUALCOMM_NPU: {
                 "batch_size": 1,
                 "quantization": "int8",
                 "precision": "int8",
@@ -298,6 +327,8 @@ class HardwareService:
         if hardware_type in {HardwareType.GPU_CUDA, HardwareType.GPU_GENERAL}:
             available_tiers.append("gpu")
         if hardware_type in {HardwareType.NPU_APPLE, HardwareType.NPU_INTEL}:
+            available_tiers.append("npu")
+        if hardware_type == HardwareType.QUALCOMM_NPU and "npu" not in available_tiers:
             available_tiers.append("npu")
 
         return {

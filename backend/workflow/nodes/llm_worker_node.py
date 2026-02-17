@@ -6,12 +6,23 @@ from .base_node import BaseNode
 
 
 class LLMWorkerNode(BaseNode):
-    def __init__(self, model_path: str = "models/tinyllama-1.1b-chat.gguf") -> None:
-        self.model_path = model_path
+    def __init__(self) -> None:
+        pass
 
     def execute(self, context: dict[str, Any]) -> dict[str, Any]:
         prompt = str(context.get("user_input", ""))
-        context["llm_model_path"] = self.model_path
+        selected_model = context.get("selected_model", {})
+        model_path = str(
+            context.get("llm_model_path")
+            or (selected_model.get("path") if isinstance(selected_model, dict) else "")
+            or ""
+        )
+        context["llm_model_path"] = model_path
+
+        if not model_path:
+            context["llm_output"] = ""
+            context["llm_error"] = "llm_model_path_missing"
+            return context
 
         try:
             from llama_cpp import Llama
@@ -24,7 +35,7 @@ class LLMWorkerNode(BaseNode):
             return context
 
         try:
-            llm = Llama(model_path=self.model_path, n_ctx=2048, verbose=False)
+            llm = Llama(model_path=model_path, n_ctx=2048, verbose=False)
             response = llm.create_completion(prompt=prompt, max_tokens=100, echo=False)
 
             choices = response.get("choices", []) if isinstance(response, dict) else []

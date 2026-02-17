@@ -23,6 +23,24 @@
 
 ## Inventory
 
+- Capability: Docker Runtime Environment (Layer 0) - 2026-02-17 12:48
+  - State: Implemented
+  - Location: `backend/Dockerfile`
+  - Validation: `docker compose build backend` success.
+  - Notes: Multi-stage build compiles llama.cpp and llama-cpp-python from source.
+
+- Capability: Workflow Nodes (Router, LLM, Validator) - 2026-02-17 12:48
+  - State: Implemented
+  - Location: `backend/workflow/nodes/`
+  - Validation: `pytest tests/unit/test_nodes.py`
+  - Notes: Stateless processing nodes for specific roles.
+
+- Capability: API Entry Point (/task) - 2026-02-17 12:48
+  - State: Implemented
+  - Location: `backend/api/main.py`
+  - Validation: `curl http://localhost:8000/task`
+  - Notes: POST endpoint calls ControllerService; GET retrieves state.
+
 - Capability: Controller Node-Orchestrated Run Path - 2026-02-16 07:55
   - State: Verified
   - Location: `backend/controller/controller_service.py`

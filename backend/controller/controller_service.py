@@ -2,14 +2,23 @@ from typing import Any
 from uuid import uuid4
 
 from backend.memory.memory_manager import MemoryManager
+from backend.models.hardware_profiler import HardwareService
+from backend.models.model_registry import ModelRegistry
 from backend.workflow import ContextBuilderNode, LLMWorkerNode, RouterNode, ValidatorNode
 
 from .fsm import ControllerState, DeterministicFSM
 
 
 class ControllerService:
-    def __init__(self, memory_manager: MemoryManager | None = None) -> None:
+    def __init__(
+        self,
+        memory_manager: MemoryManager | None = None,
+        hardware_service: HardwareService | None = None,
+        model_registry: ModelRegistry | None = None,
+    ) -> None:
         self.memory = memory_manager or MemoryManager()
+        self.hardware = hardware_service or HardwareService()
+        self.registry = model_registry or ModelRegistry()
 
     def _log_state(self, task_id: str, state: ControllerState, status: str) -> None:
         self.memory.log_decision(
@@ -81,6 +90,25 @@ class ControllerService:
             self._log_state(resolved_task_id, ControllerState.PLAN, "running")
             try:
                 context = router_node.execute(context)
+
+                profile = self.hardware.get_hardware_profile()
+                hardware_type = self.hardware.detect_hardware_type().value
+                role = "code" if str(context.get("intent", "")) == "code" else "chat"
+                selected_model = self.registry.select_model(
+                    profile=profile,
+                    hardware=hardware_type,
+                    role=role,
+                )
+                if selected_model is None:
+                    return self._fail(
+                        fsm,
+                        resolved_task_id,
+                        context,
+                        "model_selection_failed",
+                    )
+
+                context["selected_model"] = selected_model
+                context["llm_model_path"] = str(selected_model.get("path", ""))
             except Exception as exc:
                 return self._fail(fsm, resolved_task_id, context, f"router_node_error: {exc}")
 

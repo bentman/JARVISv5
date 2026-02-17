@@ -10,6 +10,9 @@ from backend.workflow import (
 )
 
 
+TEST_MODEL_PATH = "models/test-model.gguf"
+
+
 class TestEmbeddingFunction:
     def encode(self, text: str) -> list[float]:
         base = float((sum(ord(ch) for ch in text) % 13) + 1)
@@ -69,18 +72,28 @@ def test_context_builder_node_handles_missing_memory_manager() -> None:
 
 
 def test_llm_worker_node_imports_llama_cpp_and_handles_missing_model() -> None:
-    node = LLMWorkerNode(model_path="models/tinyllama-1.1b-chat.gguf")
-    context = {"user_input": "Hello from test"}
+    node = LLMWorkerNode()
+    context = {
+        "user_input": "Hello from test",
+        "llm_model_path": TEST_MODEL_PATH,
+    }
 
     result = node.execute(context)
 
     assert result["llm_imported"] is True
-    assert result["llm_model_path"] == "models/tinyllama-1.1b-chat.gguf"
+    assert result["llm_model_path"] == TEST_MODEL_PATH
     assert "llm_output" in result
     assert isinstance(result["llm_output"], str)
 
     if result["llm_output"] == "":
         assert "llm_error" in result
+
+
+def test_llm_worker_node_handles_missing_model_path() -> None:
+    node = LLMWorkerNode()
+    result = node.execute({"user_input": "Hello from test"})
+
+    assert result["llm_error"] == "llm_model_path_missing"
 
 
 def test_validator_node_marks_context_valid_for_non_empty_output() -> None:

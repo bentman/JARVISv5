@@ -52,4 +52,4 @@ RUN pip install --no-cache-dir --upgrade pip \
 COPY . .
 
 # Development entrypoint: FastAPI via uvicorn with live reload.
-CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uvicorn", "backend.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
