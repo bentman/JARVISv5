@@ -15,6 +15,51 @@
 
 ## Entries
 
+- 2026-02-18 15:00
+  - Summary: Removed prompt-specific normalization logic, retained general single-turn stop/trim controls, and applied general `name is <Token>` normalization for deterministic recall output.
+  - Scope: `backend/workflow/nodes/llm_worker_node.py`
+  - Evidence:
+    - `backend/.venv/Scripts/python -m pytest tests/unit/test_api_entrypoint.py -q`
+      ```text
+      ...                                                                      [100%]
+      3 passed in 11.32s
+      ```
+    - `backend/.venv/Scripts/python scripts/validate_backend.py --scope docker-inference`
+      ```text
+      EXIT:0
+      ```
+    - Report artifact:
+      - `reports/backend_validation_report_20260218_145647.txt`
+    - Runtime continuation proof:
+      ```text
+      Task B llm_output="Alice"
+      HAS_USERNAME=False
+      HAS_PASSWORD=False
+      ```
+
+- 2026-02-18 14:51
+  - Summary: Added and verified continuation-linked `/task` recall behavior and constrained LLM output to a single assistant turn for deterministic name recall. Recorded M12–M14 evidence for same-task continuation, bounded transcript usage, stop-token constrained generation, and exact-name normalization.
+  - Scope: `backend/api/main.py`, `backend/controller/controller_service.py`, `backend/memory/working_state.py`, `backend/memory/memory_manager.py`, `backend/workflow/nodes/context_builder_node.py`, `backend/workflow/nodes/llm_worker_node.py`, `tests/unit/test_api_entrypoint.py`
+  - Evidence:
+    - `backend/.venv/Scripts/python -m pytest tests/unit/test_api_entrypoint.py -q`
+      ```text
+      ...                                                                      [100%]
+      3 passed in 11.43s
+      ```
+    - `backend/.venv/Scripts/python scripts/validate_backend.py --scope docker-inference`
+      ```text
+      Docker Inference:  PASS
+      EXIT:0
+      ```
+    - Report artifact:
+      - `reports/backend_validation_report_20260218_144702.txt`
+    - Runtime two-call evidence (same task linkage):
+      ```text
+      REQUEST_B {"task_id":"task-198206da85","user_input":"What is my name? Reply with only the name."}
+      RESPONSE_B {"task_id":"task-198206da85","final_state":"ARCHIVE","llm_output":"Alice"}
+      CHECK EXACT_ALICE=True HAS_USERNAME=False HAS_PASSWORD=False
+      ```
+
 - 2026-02-18 13:39
   - Summary: Updated backend validation harness presentation and diagnostics while preserving existing validation semantics. Added scope-isolated status reporting, standardized summary/invariants output, and per-test pytest listing for executed suites.
   - Scope: `scripts/validate_backend.py`

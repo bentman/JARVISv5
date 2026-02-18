@@ -20,5 +20,13 @@ class ContextBuilderNode(BaseNode):
             context["context_builder_error"] = "task_id_missing"
             return context
 
-        context["working_state"] = memory_manager.get_task_state(str(task_id))
+        working_state = memory_manager.get_task_state(str(task_id))
+        context["working_state"] = working_state
+
+        messages = []
+        if isinstance(working_state, dict):
+            raw_messages = working_state.get("messages", [])
+            if isinstance(raw_messages, list):
+                messages = [msg for msg in raw_messages if isinstance(msg, dict)][-10:]
+        context["messages"] = messages
         return context

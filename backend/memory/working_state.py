@@ -45,11 +45,49 @@ class WorkingStateManager:
         return task
 
     def get_task(self, task_id: str) -> dict | None:
-        file_path = self._working_file_path(task_id)
-        if not os.path.exists(file_path):
-            return None
-        with open(file_path, "r", encoding="utf-8") as handle:
-            return json.load(handle)
+        working_file = self._working_file_path(task_id)
+        if os.path.exists(working_file):
+            with open(working_file, "r", encoding="utf-8") as handle:
+                return json.load(handle)
+
+        archive_file = self._archive_file_path(task_id)
+        if os.path.exists(archive_file):
+            with open(archive_file, "r", encoding="utf-8") as handle:
+                return json.load(handle)
+
+        return None
+
+    def put_task(self, task_id: str, task: dict) -> dict:
+        safe_task_id = self._sanitize_task_id(task_id)
+        normalized = dict(task)
+        normalized["task_id"] = safe_task_id
+
+        working_file = self._working_file_path(safe_task_id)
+        archive_file = self._archive_file_path(safe_task_id)
+
+        with open(working_file, "w", encoding="utf-8") as handle:
+            json.dump(normalized, handle, indent=2)
+
+        if os.path.exists(archive_file):
+            os.remove(archive_file)
+
+        return normalized
+
+    def append_message(
+        self,
+        task_id: str,
+        role: str,
+        content: str,
+        max_messages: int = 10,
+    ) -> dict:
+        task = self.get_task(task_id)
+        if task is None:
+            raise FileNotFoundError("Task not found")
+
+        messages = list(task.get("messages", []))
+        messages.append({"role": str(role), "content": str(content)})
+        task["messages"] = messages[-max(1, int(max_messages)) :]
+        return self.put_task(task_id, task)
 
     def update_status(self, task_id: str, new_status: str) -> dict:
         task = self.get_task(task_id)

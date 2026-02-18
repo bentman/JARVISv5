@@ -21,6 +21,7 @@ app.add_middleware(
 
 class TaskRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
+    task_id: str | None = None
     user_input: str = Field(
         ...,
         validation_alias=AliasChoices("user_input", "input"),
@@ -46,8 +47,12 @@ def health() -> dict[str, str]:
 def create_task(request: TaskRequest) -> dict[str, str]:
     settings = Settings()
     memory = _build_memory_manager(settings)
+
+    if request.task_id is not None and memory.get_task_state(request.task_id) is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+
     service = ControllerService(memory_manager=memory)
-    result = service.run(user_input=request.user_input)
+    result = service.run(user_input=request.user_input, task_id=request.task_id)
     context = result.get("context", {})
 
     return {

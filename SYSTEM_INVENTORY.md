@@ -23,6 +23,36 @@
 
 ## Inventory
 
+- Capability: LLM output normalization: general single-turn stop + trim (no prompt-specific branching) - 2026-02-18 15:00
+  - State: Verified
+  - Location: `backend/workflow/nodes/llm_worker_node.py`
+  - Validation: `backend/.venv/Scripts/python -m pytest tests/unit/test_api_entrypoint.py -q`; `backend/.venv/Scripts/python scripts/validate_backend.py --scope docker-inference` (`EXIT:0`), report `reports/backend_validation_report_20260218_145647.txt`
+  - Notes: Runtime continuation proof returned `Alice` with `HAS_USERNAME=False` and `HAS_PASSWORD=False`.
+
+- Capability: Deterministic “reply with only the name” recall behavior - 2026-02-18 14:51
+  - State: Verified
+  - Location: `backend/workflow/nodes/llm_worker_node.py`, `tests/unit/test_api_entrypoint.py`
+  - Validation: `backend/.venv/Scripts/python -m pytest tests/unit/test_api_entrypoint.py -q`; runtime `POST /task` continuation sequence with Task B `{"user_input":"What is my name? Reply with only the name."}` returned `llm_output="Alice"`
+  - Notes: Verified with same-task continuation and strict equality check.
+
+- Capability: LLM generation constrained to single assistant turn (stop tokens + normalization) - 2026-02-18 14:51
+  - State: Verified
+  - Location: `backend/workflow/nodes/llm_worker_node.py`
+  - Validation: `backend/.venv/Scripts/python scripts/validate_backend.py --scope docker-inference` (`EXIT:0`); report `reports/backend_validation_report_20260218_144702.txt`; runtime check `HAS_USERNAME=False`, `HAS_PASSWORD=False`
+  - Notes: Applies stop markers and first-turn trimming before output is persisted.
+
+- Capability: Working-state transcript persisted across turns (bounded) - 2026-02-18 14:51
+  - State: Verified
+  - Location: `backend/memory/working_state.py`, `backend/memory/memory_manager.py`, `backend/controller/controller_service.py`, `backend/workflow/nodes/context_builder_node.py`
+  - Validation: runtime continuation sequence showed same `task_id` across Task A/Task B and multi-turn transcript retrieval via `GET /task/{task_id}` in prior M12 evidence
+  - Notes: Transcript is bounded and reused in prompt history.
+
+- Capability: POST /task continuation via optional task_id - 2026-02-18 14:51
+  - State: Verified
+  - Location: `backend/api/main.py`, `backend/controller/controller_service.py`, `tests/unit/test_api_entrypoint.py`
+  - Validation: `backend/.venv/Scripts/python -m pytest tests/unit/test_api_entrypoint.py -q`; runtime Task A/Task B responses showed same `task_id`
+  - Notes: Continuation reuses existing task linkage without adding new endpoints.
+
 - Capability: Backend validation harness: per-test pytest listing - 2026-02-18 13:39
   - State: Verified
   - Location: `scripts/validate_backend.py`

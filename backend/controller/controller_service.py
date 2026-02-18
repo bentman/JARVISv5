@@ -60,6 +60,7 @@ class ControllerService:
         steps: list[str] | None = None,
     ) -> dict[str, Any]:
         fsm = DeterministicFSM()
+        continuation = task_id is not None
         resolved_task_id = task_id or f"task-{uuid4().hex[:10]}"
         resolved_goal = goal or "Process user input through deterministic workflow"
         resolved_steps = steps or [
@@ -91,7 +92,20 @@ class ControllerService:
             )
 
         try:
-            self.memory.create_task(resolved_task_id, resolved_goal, resolved_steps)
+            if continuation:
+                existing_task = self.memory.get_task_state(resolved_task_id)
+                if existing_task is None:
+                    return self._fail(fsm, resolved_task_id, context, "task_not_found")
+                self.memory.put_task_state(resolved_task_id, existing_task)
+            else:
+                self.memory.create_task(resolved_task_id, resolved_goal, resolved_steps)
+
+            self.memory.append_task_message(
+                resolved_task_id,
+                role="user",
+                content=user_input,
+                max_messages=10,
+            )
             self._log_state(resolved_task_id, fsm.current_state, "running")
 
             fsm.transition(ControllerState.PLAN)
@@ -138,6 +152,15 @@ class ControllerService:
 
             if not str(context.get("llm_output", "")).strip() and context.get("llm_error"):
                 context["llm_output"] = str(context["llm_error"])
+
+            llm_text = str(context.get("llm_output", "")).strip()
+            if llm_text:
+                self.memory.append_task_message(
+                    resolved_task_id,
+                    role="assistant",
+                    content=llm_text,
+                    max_messages=10,
+                )
 
             fsm.transition(ControllerState.VALIDATE)
             self.memory.update_task_status(resolved_task_id, ControllerState.VALIDATE.value)

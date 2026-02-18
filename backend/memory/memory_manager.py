@@ -42,6 +42,18 @@ class MemoryManager:
     def archive_task(self, task_id: str) -> dict:
         return self.working.archive_task(task_id)
 
+    def put_task_state(self, task_id: str, task: dict) -> dict:
+        return self.working.put_task(task_id, task)
+
+    def append_task_message(
+        self,
+        task_id: str,
+        role: str,
+        content: str,
+        max_messages: int = 10,
+    ) -> dict:
+        return self.working.append_message(task_id, role, content, max_messages=max_messages)
+
     def store_knowledge(self, text: str, metadata: dict[str, Any]) -> int:
         return self.semantic.add_text(text, metadata)
 
