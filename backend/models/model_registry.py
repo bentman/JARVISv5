@@ -1,5 +1,7 @@
+import os
 from pathlib import Path
 from typing import Any
+import urllib.request
 
 import yaml
 
@@ -75,6 +77,43 @@ class ModelRegistry:
         if isinstance(filename, str) and filename:
             return filename
         return ""
+
+    def ensure_model_present(self, model: dict[str, Any]) -> str:
+        model_path = self._coerce_model_path(model)
+        if not model_path:
+            raise RuntimeError("Selected model does not define a usable path")
+
+        path = Path(model_path)
+        if path.exists():
+            print(f"[model-fetch] using existing model: {path}")
+            return str(path)
+
+        fetch_mode = os.getenv("MODEL_FETCH", "never").strip().lower()
+        if fetch_mode != "missing":
+            raise RuntimeError(
+                f"Model file missing and MODEL_FETCH={fetch_mode}: {path}"
+            )
+
+        download_url = model.get("download_url")
+        if not isinstance(download_url, str) or not download_url.strip():
+            raise RuntimeError(f"Model file missing and download_url is not set: {path}")
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = Path(f"{path}.tmp")
+        try:
+            print(f"[model-fetch] downloading missing model: {download_url} -> {path}")
+            urllib.request.urlretrieve(download_url, str(tmp_path))
+            os.replace(tmp_path, path)
+            print(f"[model-fetch] download complete: {path}")
+        except Exception as exc:
+            try:
+                if tmp_path.exists():
+                    tmp_path.unlink()
+            except Exception:
+                pass
+            raise RuntimeError(f"Model download failed for {path}: {exc}") from exc
+
+        return str(path)
 
     def select_model(self, profile: str, hardware: str, role: str) -> dict[str, Any] | None:
         normalized_profile = self._normalize_profile(profile)

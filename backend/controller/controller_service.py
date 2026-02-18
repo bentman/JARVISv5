@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -117,10 +116,10 @@ class ControllerService:
                     context["skip_llm"] = True
                 else:
                     context["selected_model"] = selected_model
-                    model_path = str(selected_model.get("path", ""))
-                    context["llm_model_path"] = model_path
-
-                    if not model_path or not Path(model_path).exists():
+                    try:
+                        model_path = self.registry.ensure_model_present(selected_model)
+                        context["llm_model_path"] = model_path
+                    except RuntimeError:
                         context["llm_output"] = _no_model_fallback_message(profile, hardware_type, role)
                         context["llm_error"] = "local_model_missing"
                         context["skip_llm"] = True

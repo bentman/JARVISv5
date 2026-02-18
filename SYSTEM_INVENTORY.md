@@ -23,6 +23,12 @@
 
 ## Inventory
 
+- Capability: Host-Venv Backend Validation Fallback for Missing llama_cpp (M6) - 2026-02-18 11:46
+  - State: Verified
+  - Location: `tests/unit/test_nodes.py`, `scripts/validate_backend.py`
+  - Validation: `backend/.venv/Scripts/python -m pytest tests/unit/test_nodes.py -q`; `backend/.venv/Scripts/python scripts/validate_backend.py`
+  - Notes: Node test now records clean import failure path; rc=5 in empty suites is WARN.
+
 - Capability: Model Auto-Fetch on Missing Selected GGUF (M1) - 2026-02-18 10:54
   - State: Verified
   - Location: `backend/models/model_registry.py`, `backend/controller/controller_service.py`, `models/models.yaml`, `.env.example`, `tests/unit/test_model_registry.py`

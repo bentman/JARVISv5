@@ -15,6 +15,24 @@
 
 ## Entries
 
+- 2026-02-18 11:46
+  - Summary: Updated host-venv validation behavior to tolerate missing `llama_cpp` in unit node testing and to classify pytest return code 5 (`no tests collected`) as WARN in default backend validation reporting.
+  - Scope: `tests/unit/test_nodes.py`, `scripts/validate_backend.py`
+  - Evidence:
+    - `backend/.venv/Scripts/python -m pytest tests/unit/test_nodes.py -q`
+      ```text
+      ........                                                                 [100%]
+      8 passed in 0.17s
+      ```
+    - `backend/.venv/Scripts/python scripts/validate_backend.py`
+      ```text
+      [SUMMARY SECTION]
+      Unit Tests: PASS
+      Integration Tests: WARN
+      Agentic Tests: WARN
+      ```
+    - Report artifact: `reports/backend_validation_report_20260218_114558.txt`
+
 - 2026-02-18 11:02
   - Summary: Verified Docker backend real inference path for `/task` using llama_cpp and a mounted GGUF model. Confirmed health endpoint, llama_cpp import inside container, and non-empty `llm_output` in task response.
   - Scope: `docker-compose.yml`, `backend/Dockerfile`, `backend/controller/controller_service.py`, `backend/workflow/nodes/llm_worker_node.py`

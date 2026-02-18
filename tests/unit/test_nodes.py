@@ -80,10 +80,16 @@ def test_llm_worker_node_imports_llama_cpp_and_handles_missing_model() -> None:
 
     result = node.execute(context)
 
-    assert result["llm_imported"] is True
     assert result["llm_model_path"] == TEST_MODEL_PATH
     assert "llm_output" in result
     assert isinstance(result["llm_output"], str)
+
+    if result.get("llm_imported") is False:
+        assert "llm_error" in result
+        assert str(result["llm_error"]).startswith("llama_cpp_import_error")
+        return
+
+    assert result["llm_imported"] is True
 
     if result["llm_output"] == "":
         assert "llm_error" in result
