@@ -103,6 +103,8 @@ data/**/archives/**
 *.log
 logs/
 reports/*.txt
+reports/*.err
+reports/*.json
 reports/*.log
 
 # ------------------------------------------------------------
