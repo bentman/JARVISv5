@@ -23,6 +23,24 @@
 
 ## Inventory
 
+- Capability: Backend validation harness: per-test pytest listing - 2026-02-18 13:39
+  - State: Verified
+  - Location: `scripts/validate_backend.py`
+  - Validation: `backend/.venv/Scripts/python scripts/validate_backend.py` (UNIT section lists per-test `✓/✗/○` lines)
+  - Notes: Uses pytest `-v` capture with deterministic truncation for long suites.
+
+- Capability: Backend validation harness: standardized report format + invariants - 2026-02-18 13:28
+  - State: Verified
+  - Location: `scripts/validate_backend.py`
+  - Validation: `backend/.venv/Scripts/python scripts/validate_backend.py` produced summary, invariants, final verdict and report file `reports\backend_validation_report_20260218_133955.txt`
+  - Notes: Terminal and report now share consistent structured sections.
+
+- Capability: Backend validation harness: docker-inference scope - 2026-02-18 13:29
+  - State: Verified
+  - Location: `scripts/validate_backend.py`
+  - Validation: `backend/.venv/Scripts/python scripts/validate_backend.py --scope docker-inference` with `EXIT:0`; report `reports\backend_validation_report_20260218_132908.txt`
+  - Notes: Non-executed unit/integration/agentic suites remain `SKIP` in summary/invariants.
+
 - Capability: Host-Venv Backend Validation Fallback for Missing llama_cpp (M6) - 2026-02-18 11:46
   - State: Verified
   - Location: `tests/unit/test_nodes.py`, `scripts/validate_backend.py`
