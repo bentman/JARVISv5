@@ -15,6 +15,60 @@
 
 ## Entries
 
+- 2026-02-18 11:02
+  - Summary: Verified Docker backend real inference path for `/task` using llama_cpp and a mounted GGUF model. Confirmed health endpoint, llama_cpp import inside container, and non-empty `llm_output` in task response.
+  - Scope: `docker-compose.yml`, `backend/Dockerfile`, `backend/controller/controller_service.py`, `backend/workflow/nodes/llm_worker_node.py`
+  - Evidence:
+    - `docker compose config`
+      ```text
+      PASS
+      ```
+    - `docker compose build backend`
+      ```text
+      Image jarvisv5-backend Built
+      ```
+    - `docker compose up -d redis backend`
+      ```text
+      Container jarvisv5-backend-1 Started
+      ```
+    - `docker compose exec -T backend python -c "import llama_cpp; print('OK')"`
+      ```text
+      OK
+      ```
+    - `Invoke-RestMethod http://localhost:8000/health`
+      ```text
+      {"status":"ok","service":"JARVISv5-backend"}
+      ```
+    - `Invoke-RestMethod POST http://localhost:8000/task` (prompt: `Reply with exactly: OK`)
+      ```text
+      {"task_id":"task-dd535a9112","final_state":"ARCHIVE","llm_output":".\nTheir latest, ..."}
+      ```
+    - `docker compose logs backend --tail=120`
+      ```text
+      [model-fetch] using existing model: models/TinyLlama-1.1BChat-v1.0.Q4_K_M.gguf
+      INFO:     ... "POST /task HTTP/1.1" 200 OK
+      ```
+
+- 2026-02-18 10:54
+  - Summary: Implemented and verified auto-download of selected model when missing and `MODEL_FETCH=missing`, with idempotent reuse when model file already exists.
+  - Scope: `models/models.yaml`, `.env.example`, `backend/models/model_registry.py`, `backend/controller/controller_service.py`, `tests/unit/test_model_registry.py`
+  - Evidence:
+    - `backend/.venv/Scripts/python.exe -m pytest tests/unit/test_model_registry.py -q`
+      ```text
+      6 passed in 0.09s
+      ```
+    - Runtime log evidence:
+      ```text
+      [model-fetch] downloading missing model: ... -> models\TinyLlama-1.1BChat-v1.0.Q4_K_M.gguf
+      [model-fetch] download complete: ...
+      [model-fetch] using existing model: ...
+      ```
+    - Evidence artifacts:
+      - `reports/m1_task1_20260218_105417.json`
+      - `reports/m1_task2_20260218_105417.json`
+      - `reports/m1_uvicorn_20260218_105417.log`
+      - `reports/m1_uvicorn_20260218_105417.err`
+
 - 2026-02-17 12:48
   - Summary: Pivoted to Docker-First execution model (Layer 0). Implemented Workflow Nodes (Router, LLM, Validator) and integrated them into the Controller Service. Created API Entry Point (/task) for external access. Fixed Docker volume mounts and runtime commands to support the new structure.
   - Scope: `backend/Dockerfile` (Multi-stage build), `backend/workflow/nodes/` (all nodes), `backend/controller/controller_service.py` (wiring), `backend/api/main.py` (endpoints), `docker-compose.yml` (volumes, command).

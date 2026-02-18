@@ -23,6 +23,18 @@
 
 ## Inventory
 
+- Capability: Model Auto-Fetch on Missing Selected GGUF (M1) - 2026-02-18 10:54
+  - State: Verified
+  - Location: `backend/models/model_registry.py`, `backend/controller/controller_service.py`, `models/models.yaml`, `.env.example`, `tests/unit/test_model_registry.py`
+  - Validation: `backend/.venv/Scripts/python.exe -m pytest tests/unit/test_model_registry.py -q`; runtime logs in `reports/m1_uvicorn_20260218_105417.log` and `reports/m1_uvicorn_20260218_105417.err`
+  - Notes: Missing model downloaded once when enabled and reused on subsequent call.
+
+- Capability: Docker Backend Real llama_cpp Inference via /task (M2) - 2026-02-18 11:02
+  - State: Verified
+  - Location: `docker-compose.yml`, `backend/Dockerfile`, `backend/workflow/nodes/llm_worker_node.py`, `backend/controller/controller_service.py`
+  - Validation: `docker compose config`; `docker compose build backend`; `docker compose up -d redis backend`; `docker compose exec -T backend python -c "import llama_cpp; print('OK')"`; `GET /health`; `POST /task` non-empty `llm_output`
+  - Notes: Backend container imported llama_cpp and returned non-empty task output.
+
 - Capability: Docker Runtime Environment (Layer 0) - 2026-02-17 12:48
   - State: Implemented
   - Location: `backend/Dockerfile`
