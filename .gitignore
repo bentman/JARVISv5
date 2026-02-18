@@ -108,6 +108,7 @@ reports/*.log
 # ------------------------------------------------------------
 # Model artifacts (prevent large binary commits anywhere)
 # ------------------------------------------------------------
+models/**/*.gguf
 models/*.gguf
 models/*.bin
 **/*.gguf

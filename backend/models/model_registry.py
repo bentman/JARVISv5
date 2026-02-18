@@ -5,7 +5,7 @@ import yaml
 
 
 class ModelRegistry:
-    def __init__(self, catalog_path: str = "data/models.yaml") -> None:
+    def __init__(self, catalog_path: str = "models/models.yaml") -> None:
         self.catalog_path = Path(catalog_path)
         self.models: list[dict[str, Any]] = []
         self._load_catalog()
@@ -86,9 +86,17 @@ class ModelRegistry:
             for model in self.models
             if bool(model.get("enabled", True))
         ]
-        role_models = [
-            model for model in enabled_models if str(model.get("role", "")) == role
-        ]
+        role_models: list[dict[str, Any]] = []
+        for model in enabled_models:
+            roles = model.get("roles")
+            if isinstance(roles, list):
+                if role in {str(item) for item in roles}:
+                    role_models.append(model)
+                continue
+
+            legacy_role = str(model.get("role", ""))
+            if legacy_role == role:
+                role_models.append(model)
 
         hardware_models = []
         for model in role_models:

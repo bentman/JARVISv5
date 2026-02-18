@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -81,6 +82,15 @@ class ControllerService:
         llm_worker_node = LLMWorkerNode()
         validator_node = ValidatorNode()
 
+        def _no_model_fallback_message(profile: str, hardware_type: str, role: str) -> str:
+            return (
+                "Local model missing. Please drop a GGUF into models/ and update the catalog. "
+                "\n" 
+                f"Catalog: models/models.yaml\n" 
+                f"Requested role={role}, profile={profile}, hardware={hardware_type}\n" 
+                "Expected example path: models/test-mini.gguf"
+            )
+
         try:
             self.memory.create_task(resolved_task_id, resolved_goal, resolved_steps)
             self._log_state(resolved_task_id, fsm.current_state, "running")
@@ -100,15 +110,20 @@ class ControllerService:
                     role=role,
                 )
                 if selected_model is None:
-                    return self._fail(
-                        fsm,
-                        resolved_task_id,
-                        context,
-                        "model_selection_failed",
-                    )
+                    context["selected_model"] = None
+                    context["llm_model_path"] = ""
+                    context["llm_output"] = _no_model_fallback_message(profile, hardware_type, role)
+                    context["llm_error"] = "local_model_missing"
+                    context["skip_llm"] = True
+                else:
+                    context["selected_model"] = selected_model
+                    model_path = str(selected_model.get("path", ""))
+                    context["llm_model_path"] = model_path
 
-                context["selected_model"] = selected_model
-                context["llm_model_path"] = str(selected_model.get("path", ""))
+                    if not model_path or not Path(model_path).exists():
+                        context["llm_output"] = _no_model_fallback_message(profile, hardware_type, role)
+                        context["llm_error"] = "local_model_missing"
+                        context["skip_llm"] = True
             except Exception as exc:
                 return self._fail(fsm, resolved_task_id, context, f"router_node_error: {exc}")
 
@@ -117,7 +132,8 @@ class ControllerService:
             self._log_state(resolved_task_id, ControllerState.EXECUTE, "running")
             try:
                 context = context_builder_node.execute(context)
-                context = llm_worker_node.execute(context)
+                if not bool(context.get("skip_llm", False)):
+                    context = llm_worker_node.execute(context)
             except Exception as exc:
                 return self._fail(fsm, resolved_task_id, context, f"execute_node_error: {exc}")
 

@@ -10,7 +10,7 @@ TEST_CPU_MODEL_PATH = "models/test-cpu.gguf"
 CATALOG_CONTENT = """models:
   - id: \"model-gpu-chat\"
     path: \"models/test-gpu.gguf\"
-    role: \"chat\"
+    roles: [\"chat\"]
     enabled: true
     supported_hardware: [\"gpu-cuda\", \"gpu\"]
     min_profile: \"light\"
@@ -18,7 +18,7 @@ CATALOG_CONTENT = """models:
     priority: 1
   - id: \"model-cpu-chat\"
     path: \"models/test-cpu.gguf\"
-    role: \"chat\"
+    roles: [\"chat\"]
     enabled: true
     supported_hardware: [\"cpu\"]
     min_profile: \"test\"

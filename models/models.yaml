@@ -1,0 +1,48 @@
+models:
+  # Minimal always-on catalog entry.
+  # NOTE: Repo does not ship weights; place a GGUF at the specified path to enable real inference.
+  - id: "test-mini"
+    enabled: true
+    roles: ["chat", "code"]
+    supported_hardware: ["gpu-cuda", "gpu", "npu", "cpu"]
+    min_profile: "light"
+    max_profile: "heavy"
+    priority: 1
+    path: "models/TinyLlama-1.1BChat-v1.0.Q4_K_M.gguf"
+
+  # Future schema examples (disabled until weights exist).
+  - id: "llama-3-8b-instruct"
+    enabled: false
+    roles: ["chat", "code"]
+    supported_hardware: ["gpu-cuda", "gpu", "cpu"]
+    min_profile: "medium"
+    max_profile: "heavy"
+    priority: 10
+    path: "models/llama-3-8b-instruct.gguf"
+
+  - id: "llama-3-70b-instruct"
+    enabled: false
+    roles: ["chat", "code"]
+    supported_hardware: ["gpu-cuda", "gpu"]
+    min_profile: "heavy"
+    max_profile: "heavy"
+    priority: 20
+    path: "models/llama-3-70b-instruct.gguf"
+
+  - id: "whisper-stt"
+    enabled: false
+    roles: ["stt"]
+    supported_hardware: ["gpu-cuda", "gpu", "cpu", "npu"]
+    min_profile: "light"
+    max_profile: "heavy"
+    priority: 50
+    path: "models/whisper.gguf"
+
+  - id: "piper-tts"
+    enabled: false
+    roles: ["tts"]
+    supported_hardware: ["cpu", "gpu", "npu"]
+    min_profile: "light"
+    max_profile: "heavy"
+    priority: 60
+    path: "models/piper.onnx"

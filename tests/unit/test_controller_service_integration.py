@@ -37,16 +37,7 @@ class StubModelRegistry(ModelRegistry):
         self.models = []
 
     def select_model(self, profile: str, hardware: str, role: str) -> dict | None:
-        return {
-            "id": "test-chat-model",
-            "path": "models/test-chat.gguf",
-            "role": role,
-            "supported_hardware": ["cpu"],
-            "min_profile": "test",
-            "max_profile": "heavy",
-            "priority": 1,
-            "enabled": True,
-        }
+        return None
 
 
 def test_controller_service_run_executes_nodes_and_handles_llm_gracefully() -> None:
@@ -64,8 +55,9 @@ def test_controller_service_run_executes_nodes_and_handles_llm_gracefully() -> N
 
         context = result["context"]
         assert context.get("intent") == "code"
-        assert context.get("selected_model") is not None
-        assert context.get("llm_model_path") == "models/test-chat.gguf"
+        assert context.get("selected_model") is None
+        assert context.get("llm_model_path") == ""
+
         assert "llm_output" in context
         assert isinstance(context["llm_output"], str)
-        assert context["llm_output"].strip() != ""
+        assert "Local model missing" in context["llm_output"]
