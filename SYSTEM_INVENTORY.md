@@ -23,6 +23,12 @@
 
 ## Inventory
 
+- Capability: UI Header status polling and task-context display/clear behavior (UI-4 evidence pass) - 2026-02-20 22:27
+  - State: Verified
+  - Location: `frontend/src/App.jsx`, runtime surface `http://localhost:3000`
+  - Validation: `docker stop jarvisv5-backend-1`; `Start-Sleep -Seconds 7; curl -s -S http://localhost:8000/health` (connection failure while stopped); `docker start jarvisv5-backend-1`; `Start-Sleep -Seconds 7; curl -s -S http://localhost:8000/health` (`{"status":"ok","service":"JARVISv5-backend"}`); UI observations `HEADER_STATUS_AFTER_STOP=Offline`, `HEADER_STATUS_AFTER_START=Online`, task context `{task_id:"task-9b0869f3f6", final_state:"ARCHIVE"}`, header short id `0869f3f6`, New Chat clears task/state placeholders
+  - Notes: Evidence pass recorded behavior only; no source files modified.
+
 - Capability: LLM output normalization: general single-turn stop + trim (no prompt-specific branching) - 2026-02-18 15:00
   - State: Verified
   - Location: `backend/workflow/nodes/llm_worker_node.py`

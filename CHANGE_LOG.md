@@ -15,6 +15,48 @@
 
 ## Entries
 
+- 2026-02-20 22:27
+  - Summary: Completed UI-4 evidence closure pass without code changes. Verified header status transitions with backend stop/start polling, verified header task context display (shortened task id + final state) after send, and verified New Chat clears task context.
+  - Scope: Runtime surfaces only (`http://localhost:3000` header behavior, Docker services `jarvisv5-frontend-1`, `jarvisv5-backend-1`, `jarvisv5-redis-1`); no repository source files were modified by this pass.
+  - Evidence:
+    - `docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"`
+      ```text
+      NAMES                 STATUS       PORTS
+      jarvisv5-frontend-1   Up 7 hours   0.0.0.0:3000->3000/tcp, [::]:3000->3000/tcp
+      jarvisv5-backend-1    Up 2 hours   0.0.0.0:8000->8000/tcp, [::]:8000->8000/tcp
+      jarvisv5-redis-1      Up 8 hours   0.0.0.0:6379->6379/tcp, [::]:6379->6379/tcp
+      ```
+    - `curl -s -S http://localhost:8000/health`
+      ```text
+      {"status":"ok","service":"JARVISv5-backend"}
+      ```
+    - `curl -I http://localhost:3000`
+      ```text
+      HTTP/1.1 200 OK
+      ```
+    - `docker stop jarvisv5-backend-1` then `Start-Sleep -Seconds 7; curl -s -S http://localhost:8000/health`
+      ```text
+      jarvisv5-backend-1
+      curl: (7) Failed to connect to localhost port 8000 after 2223 ms: Could not connect to server
+      ```
+    - `docker start jarvisv5-backend-1` then `Start-Sleep -Seconds 7; curl -s -S http://localhost:8000/health`
+      ```text
+      jarvisv5-backend-1
+      {"status":"ok","service":"JARVISv5-backend"}
+      ```
+    - UI observations:
+      ```text
+      HEADER_STATUS_AFTER_STOP=Offline
+      HEADER_STATUS_AFTER_START=Online
+      {task_id:"task-9b0869f3f6", final_state:"ARCHIVE"}
+      header_short_id=0869f3f6
+      NewChat=cleared_task_and_state_to_placeholders
+      ```
+    - `git status --porcelain`
+      ```text
+       M frontend/package.json
+      ```
+
 - 2026-02-18 15:00
   - Summary: Removed prompt-specific normalization logic, retained general single-turn stop/trim controls, and applied general `name is <Token>` normalization for deterministic recall output.
   - Scope: `backend/workflow/nodes/llm_worker_node.py`
