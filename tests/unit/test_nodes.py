@@ -1,5 +1,7 @@
 import tempfile
 from pathlib import Path
+import sys
+import types
 
 from backend.memory.memory_manager import MemoryManager
 from backend.workflow import (
@@ -100,6 +102,39 @@ def test_llm_worker_node_handles_missing_model_path() -> None:
     result = node.execute({"user_input": "Hello from test"})
 
     assert result["llm_error"] == "llm_model_path_missing"
+
+
+def test_llm_worker_node_preserves_multiline_output(monkeypatch) -> None:
+    class _StubLlama:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def create_completion(
+            self,
+            prompt: str,
+            max_tokens: int = 100,
+            echo: bool = False,
+            stop: list[str] | None = None,
+        ) -> dict:
+            return {
+                "choices": [
+                    {
+                        "text": "```python\nprint('abc123XYZ789')\n```\n"
+                    }
+                ]
+            }
+
+    monkeypatch.setitem(sys.modules, "llama_cpp", types.SimpleNamespace(Llama=_StubLlama))
+
+    node = LLMWorkerNode()
+    result = node.execute(
+        {
+            "user_input": "write a python snippet to produce a 12 character random alphanumeric",
+            "llm_model_path": TEST_MODEL_PATH,
+        }
+    )
+
+    assert result["llm_output"] == "```python\nprint('abc123XYZ789')\n```"
 
 
 def test_validator_node_marks_context_valid_for_non_empty_output() -> None:

@@ -15,6 +15,24 @@
 
 ## Entries
 
+- 2026-02-22 07:56
+  - Summary: Completed basic UX fixes for user functionality. Increased backend completion cap to reduce mid-sentence truncation, removed `Instruction:` leakage from assistant output, and improved frontend multiline/code readability.
+  - Scope: `backend/workflow/nodes/llm_worker_node.py`; frontend message rendering/readability in `frontend/src/App.jsx`.
+  - Evidence:
+    - `docker compose up -d --build --force-recreate frontend`
+      ```text
+      Image jarvisv5-frontend Built
+      Container jarvisv5-frontend-1 Started
+      ```
+    - `backend/.venv/Scripts/python -c "...task-fd2511d2a8.json..."`
+      ```text
+      role=assistant
+      includesFences=True
+      first40='```python\nimport random\nimport string\n\nr'
+      ```
+    - Verification pointer: single `/task` python-snippet prompt no longer truncated; archived output includes multiline fenced code (see `data/archives/task-fd2511d2a8.json`).
+  - Note: Remaining cosmetic issue — fenced code blocks may still show literal backticks in UI in some cases. Next place to investigate: frontend message rendering in `frontend/src/App.jsx` (`renderAssistantContent` / assistant bubble render branch).
+
 - 2026-02-22 05:20
   - Summary: Corrective hygiene entry replacing prior verbose session note with a concise consolidation. Investigated model auto-download behavior (`MODEL_FETCH=missing`), verified end-to-end local model run, and diagnosed response accumulation source.
   - Scope: Investigation-only session across runtime/config surfaces and trace review; no production code changes.

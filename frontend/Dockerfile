@@ -1,10 +1,21 @@
+FROM node:18-alpine AS build
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
 FROM node:18-alpine
 
 WORKDIR /app
 
-COPY package.json ./
-RUN npm install
+COPY package.json package-lock.json ./
+RUN npm ci
 
-COPY . .
+COPY --from=build /app/dist ./dist
 
-CMD ["npm", "run", "dev", "--", "--host"]
+EXPOSE 3000
+CMD ["npm", "run", "preview"]

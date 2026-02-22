@@ -1,6 +1,51 @@
 import { useEffect, useRef, useState } from 'react'
 import { createOrContinueTask, getHealth } from './api/taskClient'
 
+function renderAssistantContent(content) {
+  const parts = String(content ?? '').split('```')
+
+  return parts.map((part, index) => {
+    const isCodeBlock = index % 2 === 1
+
+    if (!isCodeBlock) {
+      return (
+        <div
+          key={`text-${index}`}
+          style={{
+            whiteSpace: 'pre-wrap',
+            overflowWrap: 'anywhere',
+          }}
+        >
+          {part}
+        </div>
+      )
+    }
+
+    const lines = part.split('\n')
+    const firstLine = lines[0] ?? ''
+    const hasLanguageTag = /^[a-zA-Z0-9_+-]+$/.test(firstLine.trim())
+    const codeContent = hasLanguageTag ? lines.slice(1).join('\n') : part
+
+    return (
+      <pre
+        key={`code-${index}`}
+        style={{
+          margin: '8px 0',
+          padding: '10px',
+          borderRadius: 10,
+          background: '#050810',
+          border: '1px solid #00d4ff80',
+          boxShadow: '0 0 10px #00d4ff33',
+          whiteSpace: 'pre-wrap',
+          overflowWrap: 'anywhere',
+        }}
+      >
+        <code style={{ fontFamily: 'Consolas, Monaco, monospace' }}>{codeContent}</code>
+      </pre>
+    )
+  })
+}
+
 function App() {
   const [messages, setMessages] = useState([])
   const [taskId, setTaskId] = useState(null)
@@ -56,13 +101,15 @@ function App() {
         task_id: taskId || undefined,
       })
 
+      const assistantContent = String(response.llm_output || 'No response text received.')
+
       setTaskId(response.task_id)
       setFinalState(response.final_state)
       setMessages((prev) => [
         ...prev,
         {
           role: 'assistant',
-          content: response.llm_output || 'No response text received.',
+          content: assistantContent,
         },
       ])
     } catch (err) {
@@ -195,7 +242,20 @@ function App() {
                     wordBreak: 'break-word',
                   }}
                 >
-                  {message.content}
+                  {message.role === 'assistant' && String(message.content).includes('```') ? (
+                    renderAssistantContent(message.content)
+                  ) : (
+                    <pre
+                      style={{
+                        margin: 0,
+                        whiteSpace: 'pre-wrap',
+                        overflowWrap: 'anywhere',
+                        fontFamily: 'inherit',
+                      }}
+                    >
+                      {message.content}
+                    </pre>
+                  )}
                 </div>
               </div>
             </div>

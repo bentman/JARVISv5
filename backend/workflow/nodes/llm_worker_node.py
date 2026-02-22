@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from typing import Any
 
 from .base_node import BaseNode
@@ -12,28 +11,10 @@ class LLMWorkerNode(BaseNode):
 
     def execute(self, context: dict[str, Any]) -> dict[str, Any]:
         user_input = str(context.get("user_input", ""))
-        raw_messages = context.get("messages", [])
-        messages: list[dict[str, str]] = []
-        if isinstance(raw_messages, list):
-            for item in raw_messages[-10:]:
-                if isinstance(item, dict):
-                    role = str(item.get("role", "user")).strip().lower()
-                    content = str(item.get("content", "")).strip()
-                    if content:
-                        messages.append({"role": role, "content": content})
-
-        if messages:
-            prompt_lines: list[str] = [
-                "Instruction: Answer the user's question directly and concisely."
-            ]
-            for item in messages:
-                role = item["role"]
-                if role == "user":
-                    prompt_lines.append(f"User: {item['content']}")
-            prompt_lines.append("Assistant:")
-            prompt = "\n".join(prompt_lines)
-        else:
-            prompt = user_input
+        prompt_lines: list[str] = ["Answer the user's latest message directly and concisely."]
+        prompt_lines.append(f"User: {user_input}")
+        prompt_lines.append("Assistant:")
+        prompt = "\n".join(prompt_lines)
 
         selected_model = context.get("selected_model", {})
         model_path = str(
@@ -62,7 +43,7 @@ class LLMWorkerNode(BaseNode):
             llm = Llama(model_path=model_path, n_ctx=2048, verbose=False)
             response = llm.create_completion(
                 prompt=prompt,
-                max_tokens=100,
+                max_tokens=320,
                 echo=False,
                 stop=["\nUser:", "\nAssistant:", "User:", "Assistant:"],
             )
@@ -75,14 +56,7 @@ class LLMWorkerNode(BaseNode):
             for marker in ("\nUser:", "\nAssistant:", "User:", "Assistant:"):
                 if marker in first_turn:
                     first_turn = first_turn.split(marker, 1)[0]
-            first_line = first_turn.splitlines()[0] if first_turn.splitlines() else first_turn
-            normalized = first_line.strip()
-
-            name_match = re.search(r"\bname\s+is\s+([A-Za-z][A-Za-z'-]*)\b", normalized, flags=re.IGNORECASE)
-            if name_match:
-                normalized = name_match.group(1)
-
-            context["llm_output"] = normalized
+            context["llm_output"] = first_turn.strip()
         except Exception as exc:
             context["llm_output"] = ""
             context["llm_error"] = f"llm_generation_error: {exc}"
