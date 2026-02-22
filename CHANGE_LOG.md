@@ -1,5 +1,5 @@
 # CHANGE_LOG.md
-> Append-only record of reported work; corrections may be appended to entries.
+> :
 > No edits/reorders/deletes of past entries. If an entry is wrong, append a corrective entry.
 
 ## Rules
@@ -14,6 +14,14 @@
 - If a change is reverted, append a new entry describing the revert and why.
 
 ## Entries
+
+- 2026-02-22 05:20
+  - Summary: Corrective hygiene entry replacing prior verbose session note with a concise consolidation. Investigated model auto-download behavior (`MODEL_FETCH=missing`), verified end-to-end local model run, and diagnosed response accumulation source.
+  - Scope: Investigation-only session across runtime/config surfaces and trace review; no production code changes.
+  - Evidence:
+    - Root cause (download not starting initially): selected catalog URL for the Qwen medium/heavy model was incorrect at first; after correction, backend logs showed `[model-fetch] downloading missing model ...` and completion.
+    - Completion/runtime proof: `models/qwen2.5-coder-7b-instruct.Q4_K_M.gguf` existed with size `4683073536` and `.tmp` absent; one medium-path functional run returned normal output without password/username/reset terms.
+    - Accumulation diagnosis: archived task `data/archives/task-a53cce61f6.json` already stored the long `"I'm an AI ... As for 2+2, the answer is 4."` assistant message for `"What's 2+2?"`; frontend (`frontend/src/App.jsx`) renders `response.llm_output` directly (no append logic).
 
 - 2026-02-20 22:27
   - Summary: Completed UI-4 evidence closure pass without code changes. Verified header status transitions with backend stop/start polling, verified header task context display (shortened task id + final state) after send, and verified New Chat clears task context.

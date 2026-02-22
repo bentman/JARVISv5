@@ -1,7 +1,7 @@
 # SYSTEM_INVENTORY.md
 > Authoritative capability ledger. This is not a roadmap or config reference. 
 > Inventory entries must reflect only observable artifacts in this repository: files, directories, executable code, configuration, scripts, and explicit UI text. 
->Do not include intent, design plans, or inferred behavior.
+> Do not include intent, design plans, or inferred behavior.
 
 ## Rules
 - One component entry = one capability or feature observed in the repository.

@@ -1,7 +1,9 @@
 # Project.md: JARVISv5 (Mark5) — Local‑First Agent System
 
 > **Vision Only**
-> This document describes the **target architecture and invariants** for JARVISv5. The structure below reflects intended organization and capabilities, **not completed implementation**. The presence of paths in the proposed tree indicates design intent only. This baseline is open to refinement as future agentic development progresses.
+> This document describes the **target architecture and invariants** for JARVISv5. 
+> The structure below reflects intended organization and capabilities, **not completed implementation**. 
+> The presence of paths in the proposed tree indicates design intent only. This baseline is open to refinement as future agentic development progresses.
 
 ---
 

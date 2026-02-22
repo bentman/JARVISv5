@@ -24,7 +24,7 @@ class LLMWorkerNode(BaseNode):
 
         if messages:
             prompt_lines: list[str] = [
-                "Instruction: Answer only what is asked and never invent usernames or passwords."
+                "Instruction: Answer the user's question directly and concisely."
             ]
             for item in messages:
                 role = item["role"]

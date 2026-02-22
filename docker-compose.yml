@@ -10,8 +10,9 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - REDIS_URL=redis://redis:6379/0
-      - MODEL_PATH=/app/models
-      - LOG_LEVEL=DEBUG
+      - MODEL_PATH=${MODEL_PATH:-/app/models}
+      - MODEL_FETCH=${MODEL_FETCH:-never}
+      - LOG_LEVEL=${LOG_LEVEL:-DEBUG}
     depends_on:
       - redis
     command: python -m uvicorn backend.api.main:app --host 0.0.0.0 --port 8000 --reload
