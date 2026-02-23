@@ -185,7 +185,7 @@ def run_pytest_suite(logger: ValidationLogger, suite_name: str, suite_path: str)
 
         # Per-test results
         for status, test_name in test_results:
-            status_icon = {'PASS': '✓', 'FAIL': '✗', 'SKIP': '○', 'ERROR': '✗'}.get(status, '?')
+            status_icon = {'PASS': '[PASS]', 'FAIL': '[FAIL]', 'SKIP': '[SKIP]', 'ERROR': '[FAIL]'}.get(status, '[?]')
             logger.log(f"  {status_icon} {status}: {test_name}")
 
         # Summary
@@ -232,12 +232,12 @@ def run_docker_inference_validation(logger: ValidationLogger) -> str:
         result = subprocess.run(command, capture_output=True, text=True)
         
         if result.returncode != 0:
-            logger.log(f"✗ FAIL: {step_name}")
+            logger.log(f"[FAIL] {step_name}")
             stderr_excerpt = (result.stderr or result.stdout or "").strip()[:500]
             logger.log(f"Error: {stderr_excerpt}")
             return 'FAIL'
         
-        logger.log(f"✓ PASS: {step_name}")
+        logger.log(f"[PASS] {step_name}")
 
     # Health check
     logger.log("Checking health endpoint...")
@@ -246,12 +246,12 @@ def run_docker_inference_validation(logger: ValidationLogger) -> str:
         try:
             with urllib.request.urlopen(health_url, timeout=10) as response:
                 health_data = response.read().decode("utf-8")
-                logger.log(f"✓ PASS: Health check OK")
+                logger.log(f"[PASS] Health check OK")
                 break
         except Exception:
             time.sleep(1)
     else:
-        logger.log(f"✗ FAIL: Health endpoint unreachable")
+        logger.log(f"[FAIL] Health endpoint unreachable")
         return 'FAIL'
 
     # Task endpoint
@@ -272,15 +272,15 @@ def run_docker_inference_validation(logger: ValidationLogger) -> str:
             llm_output = str(task_json.get("llm_output", ""))
             
             if len(llm_output.strip()) == 0:
-                logger.log(f"✗ FAIL: llm_output was empty")
+                logger.log(f"[FAIL] llm_output was empty")
                 return 'FAIL'
             
-            logger.log(f"✓ PASS: Task returned llm_output: {llm_output[:50]}")
+            logger.log(f"[PASS] Task returned llm_output: {llm_output[:50]}")
             logger.log(f"SUCCESS: Docker Inference: All checks passed")
             return 'PASS'
 
     except Exception as exc:
-        logger.log(f"✗ FAIL: Task endpoint error: {exc}")
+        logger.log(f"[FAIL] Task endpoint error: {exc}")
         return 'FAIL'
 
 
@@ -323,12 +323,12 @@ def main():
 
     if not has_any_fail:
         if has_any_skips:
-            logger.log("\n✅ JARVISv5 backend is VALIDATED WITH EXPECTED SKIPS!")
+            logger.log("\n[PASS] JARVISv5 backend is VALIDATED WITH EXPECTED SKIPS!")
         else:
-            logger.log("\n✅ JARVISv5 backend is validated!")
+            logger.log("\n[PASS] JARVISv5 backend is validated!")
         exit_code = 0
     else:
-        logger.log("\n❌ Validation failed - see specific component failures above")
+        logger.log("\n[FAIL] Validation failed - see specific component failures above")
         exit_code = 1
 
     logger.save()

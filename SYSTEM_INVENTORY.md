@@ -23,6 +23,12 @@
 
 ## Inventory
 
+- Capability: Milestone 4 Tool System + Sandboxed Execution - 2026-02-23 14:31
+  - State: Verified
+  - Location: `backend/tools/registry.py`, `backend/tools/sandbox.py`, `backend/tools/file_tools.py`, `backend/tools/executor.py`, `backend/workflow/nodes/tool_call_node.py`, `backend/workflow/__init__.py`, `backend/controller/controller_service.py`, `tests/unit/test_file_tools.py`, `tests/unit/test_tool_executor.py`, `tests/unit/test_controller_service_integration.py`
+  - Validation: `.\backend\.venv\Scripts\python.exe -m pytest tests\unit\test_file_tools.py -q` (PASS excerpt: `16 passed in 0.12s`); `.\backend\.venv\Scripts\python.exe -m pytest tests\unit\test_tool_executor.py -q` (PASS excerpt: `8 passed in 0.15s`); `.\backend\.venv\Scripts\python.exe -m pytest tests\unit\test_controller_service_integration.py -q` (PASS excerpt: `5 passed in 2.06s`); `.\backend\.venv\Scripts\python.exe scripts\validate_backend.py --scope unit` (PASS excerpts: `UNIT: PASS_WITH_SKIPS`, `UNIT=PASS_WITH_SKIPS`; report `reports\\backend_validation_report_20260223_142522.txt`)
+  - Notes: Includes registry/schema export, sandbox controls, Tier 1 file tools, executor plumbing, and controller ToolCallNode runtime wiring.
+
 - Capability: Baseline Determinism Harness (Milestone 3) - 2026-02-23 00:20
   - State: Verified
   - Location: `tests/integration/test_replay_baseline.py`, `backend/controller/controller_service.py`

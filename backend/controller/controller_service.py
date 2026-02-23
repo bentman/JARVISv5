@@ -6,8 +6,8 @@ from uuid import uuid4
 from backend.memory.memory_manager import MemoryManager
 from backend.models.hardware_profiler import HardwareService
 from backend.models.model_registry import ModelRegistry
-from backend.workflow import ContextBuilderNode, LLMWorkerNode, RouterNode, ValidatorNode
-from backend.workflow.dag_executor import DAGExecutor
+from backend.workflow import ContextBuilderNode, LLMWorkerNode, RouterNode, ToolCallNode, ValidatorNode
+from backend.workflow.dag_executor import DAGExecutor, WorkflowEdge, WorkflowGraph
 from backend.workflow.plan_compiler import compile_plan_to_workflow_graph
 
 from .fsm import ControllerState, DeterministicFSM
@@ -96,6 +96,7 @@ class ControllerService:
         task_id: str | None = None,
         goal: str | None = None,
         steps: list[str] | None = None,
+        tool_call: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         fsm = DeterministicFSM()
         continuation = task_id is not None
@@ -114,24 +115,56 @@ class ControllerService:
             "task_id": resolved_task_id,
             "memory_manager": self.memory,
         }
+        if tool_call is not None:
+            context["tool_call"] = tool_call
         task_started_ns = time.perf_counter_ns()
 
         router_node = RouterNode()
         context_builder_node = ContextBuilderNode()
         llm_worker_node = LLMWorkerNode()
+        tool_call_node = ToolCallNode()
         validator_node = ValidatorNode()
         dag_executor = DAGExecutor()
         node_registry = {
             "router": router_node,
             "context_builder": context_builder_node,
+            "tool_call": tool_call_node,
             "llm_worker": llm_worker_node,
             "validator": validator_node,
         }
         phase_to_nodes = {
             ControllerState.PLAN: {"router"},
-            ControllerState.EXECUTE: {"context_builder", "llm_worker"},
+            ControllerState.EXECUTE: {"context_builder", "tool_call", "llm_worker"},
             ControllerState.VALIDATE: {"validator"},
         }
+
+        def _with_tool_call_node(graph: WorkflowGraph) -> WorkflowGraph:
+            if "tool_call" in graph.nodes:
+                return graph
+
+            new_nodes = list(graph.nodes)
+            if "tool_call" not in new_nodes:
+                new_nodes.append("tool_call")
+
+            new_edges: list[WorkflowEdge] = []
+            inserted = False
+            for edge in graph.edges:
+                if edge.from_node == "context_builder" and edge.to_node == "llm_worker":
+                    new_edges.append(WorkflowEdge("context_builder", "tool_call"))
+                    new_edges.append(WorkflowEdge("tool_call", "llm_worker"))
+                    inserted = True
+                else:
+                    new_edges.append(edge)
+
+            if not inserted:
+                new_edges.append(WorkflowEdge("context_builder", "tool_call"))
+                new_edges.append(WorkflowEdge("tool_call", "llm_worker"))
+
+            return WorkflowGraph(
+                nodes=tuple(new_nodes),
+                edges=tuple(new_edges),
+                entry=graph.entry,
+            )
 
         def _no_model_fallback_message(profile: str, hardware_type: str, role: str) -> str:
             return (
@@ -205,6 +238,8 @@ class ControllerService:
                 )
 
                 graph = compile_plan_to_workflow_graph(str(context.get("intent", "")))
+                if isinstance(context.get("tool_call"), dict):
+                    graph = _with_tool_call_node(graph)
                 execution_order = dag_executor.resolve_execution_order(graph, node_registry)
                 context["workflow_graph"] = graph.as_dict()
                 context["workflow_execution_order"] = execution_order

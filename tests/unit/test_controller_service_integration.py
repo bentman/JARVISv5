@@ -139,3 +139,93 @@ def test_controller_service_run_records_dag_node_trace_events() -> None:
             row["node_id"] == "router" and row["event_type"] == "node_end"
             for row in parsed
         )
+
+
+def test_controller_service_run_executes_tool_call_node_and_records_trace() -> None:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+        root = Path(tmp_dir) / "tool-root"
+        root.mkdir(parents=True, exist_ok=True)
+        (root / "alpha.txt").write_text("alpha", encoding="utf-8")
+
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=StubModelRegistry(),
+        )
+
+        result = service.run(
+            user_input="list files",
+            tool_call={
+                "tool_name": "list_directory",
+                "payload": {"path": str(root)},
+                "allow_write_safe": False,
+                "sandbox_roots": [str(root)],
+            },
+        )
+
+        assert result["final_state"] in {"ARCHIVE", "FAILED"}
+        context = result["context"]
+        assert context["workflow_execution_order"] == [
+            "router",
+            "context_builder",
+            "tool_call",
+            "llm_worker",
+            "validator",
+        ]
+        assert context["tool_ok"] is True
+        assert context["tool_result"]["code"] == "ok"
+        assert context["tool_result"]["entries"] == ["alpha.txt"]
+
+        with sqlite3.connect(service.memory.episodic.db_path) as conn:
+            rows = conn.execute(
+                """
+                SELECT status, content
+                FROM decisions
+                WHERE task_id = ? AND action_type = 'dag_node_event'
+                ORDER BY id ASC
+                """,
+                (result["task_id"],),
+            ).fetchall()
+
+        parsed = [json.loads(content) for _, content in rows]
+        assert any(
+            row["node_id"] == "tool_call" and row["event_type"] == "node_start"
+            for row in parsed
+        )
+        assert any(
+            row["node_id"] == "tool_call" and row["event_type"] == "node_end"
+            for row in parsed
+        )
+
+
+def test_controller_service_run_tool_call_write_safe_denied_by_default() -> None:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+        root = Path(tmp_dir) / "tool-root"
+        root.mkdir(parents=True, exist_ok=True)
+
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=StubModelRegistry(),
+        )
+
+        target = root / "blocked.txt"
+        result = service.run(
+            user_input="attempt write",
+            tool_call={
+                "tool_name": "write_file",
+                "payload": {
+                    "path": str(target),
+                    "content": "blocked",
+                    "encoding": "utf-8",
+                },
+                "allow_write_safe": False,
+                "sandbox_roots": [str(root)],
+            },
+        )
+
+        assert result["final_state"] in {"ARCHIVE", "FAILED"}
+        context = result["context"]
+        assert context["tool_ok"] is False
+        assert context["tool_result"]["code"] == "permission_denied"
+        assert not target.exists()

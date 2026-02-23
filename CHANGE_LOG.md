@@ -15,6 +15,101 @@
 
 ## Entries
 
+- 2026-02-23 14:25
+  - Summary: Implemented M4.5 ToolCallNode wiring into controller runtime DAG execution, enabling tool execution through existing executor/registry/sandbox plumbing without altering plan compiler behavior.
+  - Scope: `backend/workflow/nodes/tool_call_node.py`, `backend/workflow/__init__.py`, `backend/controller/controller_service.py`, `tests/unit/test_controller_service_integration.py`.
+  - Key behaviors:
+    - Runtime-only DAG augmentation: `tool_call` node is inserted between `context_builder` and `llm_worker` only when `tool_call` input is provided; otherwise graph/trace remains unchanged.
+    - No `plan_compiler` edits; FSM transitions unchanged.
+    - WRITE_SAFE is deny-by-default unless `allow_write_safe=True` is explicitly provided in `tool_call` input.
+    - Tool-call trace reuses standard `dag_node_event` node lifecycle logging (`node_start`/`node_end`/`node_error`).
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests\unit\test_controller_service_integration.py -q`
+      - PASS excerpt: `5 passed in 2.06s`
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests\unit\test_nodes.py -q`
+      - PASS excerpt: `9 passed in 0.24s`
+    - `.\backend\.venv\Scripts\python.exe scripts\validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS excerpt: `UNIT=PASS_WITH_SKIPS`
+      - PASS excerpt: `[SUCCESS] Report saved to reports\backend_validation_report_20260223_142522.txt`
+
+- 2026-02-23 13:42
+  - Summary: Implemented M4.4 backend-only tool-call execution plumbing with fail-closed validation/dispatch flow and explicit permission gating for write-safe/system tiers.
+  - Scope: `backend/tools/executor.py`, `backend/tools/file_tools.py`, `backend/tools/__init__.py`, `tests/unit/test_tool_executor.py`.
+  - Key behaviors:
+    - Stable fail-closed execution codes: `tool_not_found`, `validation_error`, `permission_denied`, `tool_not_implemented`, `execution_error`.
+    - Permission policy: `READ_ONLY` allowed; `WRITE_SAFE` requires `allow_write_safe=True`; `SYSTEM` denied.
+    - Deterministic dispatch via explicit tool-name map from file tools.
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests\unit\test_tool_executor.py -q`
+      - PASS excerpt: `8 passed in 0.15s`
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests\unit\test_file_tools.py -q`
+      - PASS excerpt: `16 passed in 0.12s`
+    - `.\backend\.venv\Scripts\python.exe scripts\validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS excerpt: `UNIT=PASS_WITH_SKIPS`
+
+- 2026-02-23 13:26
+  - Summary: Implemented M4.3.2 `search_files` as a sandbox-scoped glob path matcher (no content search), with deterministic sorted results and fail-closed bounded scanning.
+  - Scope: `backend/tools/sandbox.py`, `backend/tools/file_tools.py`, `backend/tools/__init__.py`, `tests/unit/test_file_tools.py`.
+  - Key bounds:
+    - `SearchFilesInput.max_results` is bounded (`ge=1`, `le=1000`) with default `100`.
+    - Sandbox search enforces deterministic scan cap `max_visited=20_000` and fails closed with `search_limit_exceeded`.
+    - Results are path/name glob matches only and sorted deterministically.
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests\unit\test_file_tools.py -q`
+      - PASS excerpt: `16 passed in 0.17s`
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests\unit -q -k file_tools`
+      - PASS excerpt: `16 passed, 70 deselected in 0.47s`
+    - `.\backend\.venv\Scripts\python.exe scripts\validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS excerpt: `UNIT=PASS_WITH_SKIPS`
+
+- 2026-02-23 12:12
+  - Summary: Implemented M4.3 sandbox-backed core file tools with documented names `read_file`, `list_directory`, and `file_info`, registered via ToolRegistry schema definitions and validated with focused unit coverage.
+  - Scope: `backend/tools/file_tools.py`, `backend/tools/sandbox.py`, `backend/tools/__init__.py`, `tests/unit/test_file_tools.py`.
+  - Deliverables:
+    - Added tool input models and registration for `read_file`, `list_directory`, `file_info`.
+    - Added minimal sandbox `file_info` operation so read/list/info filesystem access remains inside Sandbox.
+    - Added file-tool tests for out-of-root rejection, in-root success, and deterministic schema export coverage.
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests\unit\test_file_tools.py -q`
+      - PASS excerpt: `5 passed in 0.17s`
+    - `.\backend\.venv\Scripts\python.exe scripts\validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS excerpt: `UNIT=PASS_WITH_SKIPS`
+
+- 2026-02-23 11:36
+  - Summary: Implemented M4.2 Sandbox Execution foundation with fail-closed, deterministic local path scoping and bounded file operations; no controller/workflow integration added.
+  - Scope: `backend/tools/sandbox.py`, `backend/tools/__init__.py`, `tests/unit/test_sandbox.py`.
+  - Key behaviors:
+    - `SandboxConfig.allowed_roots` uses immutable tuple paths normalized to resolved absolute roots at initialization for deterministic containment checks.
+    - Path guard is symlink-aware for existing targets and resolves non-existent targets via strict parent resolution before join.
+    - Bounded operations: `read_text` (`max_read_bytes`), `list_dir` (`max_list_entries`), `write_text` (`max_write_bytes`).
+    - Write/delete are toggle-gated with stable fail-closed error codes (`write_not_allowed`, `delete_not_allowed`).
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests\unit\test_sandbox.py -q`
+      - PASS excerpt: `8 passed in 0.12s`
+    - `.\backend\.venv\Scripts\python.exe scripts\validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS excerpt: `UNIT=PASS_WITH_SKIPS`
+
+- 2026-02-23 11:09
+  - Summary: Made `scripts/validate_backend.py` console output encoding-safe on Windows by replacing non-ASCII status glyphs with ASCII markers while preserving report semantics.
+  - Scope: `scripts/validate_backend.py`.
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe scripts\validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS excerpt: `UNIT=PASS_WITH_SKIPS`
+      - PASS excerpt: `[PASS] JARVISv5 backend is VALIDATED WITH EXPECTED SKIPS!`
+
+- 2026-02-23 10:58
+  - Summary: Implemented M4.1 Tool Registry foundation with schema export and fail-closed input validation, and added focused unit tests for registration behavior, validation pass/fail, and deterministic schema export ordering.
+  - Scope: `backend/tools/registry.py`, `backend/tools/__init__.py`, `tests/unit/test_tool_registry.py`.
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests\unit\test_tool_registry.py -q`
+      - PASS excerpt: `6 passed in 0.15s`
+
 - 2026-02-23 00:14
   - Summary: Implemented Milestone 3.3 deterministic artifact comparison for repeated replay-baseline runs using canonical workflow-graph and DAG-event equality checks.
   - Scope: `tests/integration/test_replay_baseline.py`.
