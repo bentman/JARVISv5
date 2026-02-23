@@ -10,12 +10,14 @@ Tools introduce side effects; deterministic orchestration and replay instrumenta
 - JSON-schema tool registry
 - Permission tiers and constrained execution boundaries
 - Tool-call workflow node with explicit IO contracts
-- Core Local Tools (`read_file`, `write_file`, `list_directory`, `file_info`, `search_files`)
+- Core Local Tools (`read_file`, `write_file`, `delete_file`, `list_directory`, `file_info`, `search_files`)
 - System Information Tools (`get_timestamp`, `get_system_info`, `get_working_directory`)
+- Mini-requirement: file tools are limited to a user-selected directory, with a user-facing setting/toggle to control that scope
 
 ### Essential for daily use:
 - `read_file` - Read text file contents
-- `write_file` - Write text to file
+- `write_file` - Create/update text files
+- `delete_file` - Delete files
 - `list_directory` - List files in directory
 - `file_info` - Get file metadata (size, modified, etc.)
 - `search_files` - Find files by pattern
@@ -62,10 +64,13 @@ User sees: Summary of file.txt
 ### **Tier 1: File Operations** (Milestone 4 Core)
 Essential for daily use:
 - `read_file` - Read text file contents
-- `write_file` - Write text to file
+- `write_file` - Create/update text files
+- `delete_file` - Delete files
 - `list_directory` - List files in directory
 - `file_info` - Get file metadata (size, modified, etc.)
 - `search_files` - Find files by pattern
+
+Mini-requirement: file find/read/write/delete operations are scoped to a user-selected file location (directory, recurse), controlled through a simple user setting/toggle.
 
 ### **Tier 2: System Information** (Milestone 4 Extended)
 Useful for context:
@@ -77,6 +82,7 @@ Useful for context:
 Requires sandboxing:
 - `execute_python` - Run Python code
 - `execute_shell` - Run shell command
+- Expanded user home-directory filesystem access (`Path.home()`)
 
 ### **Tier 4: Web/Search** (Milestone 8)
 External access:
@@ -494,13 +500,12 @@ class Sandbox:
         raise NotImplementedError("Code execution requires additional security review")
 
 
-def create_default_sandbox() -> Sandbox:
+def create_default_sandbox(user_workspace_dir: str | None = None) -> Sandbox:
     """Create sandbox with default JARVISv5 paths"""
-    # Allow reading from common project directories
-    read_paths = [
-        ".",  # Project root
-        str(Path.home()),  # User home
-    ]
+    # Allow reading from project root and optional user-selected workspace
+    read_paths = ["."]
+    if user_workspace_dir:
+        read_paths.append(user_workspace_dir)
     
     # Allow writing only to data and temporary directories
     write_paths = [
@@ -1072,6 +1077,7 @@ class ControllerService:
 |---------|-----------|-------------|
 | `read_file` | READ_ONLY | Read text file contents |
 | `write_file` | WRITE_SAFE | Write text to file |
+| `delete_file` | WRITE_SAFE | Delete files |
 | `list_directory` | READ_ONLY | List directory contents |
 | `file_info` | READ_ONLY | Get file metadata |
 | `search_files` | READ_ONLY | Find files by pattern |
