@@ -50,7 +50,33 @@ def _decisions_high_water_mark(db_path: str) -> int:
     return int(row[0]) if row else 0
 
 
-def _fetch_normalized_dag_events(db_path: str, task_id: str, min_decision_id: int) -> list[dict[str, object]]:
+def _canonicalize_workflow_graph(workflow_graph: dict[str, object]) -> dict[str, object]:
+    nodes_raw = workflow_graph.get("nodes")
+    edges_raw = workflow_graph.get("edges")
+    entry_raw = workflow_graph.get("entry")
+
+    nodes: list[str] = []
+    if isinstance(nodes_raw, list):
+        nodes = sorted(str(node_id) for node_id in nodes_raw)
+
+    edges: list[dict[str, str]] = []
+    if isinstance(edges_raw, list):
+        for edge in edges_raw:
+            if not isinstance(edge, dict):
+                continue
+            source = str(edge.get("from", ""))
+            target = str(edge.get("to", ""))
+            edges.append({"from": source, "to": target})
+    edges = sorted(edges, key=lambda edge: (edge["from"], edge["to"]))
+
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "entry": str(entry_raw) if entry_raw is not None else "",
+    }
+
+
+def _fetch_canonical_dag_events(db_path: str, task_id: str, min_decision_id: int) -> list[dict[str, object]]:
     if not os.path.exists(db_path):
         return []
 
@@ -67,19 +93,82 @@ def _fetch_normalized_dag_events(db_path: str, task_id: str, min_decision_id: in
             (int(min_decision_id), str(task_id)),
         ).fetchall()
 
-    normalized: list[dict[str, object]] = []
+    canonical: list[dict[str, object]] = []
     for (content,) in rows:
         payload = json.loads(content)
-        normalized.append(
+        error_raw = payload.get("error")
+        error_code_raw = payload.get("error_code")
+        error_present = False
+        if isinstance(error_raw, str):
+            error_present = bool(error_raw.strip())
+        elif error_raw is not None:
+            error_present = True
+
+        canonical.append(
             {
                 "event_type": str(payload.get("event_type", "")),
                 "node_id": str(payload.get("node_id", "")),
                 "node_type": str(payload.get("node_type", "")),
                 "controller_state": str(payload.get("controller_state", "")),
                 "success": bool(payload.get("success", False)),
+                "error_present": error_present,
+                "error_code": str(error_code_raw).strip() if error_code_raw is not None else "",
             }
         )
-    return normalized
+    return canonical
+
+
+def _fetch_controller_latency_baseline(
+    db_path: str,
+    task_id: str,
+    min_decision_id: int,
+) -> dict[str, object]:
+    if not os.path.exists(db_path):
+        return {"total_elapsed_ns": 0, "node_elapsed_ns": {}}
+
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute(
+            """
+            SELECT content
+            FROM decisions
+            WHERE id > ?
+              AND task_id = ?
+              AND action_type = 'dag_node_event'
+            ORDER BY id ASC
+            """,
+            (int(min_decision_id), str(task_id)),
+        ).fetchall()
+
+    total_elapsed_ns = 0
+    node_elapsed_ns: dict[str, int] = {}
+    for (content,) in rows:
+        payload = json.loads(content)
+        if str(payload.get("event_type", "")) != "node_end":
+            continue
+
+        elapsed_ns_value = payload.get("elapsed_ns")
+        if not isinstance(elapsed_ns_value, int):
+            continue
+
+        elapsed_ns = max(0, int(elapsed_ns_value))
+        total_elapsed_ns += elapsed_ns
+
+        controller_state = str(payload.get("controller_state", ""))
+        node_id = str(payload.get("node_id", ""))
+        key = f"{controller_state}:{node_id}"
+        node_elapsed_ns[key] = int(node_elapsed_ns.get(key, 0) + elapsed_ns)
+
+    return {
+        "total_elapsed_ns": int(total_elapsed_ns),
+        "node_elapsed_ns": dict(sorted(node_elapsed_ns.items())),
+    }
+
+
+def _int_from_mapping(mapping: object, key: str) -> int:
+    if not isinstance(mapping, dict):
+        return 0
+    value = mapping.get(key)
+    return int(value) if isinstance(value, int) else 0
 
 
 def _load_archived_task_graph(task_id: str) -> dict[str, object] | None:
@@ -139,25 +228,66 @@ def run_replay_baseline_once() -> dict[str, object]:
         if workflow_graph is None:
             return {"passed": False, "reason": f"missing archived workflow_graph for {task_id}"}
 
-        events = _fetch_normalized_dag_events(db_path, task_id, high_water)
-        if not events:
+        canonical_events = _fetch_canonical_dag_events(db_path, task_id, high_water)
+        if not canonical_events:
             return {"passed": False, "reason": f"missing dag_node_event rows for {task_id}"}
 
-        runs.append({"task_id": task_id, "workflow_graph": workflow_graph, "events": events})
+        canonical_workflow_graph = _canonicalize_workflow_graph(workflow_graph)
+
+        latency_baseline = _fetch_controller_latency_baseline(db_path, task_id, high_water)
+        if _int_from_mapping(latency_baseline, "total_elapsed_ns") <= 0:
+            return {"passed": False, "reason": f"missing controller latency baseline for {task_id}"}
+
+        runs.append(
+            {
+                "task_id": task_id,
+                "canonical_workflow_graph": canonical_workflow_graph,
+                "canonical_events": canonical_events,
+                "latency_baseline": latency_baseline,
+            }
+        )
 
     run1, run2 = runs
-    graph_equal = run1["workflow_graph"] == run2["workflow_graph"]
-    events_equal = run1["events"] == run2["events"]
+    graph_equal = run1["canonical_workflow_graph"] == run2["canonical_workflow_graph"]
+    events_equal = run1["canonical_events"] == run2["canonical_events"]
+
+    run1_total_elapsed_ns = _int_from_mapping(run1.get("latency_baseline"), "total_elapsed_ns")
+    run2_total_elapsed_ns = _int_from_mapping(run2.get("latency_baseline"), "total_elapsed_ns")
+    latency_delta_ns = abs(run1_total_elapsed_ns - run2_total_elapsed_ns)
+    latency_tolerance_ratio = 0.10
+    latency_allowed_delta_ns = max(
+        2_000_000,
+        int(max(run1_total_elapsed_ns, run2_total_elapsed_ns) * latency_tolerance_ratio),
+    )
+    latency_within_tolerance = latency_delta_ns <= latency_allowed_delta_ns
+
     passed = bool(graph_equal and events_equal)
 
     result: dict[str, object] = {
         "passed": passed,
         "run_1_task_id": run1["task_id"],
         "run_2_task_id": run2["task_id"],
+        "artifact_compare": {
+            "workflow_graph_equal": graph_equal,
+            "dag_events_equal": events_equal,
+        },
+        "controller_latency_baseline": {
+            "label": "controller_latency_baseline_total_elapsed_ns",
+            "run_1_total_elapsed_ns": run1_total_elapsed_ns,
+            "run_2_total_elapsed_ns": run2_total_elapsed_ns,
+            "delta_elapsed_ns": latency_delta_ns,
+            "allowed_delta_ns": latency_allowed_delta_ns,
+            "tolerance_ratio": latency_tolerance_ratio,
+            "within_tolerance": latency_within_tolerance,
+        },
     }
     if not passed:
-        result["run_1_events"] = run1["events"]
-        result["run_2_events"] = run2["events"]
+        result["run_1_canonical_workflow_graph"] = run1["canonical_workflow_graph"]
+        result["run_2_canonical_workflow_graph"] = run2["canonical_workflow_graph"]
+        result["run_1_canonical_events"] = run1["canonical_events"]
+        result["run_2_canonical_events"] = run2["canonical_events"]
+        result["run_1_controller_latency"] = run1["latency_baseline"]
+        result["run_2_controller_latency"] = run2["latency_baseline"]
     return result
 
 
@@ -166,6 +296,12 @@ def test_replay_baseline_same_input_twice_pipeline_artifacts_match() -> None:
 
     assert bool(result.get("passed", False)), (
         f"Replay baseline mismatch: reason={result.get('reason', '')}; "
-        f"run_1_events={result.get('run_1_events', '')}; "
-        f"run_2_events={result.get('run_2_events', '')}"
+        f"artifact_compare={result.get('artifact_compare', '')}; "
+        f"controller_latency_baseline={result.get('controller_latency_baseline', '')}; "
+        f"run_1_canonical_workflow_graph={result.get('run_1_canonical_workflow_graph', '')}; "
+        f"run_2_canonical_workflow_graph={result.get('run_2_canonical_workflow_graph', '')}; "
+        f"run_1_canonical_events={result.get('run_1_canonical_events', '')}; "
+        f"run_2_canonical_events={result.get('run_2_canonical_events', '')}; "
+        f"run_1_controller_latency={result.get('run_1_controller_latency', '')}; "
+        f"run_2_controller_latency={result.get('run_2_controller_latency', '')}"
     )

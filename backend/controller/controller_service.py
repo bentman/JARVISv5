@@ -1,4 +1,5 @@
 import json
+import time
 from typing import Any
 from uuid import uuid4
 
@@ -40,6 +41,8 @@ class ControllerService:
         event_type: str,
         success: bool,
         error: str | None = None,
+        elapsed_ns: int | None = None,
+        start_offset_ns: int | None = None,
     ) -> None:
         payload: dict[str, Any] = {
             "controller_state": controller_state.value,
@@ -51,6 +54,10 @@ class ControllerService:
         }
         if error:
             payload["error"] = error
+        if elapsed_ns is not None:
+            payload["elapsed_ns"] = int(elapsed_ns)
+        if start_offset_ns is not None:
+            payload["start_offset_ns"] = int(start_offset_ns)
 
         self.memory.log_decision(
             task_id=task_id,
@@ -107,6 +114,7 @@ class ControllerService:
             "task_id": resolved_task_id,
             "memory_manager": self.memory,
         }
+        task_started_ns = time.perf_counter_ns()
 
         router_node = RouterNode()
         context_builder_node = ContextBuilderNode()
@@ -157,6 +165,8 @@ class ControllerService:
             try:
                 node_id = "router"
                 node_type = node_registry[node_id].__class__.__name__
+                node_started_ns = time.perf_counter_ns()
+                node_start_offset_ns = max(0, node_started_ns - task_started_ns)
                 self._log_dag_node_event(
                     task_id=resolved_task_id,
                     node_id=node_id,
@@ -164,10 +174,12 @@ class ControllerService:
                     controller_state=ControllerState.PLAN,
                     event_type="node_start",
                     success=False,
+                    start_offset_ns=node_start_offset_ns,
                 )
                 try:
                     context = node_registry[node_id].execute(context)
                 except Exception as exc:
+                    node_error_elapsed_ns = max(0, time.perf_counter_ns() - node_started_ns)
                     self._log_dag_node_event(
                         task_id=resolved_task_id,
                         node_id=node_id,
@@ -176,8 +188,11 @@ class ControllerService:
                         event_type="node_error",
                         success=False,
                         error=str(exc),
+                        elapsed_ns=node_error_elapsed_ns,
+                        start_offset_ns=node_start_offset_ns,
                     )
                     raise
+                node_elapsed_ns = max(0, time.perf_counter_ns() - node_started_ns)
                 self._log_dag_node_event(
                     task_id=resolved_task_id,
                     node_id=node_id,
@@ -185,6 +200,8 @@ class ControllerService:
                     controller_state=ControllerState.PLAN,
                     event_type="node_end",
                     success=True,
+                    elapsed_ns=node_elapsed_ns,
+                    start_offset_ns=node_start_offset_ns,
                 )
 
                 graph = compile_plan_to_workflow_graph(str(context.get("intent", "")))
@@ -233,6 +250,8 @@ class ControllerService:
                     if node_id == "llm_worker" and bool(context.get("skip_llm", False)):
                         continue
                     node_type = node_registry[node_id].__class__.__name__
+                    node_started_ns = time.perf_counter_ns()
+                    node_start_offset_ns = max(0, node_started_ns - task_started_ns)
                     self._log_dag_node_event(
                         task_id=resolved_task_id,
                         node_id=node_id,
@@ -240,10 +259,12 @@ class ControllerService:
                         controller_state=ControllerState.EXECUTE,
                         event_type="node_start",
                         success=False,
+                        start_offset_ns=node_start_offset_ns,
                     )
                     try:
                         context = node_registry[node_id].execute(context)
                     except Exception as exc:
+                        node_error_elapsed_ns = max(0, time.perf_counter_ns() - node_started_ns)
                         self._log_dag_node_event(
                             task_id=resolved_task_id,
                             node_id=node_id,
@@ -252,8 +273,11 @@ class ControllerService:
                             event_type="node_error",
                             success=False,
                             error=str(exc),
+                            elapsed_ns=node_error_elapsed_ns,
+                            start_offset_ns=node_start_offset_ns,
                         )
                         raise
+                    node_elapsed_ns = max(0, time.perf_counter_ns() - node_started_ns)
                     self._log_dag_node_event(
                         task_id=resolved_task_id,
                         node_id=node_id,
@@ -261,6 +285,8 @@ class ControllerService:
                         controller_state=ControllerState.EXECUTE,
                         event_type="node_end",
                         success=True,
+                        elapsed_ns=node_elapsed_ns,
+                        start_offset_ns=node_start_offset_ns,
                     )
             except Exception as exc:
                 return self._fail(fsm, resolved_task_id, context, f"execute_node_error: {exc}")
@@ -285,6 +311,8 @@ class ControllerService:
                     if node_id not in phase_to_nodes[ControllerState.VALIDATE]:
                         continue
                     node_type = node_registry[node_id].__class__.__name__
+                    node_started_ns = time.perf_counter_ns()
+                    node_start_offset_ns = max(0, node_started_ns - task_started_ns)
                     self._log_dag_node_event(
                         task_id=resolved_task_id,
                         node_id=node_id,
@@ -292,10 +320,12 @@ class ControllerService:
                         controller_state=ControllerState.VALIDATE,
                         event_type="node_start",
                         success=False,
+                        start_offset_ns=node_start_offset_ns,
                     )
                     try:
                         context = node_registry[node_id].execute(context)
                     except Exception as exc:
+                        node_error_elapsed_ns = max(0, time.perf_counter_ns() - node_started_ns)
                         self._log_dag_node_event(
                             task_id=resolved_task_id,
                             node_id=node_id,
@@ -304,8 +334,11 @@ class ControllerService:
                             event_type="node_error",
                             success=False,
                             error=str(exc),
+                            elapsed_ns=node_error_elapsed_ns,
+                            start_offset_ns=node_start_offset_ns,
                         )
                         raise
+                    node_elapsed_ns = max(0, time.perf_counter_ns() - node_started_ns)
                     self._log_dag_node_event(
                         task_id=resolved_task_id,
                         node_id=node_id,
@@ -313,6 +346,8 @@ class ControllerService:
                         controller_state=ControllerState.VALIDATE,
                         event_type="node_end",
                         success=True,
+                        elapsed_ns=node_elapsed_ns,
+                        start_offset_ns=node_start_offset_ns,
                     )
             except Exception as exc:
                 return self._fail(fsm, resolved_task_id, context, f"validator_node_error: {exc}")

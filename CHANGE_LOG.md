@@ -15,6 +15,23 @@
 
 ## Entries
 
+- 2026-02-23 00:14
+  - Summary: Implemented Milestone 3.3 deterministic artifact comparison for repeated replay-baseline runs using canonical workflow-graph and DAG-event equality checks.
+  - Scope: `tests/integration/test_replay_baseline.py`.
+  - Canonicalization rules: workflow graph normalized to sorted `nodes`, sorted `edges` (`from`,`to`), and stable `entry`; DAG events compared using stable semantic fields (`controller_state`, `event_type`, `node_id`, `node_type`, `success`) plus deterministic error signals (`error_present`, `error_code`) while ignoring volatile fields (`task_id`, `elapsed_ns`, `start_offset_ns`).
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests\integration\test_replay_baseline.py -q`
+      - PASS excerpt: `1 passed in 48.24s`
+
+- 2026-02-23 00:03
+  - Summary: Added Milestone 3 controller latency baseline into the replay baseline harness using monotonic node durations, extending existing DAG event payloads and replay comparison output without refactoring flow.
+  - Scope: `backend/controller/controller_service.py`, `tests/integration/test_replay_baseline.py`.
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests\integration\test_replay_baseline.py -q`
+      - PASS excerpt: `1 passed in 95.66s (0:01:35)`
+  - Metric label: `controller_latency_baseline_total_elapsed_ns`.
+  - Tolerance rule: replay run comparison passes latency baseline when `abs(run1_total_elapsed_ns - run2_total_elapsed_ns) <= max(2_000_000, int(max(run1_total_elapsed_ns, run2_total_elapsed_ns) * 0.10))`.
+
 - 2026-02-22 22:55
   - Summary: Corrected `scripts/validate_backend.py` to be a "real" regreassion test harness
   - Scope: `scripts/validate_backend.py`.

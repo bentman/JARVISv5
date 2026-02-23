@@ -23,6 +23,12 @@
 
 ## Inventory
 
+- Capability: Baseline Determinism Harness (Milestone 3) - 2026-02-23 00:20
+  - State: Verified
+  - Location: `tests/integration/test_replay_baseline.py`, `backend/controller/controller_service.py`
+  - Validation: `.\backend\.venv\Scripts\python.exe -m pytest tests\integration\test_replay_baseline.py -q` (PASS excerpts: `1 passed in 95.66s (0:01:35)`; `1 passed in 48.57s`)
+  - Notes: Deliverables: replay baseline harness; controller latency baseline; deterministic artifact comparison for repeated runs.
+
 - Capability: Deterministic DAG executor (ordering + cycle detection) - 2026-02-22 21:35
   - State: Verified
   - Location: `backend/workflow/dag_executor.py`, `tests/unit/test_dag_executor.py`
