@@ -23,6 +23,24 @@
 
 ## Inventory
 
+- Capability: Deterministic DAG executor (ordering + cycle detection) - 2026-02-22 21:35
+  - State: Verified
+  - Location: `backend/workflow/dag_executor.py`, `tests/unit/test_dag_executor.py`
+  - Validation: `./backend/.venv/Scripts/python -m pytest tests/unit/test_dag_executor.py -q`
+  - Notes: Resolves execution order and rejects cyclic workflow graphs.
+
+- Capability: Plan-to-workflow graph compiler - 2026-02-22 21:35
+  - State: Verified
+  - Location: `backend/workflow/plan_compiler.py`, `tests/unit/test_plan_compiler.py`
+  - Validation: `./backend/.venv/Scripts/python -m pytest tests/unit/test_plan_compiler.py -q`
+  - Notes: Compiles current plan artifact into the runtime workflow graph.
+
+- Capability: FSM and DAG orchestration integration with per-node DAG trace events - 2026-02-22 21:35
+  - State: Verified
+  - Location: `backend/controller/controller_service.py`, `backend/controller/fsm.py`, `tests/unit/test_controller_service_integration.py`
+  - Validation: `./backend/.venv/Scripts/python -m pytest tests/unit/test_controller_service_integration.py -q`; `./backend/.venv/Scripts/python scripts/validate_backend.py --scope docker-inference`
+  - Notes: Controller lifecycle transitions execute DAG phases and emit `dag_node_event` records.
+
 - Capability: UI Header status polling and task-context display/clear behavior (UI-4 evidence pass) - 2026-02-20 22:27
   - State: Verified
   - Location: `frontend/src/App.jsx`, runtime surface `http://localhost:3000`

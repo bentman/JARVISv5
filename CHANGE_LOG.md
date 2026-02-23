@@ -15,6 +15,24 @@
 
 ## Entries
 
+- 2026-02-22 21:35
+  - Summary: Documented Milestone 2 deliverables now present in repository: DAG executor with deterministic dependency ordering and cycle detection, plan-to-workflow compiler, and FSM + DAG orchestration with per-node DAG trace events.
+  - Scope: `backend/workflow/dag_executor.py`, `backend/workflow/plan_compiler.py`, `backend/controller/controller_service.py`, `backend/controller/fsm.py`, `tests/unit/test_dag_executor.py`, `tests/unit/test_plan_compiler.py`, `tests/unit/test_controller_service_integration.py`.
+  - Evidence:
+    - `./backend/.venv/Scripts/python -m pytest tests/unit/test_dag_executor.py -q`
+    - `./backend/.venv/Scripts/python -m pytest tests/unit/test_plan_compiler.py -q`
+      ```text
+      1 passed in 0.02s
+      ```
+    - `./backend/.venv/Scripts/python -m pytest tests/unit/test_controller_service_integration.py -q`
+      ```text
+      3 passed in 0.76s
+      ```
+    - `./backend/.venv/Scripts/python scripts/validate_backend.py --scope docker-inference`
+      ```text
+      DOCKER_INFERENCE=PASS
+      ```
+
 - 2026-02-22 07:56
   - Summary: Completed basic UX fixes for user functionality. Increased backend completion cap to reduce mid-sentence truncation, removed `Instruction:` leakage from assistant output, and improved frontend multiline/code readability.
   - Scope: `backend/workflow/nodes/llm_worker_node.py`; frontend message rendering/readability in `frontend/src/App.jsx`.
