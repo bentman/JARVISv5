@@ -15,6 +15,22 @@
 
 ## Entries
 
+- 2026-02-22 22:55
+  - Summary: Corrected `scripts/validate_backend.py` to be a "real" regreassion test harness
+  - Scope: `scripts/validate_backend.py`.
+  - Evidence:
+    - `./backend/.venv/Scripts/python scripts/validate_backend.py`
+      - PASS report: `reports\backend_validation_report_20260222_224533.txt`
+
+- 2026-02-22 22:36
+  - Summary: Unblocked integration harness by removing invalid replay-baseline import dependency from the integration test, resolving `ModuleNotFoundError: No module named 'scripts.integration'`.
+  - Scope: `tests/integration/test_replay_baseline.py`.
+  - Evidence:
+    - `./backend/.venv/Scripts/python scripts/validate_backend.py --scope integration`
+      - PASS report: `reports/backend_validation_report_20260222_223240.txt`
+    - `./backend/.venv/Scripts/python scripts/validate_backend.py --scope docker-inference`
+      - PASS report (unchanged behavior): `reports/backend_validation_report_20260222_223310.txt`
+
 - 2026-02-22 21:35
   - Summary: Documented Milestone 2 deliverables now present in repository: DAG executor with deterministic dependency ordering and cycle detection, plan-to-workflow compiler, and FSM + DAG orchestration with per-node DAG trace events.
   - Scope: `backend/workflow/dag_executor.py`, `backend/workflow/plan_compiler.py`, `backend/controller/controller_service.py`, `backend/controller/fsm.py`, `tests/unit/test_dag_executor.py`, `tests/unit/test_plan_compiler.py`, `tests/unit/test_controller_service_integration.py`.

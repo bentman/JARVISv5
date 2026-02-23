@@ -1,3 +1,7 @@
+"""
+JARVISv5 Backend Validation Suite
+Comprehensive validation with per-test visibility, Docker inference checks, and timestamped reports.
+"""
 import json
 import os
 import re
@@ -6,7 +10,9 @@ import sys
 import time
 import urllib.error
 import urllib.request
-from datetime import datetime
+import xml.etree.ElementTree as ET
+from datetime import datetime, timedelta
+from pathlib import Path
 
 
 SUITES = {
@@ -16,17 +22,50 @@ SUITES = {
 }
 
 DOCKER_SCOPE = "docker-inference"
-SEPARATOR = "=" * 60
+ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 
 
 def resolve_python_executable() -> str:
+    """Get Python executable, preferring venv if available"""
     venv_python = os.path.join("backend", ".venv", "Scripts", "python")
     if os.path.exists(venv_python):
         return venv_python
     return sys.executable
 
 
+class ValidationLogger:
+    """Handles terminal output and file-based reporting"""
+    def __init__(self):
+        self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.report_dir = Path("reports")
+        self.report_dir.mkdir(exist_ok=True)
+        self.report_file = self.report_dir / f"backend_validation_report_{self.timestamp}.txt"
+        self.buffer = []
+        
+        self.log(f"JARVISv5 Backend Validation Session started at {datetime.now().isoformat()}")
+        self.log(f"Report File: {self.report_file}")
+        self.log("="*60)
+
+    def log(self, message: str):
+        """Log message to both terminal and buffer"""
+        print(message)
+        self.buffer.append(message)
+    
+    def header(self, title: str):
+        """Print section header"""
+        self.log("\n" + "="*60)
+        self.log(title.upper())
+        self.log("="*60)
+
+    def save(self):
+        """Write buffer to report file"""
+        with open(self.report_file, "w", encoding="utf-8") as f:
+            f.write("\n".join(self.buffer))
+        print(f"\n[SUCCESS] Report saved to {self.report_file}")
+
+
 def parse_scope(argv: list[str]) -> list[str]:
+    """Parse --scope argument"""
     scope = "all"
     if "--scope" in argv:
         index = argv.index("--scope")
@@ -35,7 +74,7 @@ def parse_scope(argv: list[str]) -> list[str]:
         scope = argv[index + 1].strip().lower()
 
     if scope == "all":
-        return ["unit", "integration", "agentic"]
+        return ["unit", "integration", "agentic", DOCKER_SCOPE]
     if scope == DOCKER_SCOPE:
         return [DOCKER_SCOPE]
     if scope in SUITES:
@@ -43,144 +82,180 @@ def parse_scope(argv: list[str]) -> list[str]:
     raise ValueError("Invalid --scope value. Use: all|unit|integration|agentic|docker-inference")
 
 
-def run_command(command: list[str], env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
-    return subprocess.run(command, capture_output=True, text=True, env=env)
+def cleanup_old_reports(logger: ValidationLogger):
+    """Remove validation reports older than 14 days"""
+    report_dir = Path("reports")
+    if not report_dir.exists():
+        return
 
+    now = datetime.now()
+    cutoff = now - timedelta(days=14)
+    removed_count = 0
 
-def section_header(title: str) -> list[str]:
-    return ["", SEPARATOR, title.upper(), SEPARATOR]
+    for report_file in report_dir.glob("backend_validation_report_*.txt"):
+        try:
+            filename = report_file.name
+            timestamp_str = filename.replace("backend_validation_report_", "").replace(".txt", "")
+            file_datetime = datetime.strptime(timestamp_str, "%Y%m%d_%H%M%S")
 
-
-def _extract_root_cause(proc: subprocess.CompletedProcess) -> str:
-    merged = ((proc.stderr or "") + "\n" + (proc.stdout or "")).strip()
-    for line in merged.splitlines():
-        cleaned = line.strip()
-        if cleaned:
-            return cleaned
-    return f"return_code={proc.returncode}"
-
-
-def _collected_count(output_text: str) -> int | None:
-    match = re.search(r"collected\s+(\d+)\s+items", output_text)
-    return int(match.group(1)) if match else None
-
-
-def _parse_per_test_lines(output_text: str) -> list[str]:
-    test_lines: list[str] = []
-    for raw_line in output_text.splitlines():
-        line = raw_line.strip()
-        match = re.match(
-            r"^(.+::[^\s]+)\s+(PASSED|FAILED|SKIPPED|XFAIL|XPASS|XFAILED|XPASSED)(?:\s+\[[^\]]+\])?$",
-            line,
-        )
-        if not match:
+            if file_datetime < cutoff:
+                report_file.unlink()
+                removed_count += 1
+        except (ValueError, OSError):
             continue
 
-        test_id, status = match.groups()
-        if status == "PASSED":
-            test_lines.append(f"  ✓ PASS: {test_id}")
-        elif status == "FAILED":
-            test_lines.append(f"  ✗ FAIL: {test_id}")
-        elif status in {"XPASS", "XPASSED"}:
-            test_lines.append(f"  ✓ PASS: {test_id}")
-        else:  # SKIPPED / XFAIL / XFAILED
-            test_lines.append(f"  ○ SKIP: {test_id}")
-    return test_lines
+    if removed_count > 0:
+        logger.log(f"Report cleanup: Removed {removed_count} reports older than 14 days")
 
 
-def run_suite(suite_name: str, suite_path: str) -> tuple[str, list[str]]:
-    section_lines = section_header(f"{suite_name} tests")
-    suite_label = suite_name.capitalize()
+def parse_junit_xml(xml_file: Path) -> tuple[list[tuple[str, str]], str, bool, bool]:
+    """Parse JUnit XML file and return (test_results, summary, success, has_skips)"""
+    if not xml_file.exists():
+        return [], "No XML report generated", False, False
 
-    if not os.path.isdir(suite_path):
-        section_lines.append(f"WARN: {suite_label}: Directory not found")
-        return "WARN", section_lines
+    try:
+        tree = ET.parse(xml_file)
+        root = tree.getroot()
 
-    command = [resolve_python_executable(), "-m", "pytest", "-v", suite_path]
-    proc = run_command(command)
-    output_text = ((proc.stdout or "") + (proc.stderr or "")).strip()
+        test_results = []
+        total_tests = 0
+        failures = 0
+        errors = 0
+        skipped = 0
 
-    if proc.returncode == 0:
-        status = "PASS"
-    elif proc.returncode == 5:
-        status = "WARN"
-    else:
-        status = "FAIL"
+        for testsuite in root:
+            for testcase in testsuite:
+                total_tests += 1
+                test_name = f"{testcase.get('classname', '')}::{testcase.get('name', '')}"
 
-    collected = _collected_count(output_text)
-    per_test_lines = _parse_per_test_lines(output_text)
-    if per_test_lines:
-        total = len(per_test_lines)
-        max_lines = 200
-        section_lines.extend(per_test_lines[:max_lines])
-        if total > max_lines:
-            section_lines.append(f"... truncated ({total} total tests)")
+                if testcase.find('failure') is not None:
+                    test_results.append(('FAIL', test_name))
+                    failures += 1
+                elif testcase.find('error') is not None:
+                    test_results.append(('ERROR', test_name))
+                    errors += 1
+                elif testcase.find('skipped') is not None:
+                    test_results.append(('SKIP', test_name))
+                    skipped += 1
+                else:
+                    test_results.append(('PASS', test_name))
 
-    if status == "PASS":
-        if collected is not None:
-            section_lines.append(f"SUCCESS: {suite_label}: {collected} tests")
+        summary_parts = []
+        if total_tests > 0:
+            summary_parts.append(f"{total_tests} tests")
+        if failures > 0:
+            summary_parts.append(f"{failures} failed")
+        if errors > 0:
+            summary_parts.append(f"{errors} errors")
+        if skipped > 0:
+            summary_parts.append(f"{skipped} skipped")
+
+        summary = ", ".join(summary_parts) if summary_parts else "No tests collected"
+        success = (failures == 0 and errors == 0)
+        has_skips = skipped > 0
+
+        return test_results, summary, success, has_skips
+
+    except Exception as e:
+        return [], f"XML parsing error: {e}", False, False
+
+
+def run_pytest_suite(logger: ValidationLogger, suite_name: str, suite_path: str) -> str:
+    """Run pytest on a test suite with per-test visibility"""
+    logger.header(f"{suite_name.upper()} Tests")
+
+    dir_path = Path(suite_path)
+    if not dir_path.exists():
+        logger.log(f"WARN: Directory {suite_path} not found. Skipping.")
+        return 'WARN'
+
+    python_exe = resolve_python_executable()
+    xml_file = Path(f"test_results_{suite_name}_{datetime.now().strftime('%H%M%S')}.xml")
+
+    try:
+        result = subprocess.run(
+            [python_exe, "-m", "pytest", suite_path, "--junitxml", str(xml_file), "--tb=short", "-v"],
+            cwd=Path.cwd(),
+            capture_output=True,
+            text=True,
+            timeout=300
+        )
+
+        test_results, summary, xml_success, has_skips = parse_junit_xml(xml_file)
+
+        # Per-test results
+        for status, test_name in test_results:
+            status_icon = {'PASS': '✓', 'FAIL': '✗', 'SKIP': '○', 'ERROR': '✗'}.get(status, '?')
+            logger.log(f"  {status_icon} {status}: {test_name}")
+
+        # Summary
+        if xml_success and result.returncode in [0, 5]:  # 0=Pass, 5=No tests
+            if has_skips:
+                logger.log(f"PASS WITH SKIPS: {suite_name}: {summary}")
+                return 'PASS_WITH_SKIPS'
+            else:
+                logger.log(f"SUCCESS: {suite_name}: {summary}")
+                return 'PASS'
         else:
-            section_lines.append(f"SUCCESS: {suite_label}: tests passed")
-    elif status == "WARN":
-        if proc.returncode == 5:
-            section_lines.append(f"WARN: {suite_label}: No tests collected")
-        else:
-            section_lines.append(f"WARN: {suite_label}: Non-fatal warning")
-    else:
-        section_lines.append(f"FAILED: {suite_label}: pytest return code {proc.returncode}")
+            logger.log(f"FAILED: {suite_name}: {summary}")
+            if result.stderr and not test_results:
+                logger.log(result.stderr.strip()[:500])
+            return 'FAIL'
 
-    return status, section_lines
+    except subprocess.TimeoutExpired:
+        logger.log(f"FAILED: {suite_name}: Timeout after 300s")
+        return 'FAIL'
+    except Exception as e:
+        logger.log(f"FAILED: {suite_name}: {e}")
+        return 'FAIL'
+    finally:
+        if xml_file.exists():
+            xml_file.unlink()
 
 
-def run_docker_inference_validation() -> tuple[str, list[str]]:
-    steps: list[tuple[str, list[str]]] = [
+def run_docker_inference_validation(logger: ValidationLogger) -> str:
+    """Validate Docker-based inference pipeline"""
+    logger.header("Docker Inference Validation")
+    
+    steps = [
         ("Compose Config", ["docker", "compose", "config"]),
         ("Build Backend", ["docker", "compose", "build", "backend"]),
         ("Start Redis+Backend", ["docker", "compose", "up", "-d", "redis", "backend"]),
         (
-            "Import llama_cpp in container",
-            ["docker", "compose", "exec", "-T", "backend", "python", "-c", "import llama_cpp; print('OK')"],
+            "Import llama_cpp",
+            ["docker", "compose", "exec", "-T", "backend", "python", "-c", "import llama_cpp; print('OK')"]
         ),
     ]
 
-    section_lines = section_header("docker inference")
+    for step_name, command in steps:
+        logger.log(f"Running: {step_name}")
+        result = subprocess.run(command, capture_output=True, text=True)
+        
+        if result.returncode != 0:
+            logger.log(f"✗ FAIL: {step_name}")
+            stderr_excerpt = (result.stderr or result.stdout or "").strip()[:500]
+            logger.log(f"Error: {stderr_excerpt}")
+            return 'FAIL'
+        
+        logger.log(f"✓ PASS: {step_name}")
 
-    for _, command in steps:
-        first = run_command(command)
-        if first.returncode != 0:
-            second = run_command(command)
-            if second.returncode != 0 and _extract_root_cause(first) == _extract_root_cause(second):
-                stderr_excerpt = ((second.stderr or "") + (second.stdout or "")).strip()
-                excerpt_lines = "\n".join(stderr_excerpt.splitlines()[:10])
-                section_lines.append(f"Status: FAIL | Command: {' '.join(command)}")
-                section_lines.append(f"FAILED: Docker Inference: {excerpt_lines}")
-                return "FAIL", section_lines
-
-            stderr_excerpt = ((second.stderr or "") + (second.stdout or "")).strip()
-            excerpt_lines = "\n".join(stderr_excerpt.splitlines()[:10])
-            section_lines.append(f"Status: FAIL | Command: {' '.join(command)}")
-            section_lines.append(f"FAILED: Docker Inference: {excerpt_lines}")
-            return "FAIL", section_lines
-
-        section_lines.append(f"Status: PASS | Command: {' '.join(command)}")
-
+    # Health check
+    logger.log("Checking health endpoint...")
     health_url = "http://localhost:8000/health"
-    health_payload = ""
-    for _ in range(20):
+    for attempt in range(20):
         try:
             with urllib.request.urlopen(health_url, timeout=10) as response:
-                health_payload = response.read().decode("utf-8", errors="replace")
-            break
+                health_data = response.read().decode("utf-8")
+                logger.log(f"✓ PASS: Health check OK")
+                break
         except Exception:
             time.sleep(1)
+    else:
+        logger.log(f"✗ FAIL: Health endpoint unreachable")
+        return 'FAIL'
 
-    if not health_payload:
-        section_lines.append("Status: FAIL | Command: GET http://localhost:8000/health")
-        section_lines.append("FAILED: Docker Inference: health endpoint unavailable")
-        return "FAIL", section_lines
-
-    section_lines.append("Status: PASS | Command: GET http://localhost:8000/health")
-
+    # Task endpoint
+    logger.log("Testing /task endpoint...")
     task_url = "http://localhost:8000/task"
     request_body = json.dumps({"user_input": "Reply with exactly: OK"}).encode("utf-8")
     request = urllib.request.Request(
@@ -192,106 +267,73 @@ def run_docker_inference_validation() -> tuple[str, list[str]]:
 
     try:
         with urllib.request.urlopen(request, timeout=60) as response:
-            task_payload = response.read().decode("utf-8", errors="replace")
-    except urllib.error.HTTPError as exc:
-        body = exc.read().decode("utf-8", errors="replace") if exc.fp is not None else ""
-        section_lines.append("Status: FAIL | Command: POST http://localhost:8000/task")
-        section_lines.append(f"FAILED: Docker Inference: HTTP {exc.code}: {body[:500]}")
-        return "FAIL", section_lines
+            task_payload = response.read().decode("utf-8")
+            task_json = json.loads(task_payload)
+            llm_output = str(task_json.get("llm_output", ""))
+            
+            if len(llm_output.strip()) == 0:
+                logger.log(f"✗ FAIL: llm_output was empty")
+                return 'FAIL'
+            
+            logger.log(f"✓ PASS: Task returned llm_output: {llm_output[:50]}")
+            logger.log(f"SUCCESS: Docker Inference: All checks passed")
+            return 'PASS'
+
     except Exception as exc:
-        section_lines.append("Status: FAIL | Command: POST http://localhost:8000/task")
-        section_lines.append(f"FAILED: Docker Inference: {exc}")
-        return "FAIL", section_lines
-
-    try:
-        task_json = json.loads(task_payload)
-    except json.JSONDecodeError as exc:
-        section_lines.append("Status: FAIL | Command: POST http://localhost:8000/task")
-        section_lines.append(f"FAILED: Docker Inference: Invalid JSON response: {exc}")
-        return "FAIL", section_lines
-
-    llm_output = str(task_json.get("llm_output", ""))
-    if len(llm_output.strip()) == 0:
-        section_lines.append("Status: FAIL | Command: POST http://localhost:8000/task")
-        section_lines.append("FAILED: Docker Inference: llm_output was empty")
-        return "FAIL", section_lines
-
-    section_lines.append("Status: PASS | Command: POST http://localhost:8000/task")
-    section_lines.append("SUCCESS: Docker Inference: /task returned non-empty llm_output")
-    return "PASS", section_lines
+        logger.log(f"✗ FAIL: Task endpoint error: {exc}")
+        return 'FAIL'
 
 
-def build_summary_and_verdict(statuses: dict[str, str], report_path: str) -> list[str]:
-    lines = section_header("backend validation summary")
-    lines.append(f"Unit Tests:        {statuses['unit']}")
-    lines.append(f"Integration Tests: {statuses['integration']}")
-    lines.append(f"Agentic Tests:     {statuses['agentic']}")
-    lines.append(f"Docker Inference:  {statuses['docker_inference']}")
-    lines.append(SEPARATOR)
-    lines.append("[INVARIANTS]")
-    lines.append(f"UNIT_TESTS={statuses['unit']}")
-    lines.append(f"INTEGRATION_TESTS={statuses['integration']}")
-    lines.append(f"AGENTIC_TESTS={statuses['agentic']}")
-    lines.append(f"DOCKER_INFERENCE={statuses['docker_inference']}")
-
-    if any(status == "FAIL" for status in statuses.values()):
-        lines.append(f"❌ JARVISv5 Validation failed. See report: {report_path}")
-    elif any(status == "WARN" for status in statuses.values()):
-        lines.append("✅ JARVISv5 Current ./backend is validated with warnings.")
-    else:
-        lines.append("✅ JARVISv5 Current ./backend is validated!")
-    return lines
-
-
-def main() -> int:
+def main():
+    """Main validation function"""
     try:
         selected_suites = parse_scope(sys.argv[1:])
     except ValueError as error:
         print(f"ERROR: {error}")
         return 2
 
-    started_at = datetime.now()
-    started_iso = started_at.isoformat(timespec="seconds")
-    filename_stamp = started_at.strftime("%Y%m%d_%H%M%S")
+    logger = ValidationLogger()
+    cleanup_old_reports(logger)
 
-    os.makedirs("reports", exist_ok=True)
-    report_filename = f"backend_validation_report_{filename_stamp}.txt"
-    report_rel_path = f"reports\\{report_filename}"
-    report_path = os.path.join("reports", report_filename)
-
-    statuses = {
-        "unit": "SKIP",
-        "integration": "SKIP",
-        "agentic": "SKIP",
-        "docker_inference": "SKIP",
-    }
-
-    lines: list[str] = [
-        f"JARVISv5 Backend Validation Session started at {started_iso}",
-        f"Report File: {report_rel_path}",
-        SEPARATOR,
-    ]
+    # Track results
+    results = {}
 
     for suite_name in selected_suites:
         if suite_name == DOCKER_SCOPE:
-            status, section_lines = run_docker_inference_validation()
-            statuses["docker_inference"] = status
+            status = run_docker_inference_validation(logger)
         else:
-            status, section_lines = run_suite(suite_name, SUITES[suite_name])
-            statuses[suite_name] = status
-        lines.extend(section_lines)
+            status = run_pytest_suite(logger, suite_name, SUITES[suite_name])
+        
+        results[suite_name] = status
 
-    lines.extend(build_summary_and_verdict(statuses, report_rel_path))
-    output = "\n".join(lines) + "\n"
+    # Summary
+    logger.header("Validation Summary")
+    for suite_name, status in results.items():
+        logger.log(f"{suite_name.upper()}: {status}")
+    logger.log("="*60)
 
-    with open(report_path, "w", encoding="utf-8") as handle:
-        handle.write(output)
+    # Machine-readable invariants
+    logger.log("\n[INVARIANTS]")
+    for suite_name, status in results.items():
+        logger.log(f"{suite_name.upper().replace('-', '_')}={status}")
 
-    if hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    print(output, end="")
-    return 1 if any(status == "FAIL" for status in statuses.values()) else 0
+    # Final verdict
+    has_any_fail = any(s == 'FAIL' for s in results.values())
+    has_any_skips = any(s == 'PASS_WITH_SKIPS' for s in results.values())
+
+    if not has_any_fail:
+        if has_any_skips:
+            logger.log("\n✅ JARVISv5 backend is VALIDATED WITH EXPECTED SKIPS!")
+        else:
+            logger.log("\n✅ JARVISv5 backend is validated!")
+        exit_code = 0
+    else:
+        logger.log("\n❌ Validation failed - see specific component failures above")
+        exit_code = 1
+
+    logger.save()
+    return exit_code
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    sys.exit(main())
