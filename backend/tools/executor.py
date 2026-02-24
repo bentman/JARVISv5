@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any, Callable, Literal
 
 from pydantic import BaseModel, Field
 
+from backend.security.privacy_wrapper import ExternalCallRequest, PrivacyExternalCallWrapper
 from backend.tools.registry import PermissionTier, ToolRegistry
 from backend.tools.sandbox import Sandbox
 
@@ -15,6 +16,12 @@ class ToolExecutionRequest(BaseModel):
     tool_name: str = Field(min_length=1)
     payload: dict[str, Any] = Field(default_factory=dict)
     allow_write_safe: bool = False
+    external_call: bool = False
+    allow_external: bool = False
+    external_provider: str | None = None
+    external_endpoint: str | None = None
+    redaction_mode: Literal["partial", "strict"] = "strict"
+    task_id: str | None = None
 
 
 def execute_tool_call(
@@ -22,6 +29,7 @@ def execute_tool_call(
     registry: ToolRegistry,
     sandbox: Sandbox,
     dispatch_map: dict[str, ToolDispatchHandler],
+    privacy_wrapper: PrivacyExternalCallWrapper | None = None,
 ) -> tuple[bool, dict[str, Any]]:
     tool = registry.get(request.tool_name)
     if tool is None:
@@ -35,6 +43,34 @@ def execute_tool_call(
     validated_ok, validated_payload_or_error = registry.validate_input(request.tool_name, request.payload)
     if not validated_ok:
         return False, validated_payload_or_error
+
+    if privacy_wrapper is not None and not request.external_call:
+        privacy_wrapper.scan_tool_input(
+            tool_name=request.tool_name,
+            payload=validated_payload_or_error,
+            redaction_mode=request.redaction_mode,
+            task_id=request.task_id,
+        )
+
+    if request.external_call:
+        if privacy_wrapper is None:
+            return False, {
+                "code": "configuration_error",
+                "tool_name": request.tool_name,
+                "message": "privacy_wrapper is required for external_call",
+            }
+        privacy_ok, privacy_result = privacy_wrapper.evaluate_and_prepare_external_call(
+            ExternalCallRequest(
+                provider=request.external_provider or request.tool_name,
+                endpoint=request.external_endpoint or request.tool_name,
+                payload=validated_payload_or_error,
+                task_id=request.task_id,
+                allow_external=request.allow_external,
+                redaction_mode=request.redaction_mode,
+            )
+        )
+        if not privacy_ok:
+            return False, privacy_result
 
     if tool.permission_tier == PermissionTier.WRITE_SAFE and not request.allow_write_safe:
         return False, {
@@ -75,5 +111,21 @@ def execute_tool_call(
             "tool_name": request.tool_name,
             "message": "Tool execution returned invalid result shape",
         }
+
+    if privacy_wrapper is not None:
+        output_scan = privacy_wrapper.scan_tool_output(
+            tool_name=request.tool_name,
+            result=result,
+            redaction_mode=request.redaction_mode,
+            task_id=request.task_id,
+        )
+        result = dict(result)
+        result["privacy"] = {
+            "pii_detected": output_scan["pii_detected"],
+            "pii_redacted": output_scan["pii_redacted"],
+            "summary": output_scan["summary"],
+            "mode": output_scan["mode"],
+        }
+        result["redacted_result_text"] = output_scan["result_text"]
 
     return bool(ok), result

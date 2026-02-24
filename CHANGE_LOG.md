@@ -15,6 +15,82 @@
 
 ## Entries
 
+- 2026-02-24 14:31
+  - Summary: Completed Milestone 5 tool I/O privacy wrapping (excluding Task 5.4) by wiring deterministic input/output PII scanning into executor flow, preserving tool behavior while attaching safe redacted output representation.
+  - Scope: `backend/security/privacy_wrapper.py`, `backend/tools/executor.py`, `tests/unit/test_tool_executor_privacy.py`, `tests/unit/test_controller_service_integration.py`.
+  - Key behaviors:
+    - No payload mutation to handlers: tool handlers continue receiving original validated payloads.
+    - Additive output contract: tool result dict remains intact and now includes `privacy` metadata plus `redacted_result_text`.
+    - Summary-only deterministic audits: emits `pii_detected` and `pii_redacted` events without raw PII content.
+  - Evidence:
+    - `./backend/.venv/Scripts/python.exe -m pytest tests/unit/test_tool_executor_privacy.py -q`
+      - PASS excerpt: `7 passed in 0.14s`
+    - `./backend/.venv/Scripts/python.exe -m pytest tests/unit/test_controller_service_integration.py -q`
+      - PASS excerpt: `8 passed in 1.86s`
+    - `./backend/.venv/Scripts/python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS excerpt: `UNIT=PASS_WITH_SKIPS`
+
+- 2026-02-24 14:14
+  - Summary: Implemented M5.3.2 configurable ToolCallNode audit logger path so privacy-wrapper logging can be directed per tool call while preserving default behavior.
+  - Scope: `backend/workflow/nodes/tool_call_node.py`, `tests/unit/test_controller_service_integration.py`.
+  - Key behaviors:
+    - Added optional `tool_call.audit_log_path` override for audit logger construction.
+    - Normalized override via `str(...).strip()` and treated empty/whitespace-only values as absent (fallback to default logger factory).
+    - Added hermetic tests that monkeypatch default audit logger creation to temp paths to avoid repo `data/logs` writes.
+  - Evidence:
+    - `./backend/.venv/Scripts/python.exe -m pytest tests/unit/test_controller_service_integration.py -q`
+      - PASS excerpt: `7 passed in 1.62s`
+    - `./backend/.venv/Scripts/python.exe -m pytest tests/unit/test_tool_executor_privacy.py -q`
+      - PASS excerpt: `4 passed in 0.10s`
+    - `./backend/.venv/Scripts/python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS excerpt: `UNIT=PASS_WITH_SKIPS`
+
+- 2026-02-24 14:03
+  - Summary: Wired M5.3.1 privacy wrapper gating into tool execution so external-flagged calls are policy-gated and privacy-audited before dispatch, while non-external calls retain existing behavior.
+  - Scope: `backend/tools/executor.py`, `backend/workflow/nodes/tool_call_node.py`, `tests/unit/test_tool_executor_privacy.py`.
+  - Key behaviors:
+    - Explicit privacy wrapper injection only: executor accepts `privacy_wrapper` and does not create defaults internally.
+    - Fail-closed configuration guard: external calls without `privacy_wrapper` return deterministic `configuration_error`.
+    - External call privacy flow: deny-by-default unless `allow_external=true`; allowed path emits audit events including `external_call_initiated` and `pii_detected` when applicable.
+  - Evidence:
+    - `./backend/.venv/Scripts/python.exe -m pytest tests/unit/test_tool_executor_privacy.py -q`
+      - PASS excerpt: `4 passed in 0.15s`
+    - `./backend/.venv/Scripts/python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS excerpt: `UNIT=PASS_WITH_SKIPS`
+
+- 2026-02-24 13:30
+  - Summary: Implemented M5.3 privacy-aware external-call gating wrapper with deny-by-default policy, deterministic stringify-whole payload redaction, and security audit trail events for `permission_denied`, `pii_detected`, and `external_call_initiated`.
+  - Scope: `backend/security/privacy_wrapper.py`, `tests/unit/test_privacy_wrapper.py`.
+  - Evidence:
+    - `./backend/.venv/Scripts/python.exe -m pytest tests/unit/test_privacy_wrapper.py -q`
+      - PASS excerpt: `6 passed in 0.09s`
+    - `./backend/.venv/Scripts/python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS excerpt: `UNIT=PASS_WITH_SKIPS`
+
+- 2026-02-24 13:15
+  - Summary: Implemented M5.2 Security Audit Logger per roadmap Task 5.2 with JSONL event logging/read-filter support, timezone-aware UTC helper timestamps, and append durability via UTF-8 newline-normalized writes plus flush.
+  - Scope: `backend/security/audit_logger.py`, `tests/unit/test_audit_logger.py`.
+  - Evidence:
+    - `./backend/.venv/Scripts/python.exe -m pytest tests/unit/test_audit_logger.py -q`
+      - PASS excerpt: `5 passed in 0.07s`
+    - `./backend/.venv/Scripts/python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS excerpt: `UNIT=PASS_WITH_SKIPS`
+
+- 2026-02-24 12:52
+  - Summary: Implemented M5.1 PII Redaction Engine using the roadmap-first API shape (`PIIType`, `PIIMatch`, `RedactionResult`, `PIIRedactor`, `create_default_redactor`) with full v4 regex coverage and exact v4 redaction token/mode parity (`partial` vs `strict`).
+  - Scope: `backend/security/redactor.py`, `tests/unit/test_redactor.py`.
+  - Evidence:
+    - `./backend/.venv/Scripts/python.exe -m pytest tests/unit/test_redactor.py -q`
+      - PASS excerpt: `8 passed in 0.03s`
+    - `./backend/.venv/Scripts/python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS excerpt: `UNIT=PASS_WITH_SKIPS`
+
 - 2026-02-23 14:25
   - Summary: Implemented M4.5 ToolCallNode wiring into controller runtime DAG execution, enabling tool execution through existing executor/registry/sandbox plumbing without altering plan compiler behavior.
   - Scope: `backend/workflow/nodes/tool_call_node.py`, `backend/workflow/__init__.py`, `backend/controller/controller_service.py`, `tests/unit/test_controller_service_integration.py`.

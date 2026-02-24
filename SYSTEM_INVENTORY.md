@@ -23,6 +23,12 @@
 
 ## Inventory
 
+- Capability: Milestone 5 Privacy & Security Controls (excluding At-Rest Encryption) - 2026-02-24 14:31
+  - State: Verified
+  - Location: `backend/security/redactor.py`, `tests/unit/test_redactor.py`, `backend/security/audit_logger.py`, `tests/unit/test_audit_logger.py`, `backend/security/privacy_wrapper.py`, `tests/unit/test_privacy_wrapper.py`, `backend/tools/executor.py`, `tests/unit/test_tool_executor_privacy.py`, `backend/workflow/nodes/tool_call_node.py`, `tests/unit/test_controller_service_integration.py`
+  - Validation: `.\backend\.venv\Scripts\python.exe -m pytest tests\unit\test_tool_executor_privacy.py -q` (PASS excerpt: `7 passed in 0.14s`); `.\backend\.venv\Scripts\python.exe -m pytest tests\unit\test_controller_service_integration.py -q` (PASS excerpt: `8 passed in 1.86s`); `.\backend\.venv\Scripts\python.exe scripts\validate_backend.py --scope unit` (PASS excerpts: `UNIT: PASS_WITH_SKIPS`, `UNIT=PASS_WITH_SKIPS`; report `reports\\backend_validation_report_20260224_143129.txt`)
+  - Notes: Includes v4-parity PII detection/redaction, JSONL security audit logging, deny-by-default external-call privacy gating with explicit wrapper injection/configuration error on missing wrapper, configurable `tool_call.audit_log_path` with hermetic tests, and additive tool I/O privacy metadata (`privacy`, `redacted_result_text`); At-rest encryption remains Deferred.
+
 - Capability: Milestone 4 Tool System + Sandboxed Execution - 2026-02-23 14:31
   - State: Verified
   - Location: `backend/tools/registry.py`, `backend/tools/sandbox.py`, `backend/tools/file_tools.py`, `backend/tools/executor.py`, `backend/workflow/nodes/tool_call_node.py`, `backend/workflow/__init__.py`, `backend/controller/controller_service.py`, `tests/unit/test_file_tools.py`, `tests/unit/test_tool_executor.py`, `tests/unit/test_controller_service_integration.py`

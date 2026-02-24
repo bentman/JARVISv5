@@ -3,7 +3,9 @@ import sqlite3
 import tempfile
 from pathlib import Path
 
+import backend.security.audit_logger as audit_logger_module
 from backend.controller.controller_service import ControllerService
+from backend.security.audit_logger import SecurityAuditLogger
 from backend.workflow.dag_executor import DAGExecutor
 from backend.memory.memory_manager import MemoryManager
 from backend.models.hardware_profiler import HardwareService, HardwareType
@@ -229,3 +231,146 @@ def test_controller_service_run_tool_call_write_safe_denied_by_default() -> None
         assert context["tool_ok"] is False
         assert context["tool_result"]["code"] == "permission_denied"
         assert not target.exists()
+
+
+def test_tool_call_node_uses_custom_audit_log_path_and_whitespace_falls_back(monkeypatch) -> None:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+        root = Path(tmp_dir) / "tool-root"
+        root.mkdir(parents=True, exist_ok=True)
+
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=StubModelRegistry(),
+        )
+
+        custom_log_path = Path(tmp_dir) / "custom_security_audit.jsonl"
+        fallback_log_path = Path(tmp_dir) / "fallback_security_audit.jsonl"
+
+        def _patched_default_logger() -> SecurityAuditLogger:
+            return SecurityAuditLogger(fallback_log_path)
+
+        monkeypatch.setattr(audit_logger_module, "create_default_audit_logger", _patched_default_logger)
+
+        custom_result = service.run(
+            user_input="external deny custom",
+            tool_call={
+                "tool_name": "list_directory",
+                "payload": {"path": str(root)},
+                "allow_write_safe": False,
+                "sandbox_roots": [str(root)],
+                "external_call": True,
+                "allow_external": False,
+                "external_provider": "provider-custom",
+                "external_endpoint": "/custom",
+                "audit_log_path": str(custom_log_path),
+            },
+        )
+        assert custom_result["context"]["tool_result"]["code"] == "permission_denied"
+        assert custom_log_path.exists()
+        custom_events = [json.loads(line) for line in custom_log_path.read_text(encoding="utf-8").splitlines()]
+        assert any(event["event_type"] == "permission_denied" for event in custom_events)
+
+        fallback_result = service.run(
+            user_input="external deny fallback",
+            tool_call={
+                "tool_name": "list_directory",
+                "payload": {"path": str(root)},
+                "allow_write_safe": False,
+                "sandbox_roots": [str(root)],
+                "external_call": True,
+                "allow_external": False,
+                "external_provider": "provider-fallback",
+                "external_endpoint": "/fallback",
+                "audit_log_path": "   ",
+            },
+        )
+        assert fallback_result["context"]["tool_result"]["code"] == "permission_denied"
+        assert fallback_log_path.exists()
+        fallback_events = [json.loads(line) for line in fallback_log_path.read_text(encoding="utf-8").splitlines()]
+        assert any(event["event_type"] == "permission_denied" for event in fallback_events)
+
+
+def test_tool_call_node_default_audit_logger_behavior_unchanged_without_override(monkeypatch) -> None:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+        root = Path(tmp_dir) / "tool-root"
+        root.mkdir(parents=True, exist_ok=True)
+
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=StubModelRegistry(),
+        )
+
+        patched_default_path = Path(tmp_dir) / "security_audit.jsonl"
+
+        def _patched_default_logger() -> SecurityAuditLogger:
+            return SecurityAuditLogger(patched_default_path)
+
+        monkeypatch.setattr(audit_logger_module, "create_default_audit_logger", _patched_default_logger)
+
+        result = service.run(
+            user_input="external deny default",
+            tool_call={
+                "tool_name": "list_directory",
+                "payload": {"path": str(root)},
+                "allow_write_safe": False,
+                "sandbox_roots": [str(root)],
+                "external_call": True,
+                "allow_external": False,
+                "external_provider": "provider-default",
+                "external_endpoint": "/default",
+            },
+        )
+
+        assert result["final_state"] in {"ARCHIVE", "FAILED"}
+        assert result["context"]["tool_ok"] is False
+        assert result["context"]["tool_result"]["code"] == "permission_denied"
+        assert patched_default_path.exists()
+        events = [json.loads(line) for line in patched_default_path.read_text(encoding="utf-8").splitlines()]
+        assert any(event["event_type"] == "permission_denied" for event in events)
+
+
+def test_tool_call_node_attaches_redacted_output_and_logs_pii_events_to_override_path() -> None:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+        root = Path(tmp_dir) / "tool-root"
+        root.mkdir(parents=True, exist_ok=True)
+        target = root / "secret.txt"
+        target.write_text("contact me at test@example.com", encoding="utf-8")
+        audit_log_path = Path(tmp_dir) / "tool_audit.jsonl"
+
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=StubModelRegistry(),
+        )
+
+        result = service.run(
+            user_input="read file",
+            tool_call={
+                "tool_name": "read_file",
+                "payload": {"path": str(target), "encoding": "utf-8"},
+                "allow_write_safe": False,
+                "sandbox_roots": [str(root)],
+                "external_call": False,
+                "redaction_mode": "strict",
+                "audit_log_path": str(audit_log_path),
+            },
+        )
+
+        assert result["final_state"] in {"ARCHIVE", "FAILED"}
+        tool_result = result["context"]["tool_result"]
+        assert result["context"]["tool_ok"] is True
+        assert tool_result["code"] == "ok"
+        assert tool_result["content"] == "contact me at test@example.com"
+        assert "privacy" in tool_result
+        assert "redacted_result_text" in tool_result
+        assert tool_result["privacy"]["pii_detected"] is True
+        assert tool_result["privacy"]["pii_redacted"] is True
+        assert "[EMAIL_REDACTED]" in tool_result["redacted_result_text"]
+
+        assert audit_log_path.exists()
+        events = [json.loads(line) for line in audit_log_path.read_text(encoding="utf-8").splitlines()]
+        event_types = {event["event_type"] for event in events}
+        assert "pii_detected" in event_types
+        assert "pii_redacted" in event_types
