@@ -4,6 +4,10 @@ from typing import Any, Callable, Literal
 
 from pydantic import BaseModel, Field
 
+from backend.cache.key_policy import make_cache_key
+from backend.cache.metrics import get_metrics
+from backend.cache.redis_client import RedisCacheClient
+from backend.cache.settings import load_cache_settings
 from backend.security.privacy_wrapper import ExternalCallRequest, PrivacyExternalCallWrapper
 from backend.tools.registry import PermissionTier, ToolRegistry
 from backend.tools.sandbox import Sandbox
@@ -30,6 +34,8 @@ def execute_tool_call(
     sandbox: Sandbox,
     dispatch_map: dict[str, ToolDispatchHandler],
     privacy_wrapper: PrivacyExternalCallWrapper | None = None,
+    cache_client: RedisCacheClient | None = None,
+    enable_caching: bool = True,
 ) -> tuple[bool, dict[str, Any]]:
     tool = registry.get(request.tool_name)
     if tool is None:
@@ -88,6 +94,33 @@ def execute_tool_call(
             "required_permission": PermissionTier.SYSTEM.value,
         }
 
+    cache_metrics = get_metrics()
+    cacheable = (
+        cache_client is not None
+        and enable_caching
+        and load_cache_settings().cache_enabled
+        and tool.permission_tier == PermissionTier.READ_ONLY
+        and privacy_wrapper is None
+    )
+    active_cache_client = cache_client if cacheable else None
+    cache_key: str | None = None
+
+    if active_cache_client is not None:
+        try:
+            cache_key = make_cache_key(
+                "tool",
+                parts={"tool_name": request.tool_name, "payload": request.payload},
+            )
+            cached_result = active_cache_client.get_json(cache_key)
+            if isinstance(cached_result, dict):
+                cache_metrics.record_hit("tool")
+                returned = dict(cached_result)
+                returned["cache_hit"] = True
+                return True, returned
+            cache_metrics.record_miss("tool")
+        except Exception:
+            cache_metrics.record_miss("tool")
+
     handler = dispatch_map.get(request.tool_name)
     if handler is None:
         return False, {
@@ -127,5 +160,16 @@ def execute_tool_call(
             "mode": output_scan["mode"],
         }
         result["redacted_result_text"] = output_scan["result_text"]
+
+    if active_cache_client is not None:
+        result = dict(result)
+        result["cache_hit"] = False
+        if ok and cache_key is not None:
+            try:
+                ttl_seconds = load_cache_settings().tool_cache_ttl_seconds
+                if active_cache_client.set_json(cache_key, dict(result), ttl=ttl_seconds):
+                    cache_metrics.record_set()
+            except Exception:
+                pass
 
     return bool(ok), result

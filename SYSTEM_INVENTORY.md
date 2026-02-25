@@ -23,6 +23,12 @@
 
 ## Inventory
 
+- Capability: Milestone 6 Redis Cache Layer - 2026-02-25 15:22
+  - State: Verified
+  - Location: `backend/cache/redis_client.py`, `tests/unit/test_redis_client.py`, `backend/cache/key_policy.py`, `tests/unit/test_cache_keys.py`, `backend/cache/metrics.py`, `tests/unit/test_cache_metrics.py`, `backend/workflow/nodes/context_builder_node.py`, `tests/unit/test_context_builder_cache.py`, `backend/tools/executor.py`, `tests/unit/test_tool_executor_cache.py`, `backend/cache/settings.py`, `tests/unit/test_cache_settings.py`, `.env.example`, `.env`
+  - Validation: `.\backend\.venv\Scripts\python.exe scripts\validate_backend.py --scope unit` (PASS excerpts: `UNIT: PASS_WITH_SKIPS`, `UNIT=PASS_WITH_SKIPS`; report `reports\\backend_validation_report_20260225_151659.txt`); `.\backend\.venv\Scripts\python.exe -m pytest tests\unit\test_cache_settings.py tests\unit\test_context_builder_cache.py tests\unit\test_tool_executor_cache.py -q` (PASS excerpt: `13 passed in 2.36s`); `.\backend\.venv\Scripts\python.exe -m pytest tests\unit -q -k cache` (PASS excerpt: `24 passed, 130 deselected in 2.64s`)
+  - Notes: Fail-safe optional Redis cache layer with deterministic keys/serialization, in-memory cache metrics, context/task-turn and READ_ONLY tool-result caching with settings-based TTLs and CACHE_ENABLED gating.
+
 - Capability: Milestone 5 Privacy & Security Controls (excluding At-Rest Encryption) - 2026-02-24 14:31
   - State: Verified
   - Location: `backend/security/redactor.py`, `tests/unit/test_redactor.py`, `backend/security/audit_logger.py`, `tests/unit/test_audit_logger.py`, `backend/security/privacy_wrapper.py`, `tests/unit/test_privacy_wrapper.py`, `backend/tools/executor.py`, `tests/unit/test_tool_executor_privacy.py`, `backend/workflow/nodes/tool_call_node.py`, `tests/unit/test_controller_service_integration.py`

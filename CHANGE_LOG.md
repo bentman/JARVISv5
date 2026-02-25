@@ -15,6 +15,100 @@
 
 ## Entries
 
+- 2026-02-25 15:19
+  - Summary: Implemented M6.6 cache settings centralization by introducing an env-backed settings source-of-truth and wiring cache enable/TTL behavior into Redis client factory, ContextBuilderNode, and tool executor while preserving fail-safe operation.
+  - Scope: `backend/cache/settings.py`, `backend/cache/redis_client.py`, `backend/workflow/nodes/context_builder_node.py`, `backend/tools/executor.py`, `.env.example`, `.env`, `tests/unit/test_cache_settings.py`, `tests/unit/test_context_builder_cache.py`, `tests/unit/test_tool_executor_cache.py`.
+  - Key behaviors:
+    - Added centralized cache settings model (`load_cache_settings`) with robust boolean parsing for `CACHE_ENABLED` (`1,true,yes,on` => true; `0,false,no,off` => false; case-insensitive; fallback to default).
+    - Wired `create_default_redis_client()` to use centralized settings for `REDIS_URL`, `CACHE_ENABLED`, and `CACHE_DEFAULT_TTL`.
+    - Wired ContextBuilder cache behavior to centralized `CACHE_ENABLED` gating and `CONTEXT_CACHE_TTL_SECONDS`.
+    - Wired tool executor cache behavior to centralized `CACHE_ENABLED` gating and `TOOL_CACHE_TTL_SECONDS` (replacing hardcoded TTL).
+    - Updated env templates/defaults in `.env.example` and `.env` for cache settings consistency.
+  - Evidence:
+    - `./backend/.venv/Scripts/python.exe -m pytest tests/unit -q -k cache`
+      - PASS excerpt: `24 passed, 130 deselected in 2.64s`
+    - `./backend/.venv/Scripts/python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS excerpt: `UNIT=PASS_WITH_SKIPS`
+      - PASS excerpt: `PASS WITH SKIPS: unit: 154 tests, 1 skipped`
+
+- 2026-02-25 15:01
+  - Summary: Implemented M6.5 READ_ONLY tool executor caching with deterministic keys, fail-safe Redis behavior, and hermetic cache tests while preserving backward-compatible executor defaults.
+  - Scope: `backend/tools/executor.py`, `tests/unit/test_tool_executor_cache.py`.
+  - Key behaviors:
+    - READ_ONLY-only caching gate: caching is active only when `cache_client` is provided, `enable_caching=True`, tool tier is `READ_ONLY`, and `privacy_wrapper is None`.
+    - Deterministic cache keying via `make_cache_key("tool", parts={"tool_name": request.tool_name, "payload": request.payload})`.
+    - Cache TTL for stored tool results is `1800` seconds (task-local constant for M6.5 scope).
+    - Cached-hit return path uses a shallow copy and sets `cache_hit=True` without mutating the cached object.
+    - Fail-safe cache behavior: cache errors degrade to miss/no-cache execution and do not block tool handler execution.
+  - Evidence:
+    - `./backend/.venv/Scripts/python.exe -m pytest tests/unit/test_tool_executor_cache.py -q`
+      - PASS excerpt: `3 passed in 0.15s`
+    - `./backend/.venv/Scripts/python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS excerpt: `UNIT=PASS_WITH_SKIPS`
+
+- 2026-02-25 14:52
+  - Summary: Implemented M6.4 Cached Context Builder by adding optional Redis-backed message caching in ContextBuilderNode with deterministic keying, env-driven TTL, fail-safe behavior, and cache metrics instrumentation.
+  - Scope: `backend/workflow/nodes/context_builder_node.py`, `tests/unit/test_context_builder_cache.py`, `.env.example`.
+  - Key behaviors:
+    - Deterministic context cache keys via `make_cache_key("context", parts={"task_id": str(task_id), "turn": int(turn)})`.
+    - Context TTL is read from environment variable `CONTEXT_CACHE_TTL_SECONDS` with fallback `3600` for missing/invalid/non-positive values.
+    - Fail-safe cache operations: Redis disabled/unavailable/errors do not break context building; node continues with existing working-state/message logic.
+    - Metrics recording for category `context`: cache hit path records hit; attempted miss path records miss.
+    - Cache hit replaces only message retrieval while preserving node output shape (`working_state` and other existing keys still produced).
+  - Evidence:
+    - `./backend/.venv/Scripts/python.exe -m pytest tests/unit/test_context_builder_cache.py -q`
+      - PASS excerpt: `3 passed in 2.38s`
+    - `./backend/.venv/Scripts/python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS excerpt: `UNIT=PASS_WITH_SKIPS`
+
+- 2026-02-25 14:24
+  - Summary: Implemented M6.3 Cache Metrics Collector as an in-memory global metrics module with deterministic category handling and added focused unit coverage.
+  - Scope: `backend/cache/metrics.py`, `tests/unit/test_cache_metrics.py`.
+  - Key behaviors:
+    - Added `CacheMetrics` counters for `hits`, `misses`, `sets`, `deletes`, and `errors`, plus per-category maps for hit/miss tracking.
+    - Category normalization in `record_hit`/`record_miss` maps empty or whitespace-only category values to `general` for deterministic keying.
+    - Stable summary output includes both raw float rates (`hit_rate`) and formatted percent strings (`hit_rate_pct`) at top-level and per-category, with sorted category ordering.
+    - Added in-memory singleton accessor via module-level `_global_metrics` and `get_metrics()`.
+  - Evidence:
+    - `./backend/.venv/Scripts/python.exe -m pytest tests/unit/test_cache_metrics.py -q`
+      - PASS excerpt: `5 passed in 0.06s`
+    - `./backend/.venv/Scripts/python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS excerpt: `UNIT=PASS_WITH_SKIPS`
+
+- 2026-02-25 14:15
+  - Summary: Implemented M6.2 cache key policy and serialization helpers with deterministic ordering, ASCII-safe JSON output, versioned keys, and bounded key-length SHA-256 fallback.
+  - Scope: `backend/cache/key_policy.py`, `tests/unit/test_cache_keys.py`.
+  - Key behaviors:
+    - Stable JSON helpers: `dumps_json`/`loads_json` use deterministic settings (`sort_keys=True`, `ensure_ascii=True`, `separators=(",", ":")`).
+    - Versioned deterministic keys via `make_cache_key(..., version="v1")` with stable part ordering across dict insertion order.
+    - Deterministic long-key fallback: when `max_key_length` is exceeded, key shape becomes `{prefix}:{version}:h:{sha256_hex}`.
+    - Float rules for key normalization: non-finite floats (`NaN`, `Inf`, `-Inf`) fail fast with `ValueError`; finite floats normalized using stable `repr(x)` form.
+  - Evidence:
+    - `./backend/.venv/Scripts/python.exe -m pytest tests/unit/test_cache_keys.py -q`
+      - PASS excerpt: `6 passed in 0.04s`
+    - `./backend/.venv/Scripts/python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS excerpt: `UNIT=PASS_WITH_SKIPS`
+
+- 2026-02-25 11:42
+  - Summary: Implemented M6.1 Redis client wrapper with fail-safe behavior and added hermetic unit tests that do not require a live Redis server.
+  - Scope: `backend/cache/redis_client.py`, `tests/unit/test_redis_client.py`.
+  - Key behaviors:
+    - Optional import guard via `REDIS_AVAILABLE` so cache client initialization remains safe when Redis package is unavailable.
+    - Fail-safe cache operations: unreachable/unavailable Redis does not raise; `get` returns `None`, `set`/`delete` return `False`, and `invalidate_pattern` returns `0`.
+    - Test-safe dependency injection: constructor supports `redis_factory` to inject a fake Redis implementation for hermetic tests.
+    - Stable deterministic health check shape: `{"enabled": bool, "connected": bool, "message": str}` with ASCII-only messages.
+  - Evidence:
+    - `./backend/.venv/Scripts/python.exe -m pytest tests/unit/test_redis_client.py -q`
+      - PASS excerpt: `5 passed in 4.08s`
+    - `./backend/.venv/Scripts/python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS excerpt: `UNIT=PASS_WITH_SKIPS`
+
 - 2026-02-24 14:31
   - Summary: Completed Milestone 5 tool I/O privacy wrapping (excluding Task 5.4) by wiring deterministic input/output PII scanning into executor flow, preserving tool behavior while attaching safe redacted output representation.
   - Scope: `backend/security/privacy_wrapper.py`, `backend/tools/executor.py`, `tests/unit/test_tool_executor_privacy.py`, `tests/unit/test_controller_service_integration.py`.
