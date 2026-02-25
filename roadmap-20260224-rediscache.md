@@ -1,6 +1,26 @@
 # JARVISv5 Redis Caching Integration - Milestone 6
 
+**Status**: PLANNED - Not yet implemented  
 **Objective**: Implement Redis-backed caching for frequent queries and context snippets to improve responsiveness and reduce redundant computation.
+
+---
+
+## Current Repository State
+
+### What Already Exists ✅
+- **Redis Infrastructure**: `docker-compose.yml` defines `redis` service
+- **Redis Dependency**: `backend/requirements.txt` includes `redis` and `hiredis`
+- **Environment Variable**: `REDIS_URL=redis://redis:6379/0` in docker-compose.yml
+- **Target Integration Points**: 
+  - `backend/workflow/nodes/context_builder_node.py` (reconstructs messages each call)
+  - `backend/tools/executor.py` (centralizes tool execution)
+
+### What Does NOT Exist Yet ❌
+- **`backend/cache/` package**: Does not exist yet
+- **Cache configuration in `backend/config/settings.py`**: No cache fields present
+- **Cache API endpoints**: Only `/health`, `/task`, `/task/{task_id}` exist currently
+- **Cache metrics collection**: No metrics infrastructure
+- **File modification tracking**: No invalidation hooks for file-backed tools
 
 ---
 
@@ -11,14 +31,14 @@ User Query
   ↓
 Cache Check (Redis)
   ↓
-[HIT] → Return Cached Result
+[HIT] → Return Cached Result (track metric)
   ↓
-[MISS] → Compute Result → Cache Result → Return
+[MISS] → Compute Result → Cache Result → Return (track metric)
   ↓
-Observability: Log cache hit/miss metrics
+Fail-Safe: If Redis unavailable, skip cache (log warning, continue)
 ```
 
-**Core Principle**: Cache frequently accessed data with configurable TTL and fail-safe fallback.
+**Core Principle**: Cache is an optimization, not a dependency. System must work without Redis.
 
 ---
 
@@ -65,24 +85,28 @@ Observability: Log cache hit/miss metrics
 
 ## Implementation Tasks
 
-### Task 6.1: Redis Client Wrapper
+### Task 6.1: Redis Client Wrapper with Fail-Safe
 
-**File**: `backend/cache/redis_client.py`
+**File**: `backend/cache/redis_client.py` (NEW)
 
-**Purpose**: Centralized Redis connection management with fail-safe fallback.
+**Purpose**: Connection management with automatic fallback when Redis unavailable.
 
 **Implementation**:
 
 ```python
 """
-Redis client wrapper for JARVISv5 caching.
+Redis client wrapper for JARVISv5 caching with fail-safe behavior.
 """
 from __future__ import annotations
 
 import json
 from typing import Any
 
-import redis
+try:
+    import redis
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
 
 
 class RedisCacheClient:
@@ -102,7 +126,7 @@ class RedisCacheClient:
             enabled: Whether caching is enabled
             default_ttl: Default TTL in seconds (1 hour)
         """
-        self.enabled = enabled
+        self.enabled = enabled and REDIS_AVAILABLE
         self.default_ttl = default_ttl
         self.client: redis.Redis | None = None
         self._connection_failed = False
@@ -117,11 +141,11 @@ class RedisCacheClient:
                 )
                 # Test connection
                 self.client.ping()
-            except (redis.ConnectionError, redis.TimeoutError) as exc:
+            except Exception as exc:
                 self._connection_failed = True
                 self.client = None
                 print(f"[WARN] Redis connection failed: {exc}")
-                print("[WARN] Caching disabled, falling back to direct computation")
+                print("[WARN] Caching disabled, using fallback")
     
     def get(self, key: str) -> str | None:
         """
@@ -168,8 +192,7 @@ class RedisCacheClient:
         try:
             self.client.delete(key)
             return True
-        except Exception as exc:
-            print(f"[WARN] Redis DELETE error for key '{key}': {exc}")
+        except Exception:
             return False
     
     def invalidate_pattern(self, pattern: str) -> int:
@@ -186,8 +209,7 @@ class RedisCacheClient:
             if keys:
                 return self.client.delete(*keys)
             return 0
-        except Exception as exc:
-            print(f"[WARN] Redis pattern invalidation error for '{pattern}': {exc}")
+        except Exception:
             return 0
     
     def get_json(self, key: str) -> dict[str, Any] | None:
@@ -198,8 +220,7 @@ class RedisCacheClient:
         
         try:
             return json.loads(value)
-        except json.JSONDecodeError as exc:
-            print(f"[WARN] Invalid JSON in cache key '{key}': {exc}")
+        except json.JSONDecodeError:
             return None
     
     def set_json(
@@ -212,16 +233,11 @@ class RedisCacheClient:
         try:
             json_str = json.dumps(value, separators=(',', ':'))
             return self.set(key, json_str, ttl)
-        except TypeError as exc:
-            print(f"[WARN] Cannot serialize to JSON for key '{key}': {exc}")
+        except TypeError:
             return False
     
     def health_check(self) -> dict[str, Any]:
-        """
-        Check Redis connection health.
-        
-        Returns status dict with connection info.
-        """
+        """Check Redis connection health."""
         if not self.enabled:
             return {
                 "enabled": False,
@@ -254,15 +270,11 @@ class RedisCacheClient:
                 "message": f"Health check failed: {exc}"
             }
         
-        return {
-            "enabled": True,
-            "connected": False,
-            "message": "Unknown state"
-        }
+        return {"enabled": True, "connected": False, "message": "Unknown state"}
 
 
 def create_default_redis_client() -> RedisCacheClient:
-    """Create Redis client with default configuration."""
+    """Create Redis client with environment-based configuration."""
     import os
     redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     cache_enabled = os.getenv("CACHE_ENABLED", "true").lower() == "true"
@@ -275,21 +287,24 @@ def create_default_redis_client() -> RedisCacheClient:
     )
 ```
 
-**Test**: `tests/unit/test_redis_client.py`
+**Test**: `tests/unit/test_redis_client.py` (NEW)
 
 ```python
 """
 Unit tests for Redis cache client
 """
+from pathlib import Path
+
 import pytest
+
 from backend.cache.redis_client import RedisCacheClient
 
 
 @pytest.fixture
 def redis_client():
-    """Create test Redis client"""
+    """Create test Redis client using DB 1 for isolation"""
     client = RedisCacheClient(
-        url="redis://localhost:6379/1",  # Use DB 1 for tests
+        url="redis://localhost:6379/1",
         enabled=True,
         default_ttl=60
     )
@@ -299,7 +314,7 @@ def redis_client():
         client.client.flushdb()
 
 
-def test_set_and_get(redis_client):
+def test_set_and_get(redis_client: RedisCacheClient) -> None:
     """Test basic set and get"""
     success = redis_client.set("test:key", "test_value")
     assert success is True
@@ -308,13 +323,13 @@ def test_set_and_get(redis_client):
     assert value == "test_value"
 
 
-def test_get_miss_returns_none(redis_client):
+def test_get_miss_returns_none(redis_client: RedisCacheClient) -> None:
     """Test cache miss returns None"""
     value = redis_client.get("nonexistent:key")
     assert value is None
 
 
-def test_json_set_and_get(redis_client):
+def test_json_set_and_get(redis_client: RedisCacheClient) -> None:
     """Test JSON serialization"""
     data = {"foo": "bar", "count": 42}
     
@@ -325,20 +340,7 @@ def test_json_set_and_get(redis_client):
     assert retrieved == data
 
 
-def test_invalidate_pattern(redis_client):
-    """Test pattern-based invalidation"""
-    redis_client.set("context:task1:1", "data1")
-    redis_client.set("context:task1:2", "data2")
-    redis_client.set("context:task2:1", "data3")
-    
-    deleted = redis_client.invalidate_pattern("context:task1:*")
-    assert deleted == 2
-    
-    assert redis_client.get("context:task1:1") is None
-    assert redis_client.get("context:task2:1") == "data3"
-
-
-def test_fail_safe_on_connection_error():
+def test_fail_safe_on_connection_error() -> None:
     """Test fail-safe behavior when Redis unavailable"""
     client = RedisCacheClient(url="redis://invalid:9999/0", enabled=True)
     
@@ -350,20 +352,16 @@ def test_fail_safe_on_connection_error():
     assert success is False
 ```
 
-**Validation**:
+**Validation** (per AGENTS contract):
 ```bash
-# Ensure Redis is running
-docker compose up -d redis
-
-# Run tests
-pytest tests/unit/test_redis_client.py -v
+.\backend\.venv\Scripts\python.exe -m pytest tests\unit\test_redis_client.py -v
 ```
 
 ---
 
 ### Task 6.2: Cache Key Generator
 
-**File**: `backend/cache/key_generator.py`
+**File**: `backend/cache/key_generator.py` (NEW)
 
 **Purpose**: Deterministic cache key generation with hashing for complex inputs.
 
@@ -519,9 +517,9 @@ def test_hash_dict_deterministic():
 
 ### Task 6.3: Cache Metrics Collector
 
-**File**: `backend/cache/metrics.py`
+**File**: `backend/cache/metrics.py` (NEW)
 
-**Purpose**: Track cache hit/miss rates for observability.
+**Note**: In-memory singleton is fine for dev/single-worker. For multi-worker production, metrics should aggregate in Redis itself.
 
 **Implementation**:
 
@@ -643,84 +641,134 @@ def get_metrics() -> CacheMetrics:
 **Implementation**:
 
 ```python
-# Add to imports
-from backend.cache.redis_client import create_default_redis_client
+# At top of file
+from backend.cache.redis_client import RedisCacheClient
 from backend.cache.key_generator import generate_context_key
 from backend.cache.metrics import get_metrics
 
+
 class ContextBuilderNode(BaseNode):
-    def __init__(self, cache_client=None):
-        # Initialize cache client
-        self.cache = cache_client or create_default_redis_client()
-        self.metrics = get_metrics()
+    def __init__(self, cache_client: RedisCacheClient | None = None):
+        """
+        Initialize context builder with optional cache.
+        
+        Args:
+            cache_client: Optional Redis cache client. If None, no caching.
+        """
+        self.cache = cache_client
+        self.metrics = get_metrics() if cache_client else None
     
     def execute(self, context: dict[str, Any]) -> dict[str, Any]:
         task_id = context.get("task_id")
         turn = context.get("turn", 0)
         
-        # Try cache first
-        if task_id:
+        # Try cache first if available
+        if self.cache and task_id:
             cache_key = generate_context_key(task_id, turn)
             cached = self.cache.get_json(cache_key)
             
             if cached:
-                self.metrics.record_hit("context")
+                if self.metrics:
+                    self.metrics.record_hit("context")
                 context["messages"] = cached.get("messages", [])
                 context["cache_hit"] = True
                 return context
             
-            self.metrics.record_miss("context")
+            if self.metrics:
+                self.metrics.record_miss("context")
         
         # Cache miss - compute context
         # ... existing context building logic ...
         
         messages = context.get("messages", [])
         
-        # Cache result
-        if task_id and messages:
+        # Cache result if cache available
+        if self.cache and task_id and messages:
             cache_key = generate_context_key(task_id, turn)
-            self.cache.set_json(
-                cache_key,
-                {"messages": messages},
-                ttl=3600  # 1 hour
-            )
-            self.metrics.record_set()
+            self.cache.set_json(cache_key, {"messages": messages}, ttl=3600)
+            if self.metrics:
+                self.metrics.record_set()
         
         context["cache_hit"] = False
         return context
 ```
 
----
-
-### Task 6.5: Cached Tool Results
-
-**File**: `backend/tools/executor.py` (modifications)
-
-**Purpose**: Cache deterministic tool results (e.g., read_file).
-
-**Implementation**:
+**Test Update**: `tests/unit/test_nodes.py` (ADD cache test)
 
 ```python
-# Add to execute_tool_call function
+def test_context_builder_with_cache(tmp_path: Path) -> None:
+    """Test context builder uses cache when available"""
+    from backend.cache.redis_client import RedisCacheClient
+    
+    cache = RedisCacheClient(url="redis://localhost:6379/1", enabled=True)
+    node = ContextBuilderNode(cache_client=cache)
+    
+    context = {
+        "task_id": "test-task",
+        "turn": 1,
+        "messages": []
+    }
+    
+    # First call - cache miss
+    result1 = node.execute(context)
+    assert result1.get("cache_hit") is False
+    
+    # Second call - cache hit
+    result2 = node.execute(context)
+    assert result2.get("cache_hit") is True
+    
+    # Cleanup
+    if cache.client:
+        cache.client.flushdb()
+```
 
+---
+
+### Task 6.5: Tool Executor Integration
+
+**File**: `backend/tools/executor.py` (MODIFY)
+
+**Critical**: Preserve backward compatibility. Cache must be optional parameter.
+
+**Stale Read Mitigation**: For file tools, include file mtime in cache key OR use shorter TTL.
+
+**Implementation**:
+```python
 def execute_tool_call(
     request: ToolExecutionRequest,
     registry: ToolRegistry,
     sandbox: Sandbox,
     dispatch_map: dict[str, ToolDispatchHandler],
-    cache_client: RedisCacheClient | None = None,
-    enable_caching: bool = True
+    cache_client: RedisCacheClient | None = None,  # NEW optional parameter
+    enable_caching: bool = True  # NEW optional parameter
 ) -> tuple[bool, dict[str, Any]]:
-    """Execute tool with optional caching."""
+    """
+    Execute tool with optional caching.
+    
+    Args:
+        request: Tool execution request
+        registry: Tool registry
+        sandbox: Sandbox instance
+        dispatch_map: Tool dispatch map
+        cache_client: Optional Redis cache client (default: None, no caching)
+        enable_caching: Whether to use cache if available (default: True)
+    
+    Returns:
+        (success, result_dict)
+    """
     
     tool = registry.get(request.tool_name)
     if not tool:
-        return False, {"code": "tool_not_found", "tool_name": request.tool_name}
+        return False, {
+            "code": "tool_not_found",
+            "tool_name": request.tool_name,
+            "message": f"Tool not found: {request.tool_name}",
+        }
     
     # Only cache READ_ONLY tools
     cacheable = (
         enable_caching and
-        cache_client and
+        cache_client is not None and
         tool.permission_tier == PermissionTier.READ_ONLY
     )
     
@@ -739,43 +787,144 @@ def execute_tool_call(
         
         get_metrics().record_miss("tool")
     
-    # Execute tool (existing logic)
-    # ... validation and execution ...
+    # Validate and execute (EXISTING LOGIC - unchanged)
+    validated_ok, validated_payload_or_error = registry.validate_input(
+        request.tool_name, request.payload
+    )
+    if not validated_ok:
+        return False, validated_payload_or_error
     
-    ok, result = handler(sandbox, validated_payload_or_error)
+    # Permission checks (EXISTING LOGIC - unchanged)
+    # ... existing permission checks ...
+    
+    handler = dispatch_map.get(request.tool_name)
+    if handler is None:
+        return False, {
+            "code": "tool_not_implemented",
+            "tool_name": request.tool_name,
+            "message": f"Tool handler not implemented: {request.tool_name}",
+        }
+    
+    try:
+        ok, result = handler(sandbox, validated_payload_or_error)
+    except Exception as exc:
+        return False, {
+            "code": "execution_error",
+            "tool_name": request.tool_name,
+            "message": f"Tool execution failed: {exc}",
+        }
     
     # Cache successful READ_ONLY results
     if cacheable and ok:
-        cache_client.set_json(
-            cache_key,
-            result,
-            ttl=1800  # 30 minutes
-        )
+        # NOTE: For file tools, shorter TTL mitigates stale reads
+        ttl = 1800  # 30 minutes
+        cache_client.set_json(cache_key, result, ttl=ttl)
         get_metrics().record_set()
     
     result["cache_hit"] = False
     return ok, result
 ```
 
+**Test Update**: Add cache tests to `tests/unit/test_tool_executor.py`
+
+```python
+def test_tool_executor_caching_read_only(tmp_path: Path) -> None:
+    """Test tool executor caches READ_ONLY tool results"""
+    from backend.cache.redis_client import RedisCacheClient
+    
+    # Setup
+    root = tmp_path / "root"
+    root.mkdir()
+    test_file = root / "test.txt"
+    test_file.write_text("Hello")
+    
+    registry, sandbox = _build_registry_and_sandbox(root)
+    cache = RedisCacheClient(url="redis://localhost:6379/1", enabled=True)
+    
+    # First call - cache miss
+    ok1, result1 = execute_tool_call(
+        ToolExecutionRequest(tool_name="read_file", payload={"path": str(test_file)}),
+        registry,
+        sandbox,
+        build_file_tool_dispatch_map(),
+        cache_client=cache
+    )
+    
+    assert ok1 is True
+    assert result1.get("cache_hit") is False
+    
+    # Second call - cache hit
+    ok2, result2 = execute_tool_call(
+        ToolExecutionRequest(tool_name="read_file", payload={"path": str(test_file)}),
+        registry,
+        sandbox,
+        build_file_tool_dispatch_map(),
+        cache_client=cache
+    )
+    
+    assert ok2 is True
+    assert result2.get("cache_hit") is True
+    
+    # Cleanup
+    if cache.client:
+        cache.client.flushdb()
+```
+
 ---
 
-### Task 6.6: Health Check Endpoint
+### Task 6.6: Configuration
 
-**File**: `backend/api/main.py` (additions)
+**File**: `backend/config/settings.py` (MODIFY)
 
-**Purpose**: Add cache health and metrics to API.
+```python
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-**Implementation**:
+
+class Settings(BaseSettings):
+    # ... EXISTING fields (unchanged) ...
+    
+    # Cache Configuration (NEW)
+    CACHE_ENABLED: bool = True
+    REDIS_URL: str = "redis://redis:6379/0"
+    CACHE_DEFAULT_TTL: int = 3600
+    CACHE_TTL_CONTEXT: int = 3600
+    CACHE_TTL_TOOL: int = 1800
+    
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+```
+
+**File**: `.env` (if exists) & `.env.example` (MODIFY - add cache section)
+
+```bash
+# Existing sections...
+
+# Redis Cache Configuration
+CACHE_ENABLED=true
+REDIS_URL=redis://redis:6379/0
+CACHE_DEFAULT_TTL=3600
+CACHE_TTL_CONTEXT=3600
+CACHE_TTL_TOOL=1800
+```
+
+---
+
+### Task 6.7: API Endpoints (Optional)
+
+**File**: `backend/api/main.py` (MODIFY)
+
+**Security Note**: Invalidation endpoint should be protected (not implemented in this milestone).
 
 ```python
 from backend.cache.redis_client import create_default_redis_client
 from backend.cache.metrics import get_metrics
 
+# Initialize cache at module level
 cache_client = create_default_redis_client()
+
 
 @app.get("/cache/health")
 def cache_health():
-    """Get cache health status."""
+    """Get cache connection health status."""
     return cache_client.health_check()
 
 
@@ -785,91 +934,49 @@ def cache_metrics():
     return get_metrics().summary()
 
 
-@app.post("/cache/invalidate")
-def cache_invalidate(pattern: str):
-    """Invalidate cache keys matching pattern."""
-    deleted = cache_client.invalidate_pattern(pattern)
-    return {"deleted": deleted, "pattern": pattern}
+# NOTE: Invalidation endpoint deferred - requires auth/rate-limiting
+# @app.post("/cache/invalidate")  # DO NOT IMPLEMENT without auth
 ```
 
 ---
 
-## Configuration
+## File Modification Tracking (Deferred)
 
-### Environment Variables
+**Problem**: Caching `read_file` by params only can return stale data if file changes.
 
-**Update `.env.example`**:
+**Mitigation Strategies** (choose one for future enhancement):
 
-```bash
-# Redis Cache Configuration
-CACHE_ENABLED=true
-REDIS_URL=redis://redis:6379/0
-CACHE_DEFAULT_TTL=3600  # 1 hour in seconds
+1. **Include mtime in cache key** (requires file stat on every request - defeats purpose)
+2. **Shorter TTL for file tools** (30 min - implemented above)
+3. **File watcher with invalidation** (complex, deferred to post-M6)
+4. **User-initiated invalidation** (manual, requires protected endpoint)
 
-# Cache TTL per category (seconds)
-CACHE_TTL_CONTEXT=3600      # 1 hour
-CACHE_TTL_EMBEDDING=86400   # 24 hours
-CACHE_TTL_TOOL=1800         # 30 minutes
-CACHE_TTL_PROMPT=3600       # 1 hour
-```
-
-**Update `backend/config/settings.py`**:
-
-```python
-class Settings(BaseSettings):
-    # ... existing fields ...
-    
-    # Cache Configuration
-    CACHE_ENABLED: bool = True
-    REDIS_URL: str = "redis://redis:6379/0"
-    CACHE_DEFAULT_TTL: int = 3600
-    CACHE_TTL_CONTEXT: int = 3600
-    CACHE_TTL_EMBEDDING: int = 86400
-    CACHE_TTL_TOOL: int = 1800
-    CACHE_TTL_PROMPT: int = 3600
-    
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
-```
+**For Milestone 6**: Use short TTL (30 min) as adequate mitigation.
 
 ---
 
 ## Summary of Deliverables
 
-### Created Files
-
-1. **`backend/cache/redis_client.py`** - Redis client with fail-safe fallback
-2. **`backend/cache/key_generator.py`** - Deterministic cache key generation
-3. **`backend/cache/metrics.py`** - Cache performance metrics
-4. **`backend/cache/__init__.py`** - Package initialization
-5. **`tests/unit/test_redis_client.py`** - Redis client tests
-6. **`tests/unit/test_key_generator.py`** - Key generator tests
-7. **`tests/unit/test_cache_metrics.py`** - Metrics tests
+### New Files
+1. `backend/cache/__init__.py`
+2. `backend/cache/redis_client.py`
+3. `backend/cache/key_generator.py`
+4. `backend/cache/metrics.py`
+5. `tests/unit/test_redis_client.py`
+6. `tests/unit/test_key_generator.py`
 
 ### Modified Files
-
-- `backend/workflow/nodes/context_builder_node.py` - Add caching
-- `backend/tools/executor.py` - Cache tool results
-- `backend/api/main.py` - Add cache endpoints
-- `backend/config/settings.py` - Cache configuration
-- `.env.example` - Cache environment variables
-
----
-
-## Cache Features
-
-| Feature | Status | Description |
-|---------|--------|-------------|
-| Redis Client | ✅ Implemented | Connection management with fail-safe |
-| Key Generation | ✅ Implemented | Deterministic hashing for cache keys |
-| Metrics Collection | ✅ Implemented | Hit/miss rates by category |
-| Context Caching | ✅ Implemented | Cache message context by task/turn |
-| Tool Result Caching | ✅ Implemented | Cache READ_ONLY tool outputs |
-| Health Check | ✅ Implemented | API endpoint for cache status |
-| Invalidation | ✅ Implemented | Pattern-based cache clearing |
+1. `backend/workflow/nodes/context_builder_node.py` - Add optional cache parameter
+2. `backend/tools/executor.py` - Add optional cache parameters (preserve backward compat)
+3. `backend/config/settings.py` - Add cache configuration fields
+4. `.env.example` - Add cache environment variables
+5. `backend/api/main.py` - Add cache health/metrics endpoints (invalidation deferred)
+6. `tests/unit/test_nodes.py` - Add cache tests
+7. `tests/unit/test_tool_executor.py` - Add cache tests
 
 ---
 
-## Validation Commands
+## Validation Commands (Per AGENTS Contract)
 
 ```bash
 # Ensure Redis is running
@@ -879,153 +986,72 @@ docker compose up -d redis
 docker compose exec redis redis-cli ping
 # Expected: PONG
 
-# Unit tests
-pytest tests/unit/test_redis_client.py -v
-pytest tests/unit/test_key_generator.py -v
-pytest tests/unit/test_cache_metrics.py -v
+# Unit tests (use backend venv Python)
+.\backend\.venv\Scripts\python.exe -m pytest tests\unit\test_redis_client.py -v
+.\backend\.venv\Scripts\python.exe -m pytest tests\unit\test_key_generator.py -v
+.\backend\.venv\Scripts\python.exe -m pytest tests\unit\test_nodes.py -v
+.\backend\.venv\Scripts\python.exe -m pytest tests\unit\test_tool_executor.py -v
 
-# Integration test
-python -c "
+# Full validation harness
+.\backend\.venv\Scripts\python.exe scripts\validate_backend.py --scope unit
+
+# Integration test (manual)
+.\backend\.venv\Scripts\python.exe -c "
 from backend.cache.redis_client import create_default_redis_client
-from backend.cache.key_generator import generate_context_key
-from backend.cache.metrics import get_metrics
 
-# Create client
 client = create_default_redis_client()
 print(f'Cache enabled: {client.enabled}')
 print(f'Health: {client.health_check()}')
-
-# Test caching
-key = generate_context_key('test-task', 1)
-client.set_json(key, {'messages': ['Hello']})
-cached = client.get_json(key)
-print(f'Cached data: {cached}')
-
-# Check metrics
-metrics = get_metrics()
-print(f'Metrics: {metrics.summary()}')
 "
-
-# Full validation
-python scripts/validate_backend.py --scope unit
-
-# Check cache endpoints
-curl http://localhost:8000/cache/health
-curl http://localhost:8000/cache/metrics
 ```
 
 ---
 
-## Cache Policy Guidelines
+## Known Limitations & Future Work
 
-### TTL Strategy
+### Limitations in Milestone 6
+1. **Stale file reads**: 30-min TTL mitigates but doesn't eliminate
+2. **No file watcher**: Manual invalidation only
+3. **In-memory metrics**: Fragments across workers in production
+4. **No cache invalidation API**: Deferred (requires auth)
+5. **No automated cache warming**: Cold start each deploy
 
-**Short TTL (30 min - 1 hour)**:
-- Context snippets (frequently updated)
-- Tool results (may change on disk)
-- Assembled prompts (context-dependent)
-
-**Long TTL (24 hours)**:
-- Semantic embeddings (deterministic)
-- Static tool results (version hashes)
-
-**No Expiration**:
-- Never - always use TTL for automatic cleanup
-
-### Invalidation Strategy
-
-**On User Action**:
-- New message → Invalidate `context:{task_id}:*`
-- File modification → Invalidate `tool:read_file:*`
-- Manual clear → Invalidate all via pattern
-
-**Automatic**:
-- TTL expiration handles most cases
-- No need for complex invalidation logic
-
----
-
-## Observability
-
-### Metrics to Track
-
-1. **Hit Rate**: `hits / (hits + misses)`
-2. **Category Breakdown**: Hit rates per cache category
-3. **Set/Delete Rates**: Cache write activity
-4. **Error Rate**: Failed operations
-
-### Health Monitoring
-
-```bash
-# Check cache health
-curl http://localhost:8000/cache/health
-
-# Response:
-{
-  "enabled": true,
-  "connected": true,
-  "hits": 1247,
-  "misses": 352,
-  "message": "Connected"
-}
-
-# Check metrics
-curl http://localhost:8000/cache/metrics
-
-# Response:
-{
-  "total_requests": 1599,
-  "hits": 1247,
-  "misses": 352,
-  "hit_rate": "77.99%",
-  "sets": 405,
-  "deletes": 12,
-  "errors": 0,
-  "categories": {
-    "context": {"hits": 892, "misses": 124, "hit_rate": "87.79%"},
-    "tool": {"hits": 355, "misses": 228, "hit_rate": "60.89%"}
-  }
-}
-```
-
----
-
-## Performance Impact
-
-### Expected Improvements
-
-| Operation | Before Cache | With Cache | Improvement |
-|-----------|-------------|------------|-------------|
-| Context retrieval | ~50ms | ~2ms | **25x faster** |
-| Tool read_file (same path) | ~10ms | ~1ms | **10x faster** |
-| Semantic embedding | ~200ms | ~2ms | **100x faster** |
-
-### Memory Usage
-
-- **Redis footprint**: ~10-50MB typical (configurable maxmemory)
-- **Key count**: ~1000-10000 keys typical
-- **Eviction**: LRU policy when maxmemory reached
-
----
-
-## Next Steps After Milestone 6
-
-With caching in place:
-
-1. **Monitor hit rates** to tune TTL values
-2. **Add semantic embedding caching** (Milestone 7)
-3. **Cache LLM prompts** for repeated patterns
-4. **Implement cache warming** for common queries
-
-This ensures: **Faster response times and reduced redundant computation across all workflow nodes.**
+### Post-Milestone 6 Enhancements
+1. File modification tracking with inotify/watchdog
+2. Redis-backed metrics aggregation
+3. Protected invalidation API with rate limiting
+4. Cache warming on startup for common queries
+5. TTL tuning based on observed hit rates
 
 ---
 
 ## Fail-Safe Guarantees
 
-1. **Redis unavailable**: System works without caching (degrades gracefully)
-2. **Cache corruption**: Returns None, recomputes
-3. **Network timeout**: 2-second timeout, falls back
-4. **Memory pressure**: Redis LRU eviction handles automatically
+1. ✅ **Redis unavailable**: System works (logs warning, skips cache)
+2. ✅ **Cache corruption**: Returns None, recomputes
+3. ✅ **Network timeout**: 2-second timeout, falls back
+4. ✅ **Import error**: Works without redis package installed
+5. ✅ **Backward compatible**: All cache parameters optional with defaults
 
 **Cache is an optimization, not a dependency.**
+
+---
+
+## CHANGE_LOG Entry Format (After Implementation)
+
+```
+- 2026-02-XX HH:MM
+  - Summary: Completed Milestone 6 Redis caching integration with fail-safe behavior and backward-compatible API surface.
+  - Scope: `backend/cache/redis_client.py`, `backend/cache/key_generator.py`, `backend/cache/metrics.py`, `backend/workflow/nodes/context_builder_node.py`, `backend/tools/executor.py`, `backend/config/settings.py`, `.env.example`, `backend/api/main.py`, `tests/unit/test_redis_client.py`, `tests/unit/test_key_generator.py`, `tests/unit/test_nodes.py`, `tests/unit/test_tool_executor.py`.
+  - Key behaviors:
+    - Fail-safe fallback when Redis unavailable (no errors, logs warning).
+    - Backward-compatible: All cache parameters optional with None defaults.
+    - Context caching: 1-hour TTL, keyed by task_id + turn.
+    - Tool result caching: 30-minute TTL, READ_ONLY tools only.
+    - Cache health/metrics endpoints: GET /cache/health, GET /cache/metrics.
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests\unit\test_redis_client.py -q`
+      - PASS excerpt: `X passed in Y.YYs`
+    - `.\backend\.venv\Scripts\python.exe scripts\validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+```
