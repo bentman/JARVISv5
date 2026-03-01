@@ -23,6 +23,12 @@
 
 ## Inventory
 
+- Capability: Milestone 7 Semantic Retrieval - 2026-03-01 11:32
+  - State: Verified
+  - Location: `backend/memory/semantic_store.py`, `tests/unit/test_semantic_store_persistence.py`, `tests/unit/test_semantic_store_search_text.py`, `backend/config/settings.py`, `.env.example`, `backend/retrieval/retrieval_types.py`, `backend/retrieval/hybrid_retriever.py`, `tests/unit/test_retrieval_types.py`, `tests/unit/test_hybrid_retriever.py`, `backend/memory/episodic_db.py`, `tests/unit/test_episodic_db_search.py`, `backend/workflow/nodes/context_builder_node.py`, `tests/unit/test_context_builder_retrieval.py`
+  - Validation: `.\backend\.venv\Scripts\python.exe scripts\validate_backend.py --scope unit` (PASS excerpts: `PASS WITH SKIPS: unit: 180 tests, 1 skipped`, `UNIT=PASS_WITH_SKIPS`; report `reports\\backend_validation_report_20260301_112552.txt`); `.\backend\.venv\Scripts\python.exe -m pytest tests\unit\test_context_builder_retrieval.py -q` (PASS excerpt: `3 passed in 0.13s`); `.\backend\.venv\Scripts\python.exe -m pytest tests\unit\test_hybrid_retriever.py -q` (PASS excerpt: `4 passed in 0.06s`)
+  - Notes: Persisted FAISS index at `data/semantic/index.faiss` with fail-safe load/rebuild from SQLite metadata (`data/semantic/metadata.db`); normalized semantic similarity scoring via `search_text()` converting L2 distance to `1/(1+distance)` in `[0,1]`; episodic keyword search APIs plus idempotent indexes; unified retrieval scoring contract (`0..1` relevance/recency to `final_score`) with deterministic ranking; hybrid retriever orchestration across working-state/semantic/episodic with configurable policy in `RetrievalConfig`; ContextBuilder deterministic `Retrieved Context` system-message injection (DI-only retriever, fail-safe behavior); Task 7.0.1 added deterministic settings robustness via DEBUG normalization to prevent `DEBUG=release` environment collisions from breaking the unit harness.
+
 - Capability: Milestone 6 Redis Cache Layer - 2026-02-25 15:22
   - State: Verified
   - Location: `backend/cache/redis_client.py`, `tests/unit/test_redis_client.py`, `backend/cache/key_policy.py`, `tests/unit/test_cache_keys.py`, `backend/cache/metrics.py`, `tests/unit/test_cache_metrics.py`, `backend/workflow/nodes/context_builder_node.py`, `tests/unit/test_context_builder_cache.py`, `backend/tools/executor.py`, `tests/unit/test_tool_executor_cache.py`, `backend/cache/settings.py`, `tests/unit/test_cache_settings.py`, `.env.example`, `.env`

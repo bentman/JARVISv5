@@ -15,6 +15,99 @@
 
 ## Entries
 
+- 2026-03-01 11:29
+  - Summary: Implemented Task 7.5 by wiring retrieval into `ContextBuilderNode` via dependency-injected retriever usage, injecting deterministic retrieved-context system messaging while preserving existing context/message behavior on fail-safe paths.
+  - Scope: `backend/workflow/nodes/context_builder_node.py`, `tests/unit/test_context_builder_retrieval.py`.
+  - Key behaviors:
+    - Added DI-only retriever support in `ContextBuilderNode` (`retriever` + optional `retrieval_config`) with no local retriever construction fallback.
+    - Added deterministic retrieval system-message injection format (`Retrieved Context:` block with `[source]`, `score={:.3f}`, and deterministic truncation with `...`).
+    - Added deterministic insertion index: inject after first existing `system` message when present, otherwise at index `0`.
+    - Preserved fail-safe behavior: when retriever is absent, query is empty, retriever raises, or retrieval returns empty, node keeps prior behavior and does not alter context shape beyond existing keys.
+  - Evidence:
+    - `./backend/.venv/Scripts/python.exe -m pytest tests/unit/test_context_builder_retrieval.py -q`
+      - PASS excerpt: `3 passed in 0.13s`
+    - `./backend/.venv/Scripts/python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `PASS WITH SKIPS: unit: 180 tests, 1 skipped`
+      - PASS excerpt: `UNIT=PASS_WITH_SKIPS`
+      - PASS report: `reports/backend_validation_report_20260301_112552.txt`
+
+- 2026-03-01 11:18
+  - Summary: Implemented Task 7.4 hybrid retriever orchestration by adding a dependency-injected retrieval module that combines working-state, semantic, and episodic sources into the unified 7.1 scoring contract with deterministic ranking.
+  - Scope: `backend/retrieval/hybrid_retriever.py`, `backend/retrieval/retrieval_types.py`, `tests/unit/test_hybrid_retriever.py`.
+  - Key behaviors:
+    - Added `HybridRetriever` with constructor injection for `semantic_store`, `episodic_memory`, `working_state_provider`, and `now_provider`.
+    - Added explicit retrieval policy fields to `RetrievalConfig` (semantic/episodic/working-state relevance defaults, recency defaults, decay parameters, and working-state window) to avoid hardcoded scoring constants in retriever logic.
+    - Implemented deterministic recency decay (`exp`-based positional/timestamp decay with injected `now_provider`) and deterministic tie-break ranking across mixed sources.
+    - Enforced fail-closed input behavior: empty/whitespace query raises `ValueError`.
+  - Evidence:
+    - `./backend/.venv/Scripts/python.exe -m pytest tests/unit/test_hybrid_retriever.py -q`
+      - PASS excerpt: `4 passed in 0.06s`
+    - `./backend/.venv/Scripts/python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `PASS WITH SKIPS: unit: 177 tests, 1 skipped`
+      - PASS excerpt: `UNIT=PASS_WITH_SKIPS`
+      - PASS report: `reports/backend_validation_report_20260301_111657.txt`
+
+- 2026-03-01 11:10
+  - Summary: Implemented Task 7.3 episodic DB search + index support by adding idempotent search-oriented indexes and deterministic keyword search APIs for decisions and tool calls.
+  - Scope: `backend/memory/episodic_db.py`, `tests/unit/test_episodic_db_search.py`.
+  - Key behaviors:
+    - Added idempotent indexes with `CREATE INDEX IF NOT EXISTS` on `decisions(task_id)`, `decisions(action_type)`, `decisions(id DESC)`, `tool_calls(decision_id)`, `tool_calls(tool_name)`, and `tool_calls(id DESC)`.
+    - Added `search_decisions(query, *, limit=20, task_id=None)` and `search_tool_calls(query, *, limit=20, task_id=None)` using parameterized `LIKE` filtering on relevant text fields.
+    - Enforced deterministic ordering via `ORDER BY id DESC` (and `ORDER BY tc.id DESC` for tool calls) with deterministic return dict keys.
+    - Enforced safe query behavior: empty/whitespace query raises `ValueError` in both search methods; task-scoped filtering supported (`tool_calls` via join to `decisions`).
+  - Evidence:
+    - `./backend/.venv/Scripts/python.exe -m pytest tests/unit/test_episodic_db_search.py -q`
+      - PASS excerpt: `5 passed in 0.57s`
+    - `./backend/.venv/Scripts/python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `PASS WITH SKIPS: unit: 173 tests, 1 skipped`
+      - PASS excerpt: `UNIT=PASS_WITH_SKIPS`
+      - PASS report: `reports/backend_validation_report_20260301_110851.txt`
+
+- 2026-03-01 10:54
+  - Summary: Implemented Task 7.2 semantic-store normalized scoring by adding `search_text()` that converts FAISS L2 distance to unified 0..1 similarity scores (`1 / (1 + distance)`) while preserving existing semantic index persistence behavior.
+  - Scope: `backend/memory/semantic_store.py`, `tests/unit/test_semantic_store_search_text.py`.
+  - Key behaviors:
+    - Added pure helper `_l2_distance_to_similarity(distance)` implementing deterministic distance→similarity normalization with `[0,1]` bounds.
+    - Added `search_text(query, top_k)` returning `text`, `metadata`, `vector_id`, raw `distance`, and normalized `similarity_score`.
+    - Enforced deterministic output ordering via explicit sort key `(-similarity_score, vector_id)`.
+    - Empty or uninitialized semantic index path returns `[]` fail-safe.
+  - Evidence:
+    - `./backend/.venv/Scripts/python.exe -m pytest tests/unit/test_semantic_store_search_text.py -q`
+      - PASS excerpt: `4 passed in 0.20s`
+    - `./backend/.venv/Scripts/python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `PASS WITH SKIPS: unit: 168 tests, 1 skipped`
+      - PASS excerpt: `UNIT=PASS_WITH_SKIPS`
+      - PASS report: `reports/backend_validation_report_20260301_101920.txt`
+
+- 2026-03-01 10:05
+  - Summary: Implemented Task 7.1 retrieval types + scoring contract by adding canonical retrieval enums/types and deterministic 0..1 score computation utilities with unit coverage.
+  - Scope: `backend/retrieval/__init__.py`, `backend/retrieval/retrieval_types.py`, `tests/unit/test_retrieval_types.py`.
+  - Key behaviors:
+    - `RetrievalResult.final_score` is derived (not initializer input) via `RetrievalResult.from_scores(...)` to prevent score mismatch drift.
+    - `RetrievalConfig` enforces strict validation for `min_final_score_threshold` in `[0.0, 1.0]` (raises on misconfiguration; no clamping).
+    - `compute_final_score(...)` deterministically clamps individual input scores to `[0,1]`, applies weighted normalized scoring, and clamps final output to `[0,1]`.
+    - `rank_results(...)` sorts by `final_score` descending using stable ordering semantics for equal-score ties.
+  - Evidence:
+    - `./backend/.venv/Scripts/python.exe -m pytest tests/unit/test_retrieval_types.py -q`
+      - PASS excerpt: `6 passed in 0.04s`
+    - `./backend/.venv/Scripts/python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `PASS WITH SKIPS: unit: 164 tests, 1 skipped`
+      - PASS excerpt: `UNIT=PASS_WITH_SKIPS`
+      - PASS report: `reports/backend_validation_report_20260301_084001.txt`
+
+- 2026-03-01 20:33
+  - Summary: Completed Task 7.0 + 7.0.1 in one closeout by persisting FAISS index state to `data/semantic/index.faiss` with fail-safe load/rebuild behavior from SQLite metadata and by adding deterministic `DEBUG` normalization plus deterministic settings source precedence to prevent host-environment collisions (for example, `DEBUG=release`) from destabilizing unit validation.
+  - Scope: `backend/memory/semantic_store.py`, `tests/unit/test_semantic_store_persistence.py`, `backend/config/settings.py`, `.env.example`.
+  - Evidence:
+    - `./backend/.venv/Scripts/python.exe -m pytest tests/unit/test_semantic_store_persistence.py -q`
+      - PASS excerpt: `4 passed in 2.09s`
+    - `powershell -NoProfile -Command "$env:DEBUG='release'; ./backend/.venv/Scripts/python.exe -m pytest tests/unit/test_config.py -q; $exit=$LASTEXITCODE; Remove-Item Env:DEBUG; exit $exit"`
+      - PASS excerpt: `2 passed in 0.11s`
+    - `./backend/.venv/Scripts/python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `PASS WITH SKIPS: unit: 158 tests, 1 skipped`
+      - PASS excerpt: `UNIT=PASS_WITH_SKIPS`
+      - PASS report: `reports/backend_validation_report_20260301_082727.txt`
+
 - 2026-02-25 15:19
   - Summary: Implemented M6.6 cache settings centralization by introducing an env-backed settings source-of-truth and wiring cache enable/TTL behavior into Redis client factory, ContextBuilderNode, and tool executor while preserving fail-safe operation.
   - Scope: `backend/cache/settings.py`, `backend/cache/redis_client.py`, `backend/workflow/nodes/context_builder_node.py`, `backend/tools/executor.py`, `.env.example`, `.env`, `tests/unit/test_cache_settings.py`, `tests/unit/test_context_builder_cache.py`, `tests/unit/test_tool_executor_cache.py`.

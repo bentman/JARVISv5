@@ -299,6 +299,7 @@ JARVISv5/
 │   ├── cache/                            # Cached context/query artifacts
 │   ├── episodic/                         # Immutable episodic trace storage
 │   ├── logs/                             # Structured runtime logs
+│   ├── retrieval/                        # <Need good description>
 │   ├── semantic/                         # Semantic memory index/metadata storage
 │   └── working_state/                    # Ephemeral task state JSON files
 ├── frontend/                             # React web client (chat, status, settings, voice panel)

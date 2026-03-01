@@ -57,6 +57,25 @@ class EpisodicMemory:
                 """
             )
 
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_decisions_task_id ON decisions(task_id)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_decisions_action_type ON decisions(action_type)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_decisions_id_desc ON decisions(id DESC)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_tool_calls_decision_id ON tool_calls(decision_id)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_tool_calls_tool_name ON tool_calls(tool_name)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_tool_calls_id_desc ON tool_calls(id DESC)"
+            )
+
             conn.commit()
 
     def log_decision(self, task_id: str, action_type: str, content: str, status: str) -> int:
@@ -102,3 +121,101 @@ class EpisodicMemory:
             if cursor.lastrowid is None:
                 raise RuntimeError("Failed to insert validation record")
             return int(cursor.lastrowid)
+
+    def search_decisions(
+        self,
+        query: str,
+        *,
+        limit: int = 20,
+        task_id: str | None = None,
+    ) -> list[dict]:
+        query_text = query.strip()
+        if not query_text:
+            raise ValueError("query must be non-empty")
+
+        limit_int = int(limit)
+        if limit_int < 1:
+            raise ValueError("limit must be >= 1")
+
+        like_query = f"%{query_text}%"
+        sql = """
+            SELECT id, timestamp, task_id, action_type, content, status
+            FROM decisions
+            WHERE (
+                content LIKE ? OR
+                action_type LIKE ? OR
+                status LIKE ?
+            )
+        """
+        params: list[object] = [like_query, like_query, like_query]
+        if task_id is not None:
+            sql += " AND task_id = ?"
+            params.append(task_id)
+
+        sql += " ORDER BY id DESC LIMIT ?"
+        params.append(limit_int)
+
+        with closing(self._connect()) as conn:
+            rows = conn.execute(sql, params).fetchall()
+
+        return [
+            {
+                "id": int(row[0]),
+                "timestamp": row[1],
+                "task_id": row[2],
+                "action_type": row[3],
+                "content": row[4],
+                "status": row[5],
+            }
+            for row in rows
+        ]
+
+    def search_tool_calls(
+        self,
+        query: str,
+        *,
+        limit: int = 20,
+        task_id: str | None = None,
+    ) -> list[dict]:
+        query_text = query.strip()
+        if not query_text:
+            raise ValueError("query must be non-empty")
+
+        limit_int = int(limit)
+        if limit_int < 1:
+            raise ValueError("limit must be >= 1")
+
+        like_query = f"%{query_text}%"
+        sql = """
+            SELECT tc.id, tc.decision_id, d.task_id, tc.tool_name, tc.params, tc.result, tc.timestamp
+            FROM tool_calls tc
+            INNER JOIN decisions d ON d.id = tc.decision_id
+            WHERE (
+                tc.tool_name LIKE ? OR
+                tc.params LIKE ? OR
+                tc.result LIKE ?
+            )
+        """
+        params: list[object] = [like_query, like_query, like_query]
+        if task_id is not None:
+            sql += " AND d.task_id = ?"
+            params.append(task_id)
+
+        sql += " ORDER BY tc.id DESC LIMIT ?"
+        params.append(limit_int)
+
+        with closing(self._connect()) as conn:
+            rows = conn.execute(sql, params).fetchall()
+
+        return [
+            {
+                "id": int(row[0]),
+                "decision_id": int(row[1]),
+                "task_id": row[2],
+                "tool_name": row[3],
+                "params": row[4],
+                "result": row[5],
+                "timestamp": row[6],
+            }
+            for row in rows
+        ]
