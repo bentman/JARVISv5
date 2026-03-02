@@ -65,7 +65,7 @@ JARVISv5 is many things, but it is not a fully autonomous, self‑correcting, om
 - **Not autonomous** — It will not run off and “handle things” for you. It barely trusts itself.
 - **Not finished** — It’s v5, which implies four previous attempts and at least six future ones.
 
-> _“Building with high ambition, grounded in (and by the) truth”_
+> _“Building with high ambitions, grounded in (and by the) truth”_
 
 ---
 
