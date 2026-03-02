@@ -10,6 +10,7 @@ class PermissionTier(str, Enum):
     READ_ONLY = "read_only"
     WRITE_SAFE = "write_safe"
     SYSTEM = "system"
+    EXTERNAL = "external"
 
 
 class ToolDefinition(BaseModel):

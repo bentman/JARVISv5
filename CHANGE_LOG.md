@@ -15,6 +15,87 @@
 
 ## Entries
 
+- 2026-03-01 23:20
+  - Summary: Implemented Task 8.5 tool surface + policy-bound escalation wiring by adding EXTERNAL `search_web`/`fetch_url` tools with deterministic offline fixture execution, policy-gated outcomes, and conditional ToolCallNode registration.
+  - Scope: `backend/tools/search_tools.py`, `backend/workflow/nodes/tool_call_node.py`, `backend/tools/__init__.py`, `tests/unit/test_search_tools.py`.
+  - Key behaviors:
+    - Added EXTERNAL tool contracts: `search_web` (`SearchWebInput`) and `fetch_url` (`FetchUrlInput`) with ToolRegistry registration helper and dispatch-map builder.
+    - Wired ToolCallNode to register/wire search tools only when explicitly requested (`tool_name` is `search_web` or `fetch_url`), preserving default tool surface otherwise.
+    - Integrated policy/budget governance via `decide_external_search(...)` + ledger/config inputs; all tool responses include deterministic `policy` decision payload.
+    - Added deterministic offline loader injection hooks: provider payload loader for `search_web` and HTML loader for `fetch_url`; no live HTTP/DNS required.
+    - Enforced deny layers: executor EXTERNAL gate (`allow_external`) plus tool-level fail-safe deny path; denied policy/budget returns deterministic `permission_denied` or `budget_exceeded` without provider/extraction execution.
+  - Evidence:
+    - `backend\\.venv\\Scripts\\python.exe -m pytest tests\\unit\\test_search_tools.py -q`
+      - PASS excerpt: `5 passed in 0.18s`
+    - `backend\\.venv\\Scripts\\python.exe scripts\\validate_backend.py --scope unit`
+      - PASS excerpt: `PASS WITH SKIPS: unit: 208 tests, 1 skipped`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS report: `reports\\backend_validation_report_20260301_231857.txt`
+
+- 2026-03-01 23:10
+  - Summary: Implemented Task 8.4 URL extraction layer with offline fixture-driven contract tests by adding deterministic HTML-to-text extraction API and stable fallback behavior without live HTTP integration.
+  - Scope: `backend/search/extract.py`, `backend/search/fetch_models.py`, `backend/search/__init__.py`, `tests/fixtures/fetch/article_simple.html`, `tests/fixtures/fetch/article_with_nav.html`, `tests/fixtures/fetch/minimal.html`, `tests/fixtures/fetch/malformed.html`, `tests/unit/test_fetch_extraction_contracts.py`.
+  - Key behaviors:
+    - Added extraction API `extract_text_from_html(html, *, max_chars=8000)` returning deterministic shape: `ok`, `code`, `text`, `title`, `meta`.
+    - Implemented extractor priority order: `trafilatura` (if importable) -> `BeautifulSoup` (if importable) -> stdlib `html.parser` fallback (always available in runtime).
+    - Implemented deterministic normalization/truncation: newline normalization (`CRLF/CR -> LF`), per-line whitespace compaction, blank-line cleanup, and stable hard truncation to `max_chars`.
+    - Enforced fail-safe behavior with no exception leakage; deterministic error codes include `empty_input` and `extraction_error`.
+    - Added offline deterministic fixture tests validating content extraction, nav-heavy handling, empty-input behavior, malformed HTML fail-safety, and truncation/normalization invariants.
+  - Evidence:
+    - `backend\\.venv\\Scripts\\python.exe -m pytest tests\\unit\\test_fetch_extraction_contracts.py -q`
+      - PASS excerpt: `5 passed in 0.13s`
+    - `backend\\.venv\\Scripts\\python.exe scripts\\validate_backend.py --scope unit`
+      - PASS excerpt: `PASS WITH SKIPS: unit: 203 tests, 1 skipped`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS report: `reports\\backend_validation_report_20260301_230846.txt`
+
+- 2026-03-01 23:02
+  - Summary: Implemented Task 8.3 provider ladder + offline provider contract tests using deterministic fixtures, adding parse-only provider abstraction and fixed-order fallback orchestration without tool wiring or live HTTP execution.
+  - Scope: `backend/search/providers/base.py`, `backend/search/providers/searxng.py`, `backend/search/providers/ddg.py`, `backend/search/providers/tavily.py`, `backend/search/providers/ladder.py`, `backend/search/providers/__init__.py`, `backend/search/__init__.py`, `tests/fixtures/search/searxng_ok.json`, `tests/fixtures/search/searxng_empty.json`, `tests/fixtures/search/ddg_ok.json`, `tests/fixtures/search/tavily_ok.json`, `tests/fixtures/search/malformed.json`, `tests/unit/test_search_provider_contracts.py`, `tests/unit/test_search_provider_ladder.py`.
+  - Key behaviors:
+    - Added canonical Pydantic schema for provider parsing: `SearchResultItem` and `SearchResponse` plus deterministic parse result wrappers.
+    - Added deterministic parse result codes/reasons (`ok`, `empty_results`, `parse_error`, `validation_error`) with fail-safe behavior (malformed/empty payloads return structured failure; no outward exception leakage in tests).
+    - Added deterministic fallback ladder in fixed order `searxng -> duckduckgo -> tavily`, selecting the first provider with non-empty parsed items.
+    - Added optional `payload_loader` hook to ladder for offline fixture-driven tests only; no runtime-facing fixture map parameter required.
+    - Added deterministic terminal ladder failure contract: `code="provider_unavailable"`, `reason="no provider returned results"`.
+  - Evidence:
+    - `backend\\.venv\\Scripts\\python.exe -m pytest tests\\unit\\test_search_provider_contracts.py tests\\unit\\test_search_provider_ladder.py -q`
+      - PASS excerpt: `8 passed in 0.19s`
+    - `backend\\.venv\\Scripts\\python.exe scripts\\validate_backend.py --scope unit`
+      - PASS excerpt: `PASS WITH SKIPS: unit: 198 tests, 1 skipped`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS report: `reports\\backend_validation_report_20260301_230037.txt`
+
+- 2026-03-01 22:48
+  - Summary: Implemented Task 8.2 budget tracker + policy routing by adding a fail-safe local JSON budget ledger and deterministic external-search policy decision function without provider/tool integration.
+  - Scope: `backend/search/__init__.py`, `backend/search/budget.py`, `backend/search/policy.py`, `tests/unit/test_search_budget.py`, `tests/unit/test_search_policy.py`.
+  - Key behaviors:
+    - Added budget ledger at `data/search/budget.json` with fail-safe load behavior (missing/corrupt/malformed file => empty ledger, no crash).
+    - Added Pydantic budget/policy models with non-negative validation (`daily_limit_usd`, `per_call_estimate_usd`, `estimated_cost_usd`).
+    - Added deterministic policy decision outputs with ASCII codes/reasons: `permission_denied`, `budget_exceeded`, `ok`, `validation_error`.
+    - Policy function is read-only for 8.2: it does not mutate ledger state; spend mutation remains only in `record_spend(...)`.
+  - Evidence:
+    - `backend\\.venv\\Scripts\\python.exe -m pytest tests\\unit\\test_search_budget.py tests\\unit\\test_search_policy.py -q`
+      - PASS excerpt: `6 passed in 0.20s`
+    - `backend\\.venv\\Scripts\\python.exe scripts\\validate_backend.py --scope unit`
+      - PASS excerpt: `PASS WITH SKIPS: unit: 190 tests, 1 skipped`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS report: `reports\\backend_validation_report_20260301_224205.txt`
+
+- 2026-03-01 22:35
+  - Summary: Implemented Task 8.1 by adding an `EXTERNAL` tool permission tier and enforcing deny-by-default executor gating unless `allow_external=True`, with focused hermetic unit tests.
+  - Scope: `backend/tools/registry.py`, `backend/tools/executor.py`, `tests/unit/test_tool_executor_external_permission.py`.
+  - Key behaviors:
+    - Added `PermissionTier.EXTERNAL` to tool registry enum.
+    - Added explicit executor permission gate: EXTERNAL tools return `permission_denied` unless `ToolExecutionRequest.allow_external` is true.
+    - Preserved existing tier behavior: `READ_ONLY` unchanged, `WRITE_SAFE` still requires `allow_write_safe`, `SYSTEM` remains denied.
+  - Evidence:
+    - `backend\\.venv\\Scripts\\python.exe -m pytest tests\\unit\\test_tool_executor_external_permission.py -q`
+      - PASS excerpt: `4 passed in 0.17s`
+    - `backend\\.venv\\Scripts\\python.exe scripts\\validate_backend.py --scope unit`
+      - PASS excerpt: `PASS WITH SKIPS: unit: 184 tests, 1 skipped`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+
 - 2026-03-01 11:29
   - Summary: Implemented Task 7.5 by wiring retrieval into `ContextBuilderNode` via dependency-injected retriever usage, injecting deterministic retrieved-context system messaging while preserving existing context/message behavior on fail-safe paths.
   - Scope: `backend/workflow/nodes/context_builder_node.py`, `tests/unit/test_context_builder_retrieval.py`.

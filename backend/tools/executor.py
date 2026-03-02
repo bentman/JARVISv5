@@ -94,6 +94,14 @@ def execute_tool_call(
             "required_permission": PermissionTier.SYSTEM.value,
         }
 
+    if tool.permission_tier == PermissionTier.EXTERNAL and not request.allow_external:
+        return False, {
+            "code": "permission_denied",
+            "tool_name": request.tool_name,
+            "message": "external permission required",
+            "required_permission": PermissionTier.EXTERNAL.value,
+        }
+
     cache_metrics = get_metrics()
     cacheable = (
         cache_client is not None

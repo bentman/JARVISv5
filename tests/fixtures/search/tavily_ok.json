@@ -1,0 +1,9 @@
+{
+  "results": [
+    {
+      "title": "Tavily Result One",
+      "url": "https://example.com/tavily/1",
+      "content": "Snippet from tavily one"
+    }
+  ]
+}

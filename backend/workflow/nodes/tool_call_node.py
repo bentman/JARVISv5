@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Literal, cast
 
 import backend.security.audit_logger as audit_logger_module
 from backend.security.audit_logger import SecurityAuditLogger
 from backend.security.privacy_wrapper import PrivacyExternalCallWrapper
 from backend.security.redactor import PIIRedactor
+from backend.search.budget import SearchBudgetConfig, SearchBudgetLedger
 from backend.tools.executor import ToolExecutionRequest, execute_tool_call
 from backend.tools.file_tools import build_file_tool_dispatch_map, register_core_file_tools
+from backend.tools.search_tools import build_search_tool_dispatch_map, register_search_tools
 from backend.tools.registry import ToolRegistry
 from backend.tools.sandbox import Sandbox, SandboxConfig
 from backend.workflow.nodes.base_node import BaseNode
@@ -33,10 +35,17 @@ class ToolCallNode(BaseNode):
         allow_external = bool(tool_call.get("allow_external", False))
         external_provider_raw = tool_call.get("external_provider")
         external_endpoint_raw = tool_call.get("external_endpoint")
-        redaction_mode = str(tool_call.get("redaction_mode", "strict"))
+        redaction_mode_raw = str(tool_call.get("redaction_mode", "strict")).strip().lower()
+        redaction_mode: Literal["partial", "strict"] = (
+            cast(Literal["partial", "strict"], redaction_mode_raw)
+            if redaction_mode_raw in {"partial", "strict"}
+            else "strict"
+        )
         task_id = str(tool_call.get("task_id") or context.get("task_id") or "")
         audit_log_path_raw = tool_call.get("audit_log_path")
         sandbox_roots_raw = tool_call.get("sandbox_roots")
+        search_payload_loader_raw = tool_call.get("search_payload_loader")
+        fetch_html_loader_raw = tool_call.get("fetch_html_loader")
 
         if not tool_name:
             context["tool_ok"] = False
@@ -75,6 +84,32 @@ class ToolCallNode(BaseNode):
         )
         registry = ToolRegistry()
         register_core_file_tools(registry, sandbox)
+        dispatch_map = build_file_tool_dispatch_map()
+
+        if tool_name in {"search_web", "fetch_url"}:
+            register_search_tools(registry)
+
+            search_payload_loader = (
+                cast(Callable[[str, str], dict | str], search_payload_loader_raw)
+                if callable(search_payload_loader_raw)
+                else None
+            )
+            fetch_html_loader = (
+                cast(Callable[[str], str], fetch_html_loader_raw)
+                if callable(fetch_html_loader_raw)
+                else None
+            )
+
+            search_dispatch_map = build_search_tool_dispatch_map(
+                allow_external=allow_external,
+                task_id=task_id or None,
+                date_key=str(tool_call.get("date_key")).strip() if tool_call.get("date_key") is not None else None,
+                budget_ledger=SearchBudgetLedger(),
+                budget_config=SearchBudgetConfig(),
+                search_payload_loader=search_payload_loader,
+                fetch_html_loader=fetch_html_loader,
+            )
+            dispatch_map = {**dispatch_map, **search_dispatch_map}
 
         request = ToolExecutionRequest(
             tool_name=tool_name,
@@ -102,7 +137,7 @@ class ToolCallNode(BaseNode):
             request=request,
             registry=registry,
             sandbox=sandbox,
-            dispatch_map=build_file_tool_dispatch_map(),
+            dispatch_map=dispatch_map,
             privacy_wrapper=privacy_wrapper,
         )
 

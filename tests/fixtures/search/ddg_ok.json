@@ -1,0 +1,14 @@
+{
+  "results": [
+    {
+      "title": "DDG Result One",
+      "href": "https://example.com/ddg/1",
+      "body": "Snippet from ddg one"
+    },
+    {
+      "title": "DDG Result Two",
+      "href": "https://example.com/ddg/2",
+      "body": "Snippet from ddg two"
+    }
+  ]
+}

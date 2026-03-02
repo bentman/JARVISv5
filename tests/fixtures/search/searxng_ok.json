@@ -1,0 +1,14 @@
+{
+  "results": [
+    {
+      "title": "SearXNG Result One",
+      "url": "https://example.com/searxng/1",
+      "content": "Snippet from searxng one"
+    },
+    {
+      "title": "SearXNG Result Two",
+      "url": "https://example.com/searxng/2",
+      "content": "Snippet from searxng two"
+    }
+  ]
+}

@@ -20,6 +20,12 @@ from .file_tools import (
     run_search_files,
     run_write_file,
 )
+from .search_tools import (
+    FetchUrlInput,
+    SearchWebInput,
+    build_search_tool_dispatch_map,
+    register_search_tools,
+)
 from .executor import ToolExecutionRequest, execute_tool_call
 from .sandbox import Sandbox, SandboxConfig, SandboxErrorCode
 
@@ -41,6 +47,10 @@ __all__ = [
     "execute_tool_call",
     "build_file_tool_dispatch_map",
     "register_core_file_tools",
+    "SearchWebInput",
+    "FetchUrlInput",
+    "register_search_tools",
+    "build_search_tool_dispatch_map",
     "run_delete_file",
     "run_file_info",
     "run_list_directory",
@@ -48,6 +58,7 @@ __all__ = [
     "run_search_files",
     "run_write_file",
 ]
+
 
 
 
