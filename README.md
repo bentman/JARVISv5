@@ -7,11 +7,11 @@
 
 ---
 
-## 🪄 Just A Rewrite, Verging Into Sorcery - Mark5
+## 🪄 **J**ust **A** **R**ewrite, **V**erging **I**nto **S**orcery - Mark5
 
 - Still not sentient. 
 - Still not flying the suit.
-- But not just a chatbot taped to a system utility and told to behave.
+- But slightly more than just a chatbot duct-taped to a system utility.
 
 JARVISv5 is the latest incarnation of a system that has been rewritten more times than a tax code loophole. It’s now a modular, agent‑ready, locally‑runnable, “please‑don’t-break-this-time” architecture built around clean phases, explicit approvals, and the ongoing dream that one day it will behave predictably. This version is the first to have an actual system inventory, real workflow boundaries, and fewer “accidental features” than previous releases. It’s still not a magical AI but it is finally organized enough that future‑me won’t file a missing‑person report on past‑me.
 
@@ -31,7 +31,7 @@ JARVISv5 is trying very hard to be a daily‑use personal assistant instead of a
 - **Traceability** — Every action produces artifacts, logs, receipts, and probably a confession. If something goes wrong, you’ll know exactly which component to blame.
 - **Policy‑Bound Escalation** — Cloud usage is deliberate, budgeted, and guilt‑inducing by design. If JARVISv5 goes online, it’s because you told it to — not because it got curious.
 
-> _It’s an experiment in: What happens when you stop asking questions and start giving them responsibility?_
+> _**[Project.md](Project.md)** contains the actual vision. This README contains only the excuses._
 
 ---
 
@@ -48,7 +48,7 @@ JARVISv5 is an agentic runtime that has finally stopped pretending to be a mysti
 - **Recover from partial failures** — Validation gates that prevent the system from confidently marching into a mistake.
 - **Run repeatable validation harnesses** — Deterministic replay so you can prove it was the machine’s fault, not yours.
 
-> _Running in a more structured repo, designed to move from: toy AI demo → actual task-capable system_
+> _To see what is (somewhat) verified to be (probably) working, see **[SYSTEM_INVENTORY.md](SYSTEM_INVENTORY.md)**_
 
 ---
 
@@ -65,7 +65,7 @@ JARVISv5 is many things, but it is not a fully autonomous, self‑correcting, om
 - **Not autonomous** — It will not run off and “handle things” for you. It barely trusts itself.
 - **Not finished** — It’s v5, which implies four previous attempts and at least six future ones.
 
-> _“Mostly functional and definitely aware of its limitations.”_
+> _“Building with high ambition, grounded in (and by the) truth”_
 
 ---
 
@@ -89,13 +89,13 @@ Distributed under the MIT License, which is basically the “do whatever you wan
 
 This work builds upon the foundations (and failures) in:
 
-- [JARVISv1 (Just A Rough Very Incomplete Start)](https://github.com/bentman/JARVISv1)
+- **[JARVISv1 (Just A Rough Very Incomplete Start)](https://github.com/bentman/JARVISv1)**
   - _The “learning to walk by falling down stairs” era._
-- [JARVISv2 (Just Almost Real Viable Intelligent System)](https://github.com/bentman/JARVISv2)
+- **[JARVISv2 (Just Almost Real Viable Intelligent System)](https://github.com/bentman/JARVISv2)**
   - _The version that felt promising right up until it wasn’t._
-- [JARVISv3 (Just A Reliable Variant In Service)](https://github.com/bentman/JARVISv3)
+- **[JARVISv3 (Just A Reliable Variant In Service)](https://github.com/bentman/JARVISv3)**
   - _The first time things stopped catching fire long enough to be usable._
-- [JARVISv4 (Just A Reimagined Version In Stasis)](https://github.com/bentman/JARVISv4)
+- **[JARVISv4 (Just A Reimagined Version In Stasis)](https://github.com/bentman/JARVISv4)**
   - _A bold redesign that immediately froze like a Windows 98 demo machine._
 
 > _"Sometimes you gotta run before you can walk." - Tony Stark_
