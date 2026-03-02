@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+import backend.search.providers.ddg as ddg_module
 from backend.search.providers.base import (
     ProviderParseResult,
     ProviderRequest,
@@ -8,6 +9,7 @@ from backend.search.providers.base import (
     SearchResponse,
     SearchResultItem,
 )
+from backend.search.providers.ddg import DuckDuckGoProvider
 from backend.search.providers.ladder import ProviderLadder
 
 
@@ -120,3 +122,35 @@ def test_ladder_without_payload_loader_uses_provider_execute_request_path() -> N
     assert result.response is not None
     assert len(result.response.items) == 1
     assert result.response.items[0].title == "Live result for python"
+
+
+def test_ladder_without_payload_loader_uses_ddg_execute_request_with_monkeypatched_ddgs(monkeypatch) -> None:
+    class _FakeDDGS:
+        def text(self, query: str, max_results: int = 5, **kwargs):
+            _ = kwargs
+            assert query == "python"
+            assert max_results == 2
+            return [
+                {
+                    "title": "Python Official",
+                    "href": "https://www.python.org/",
+                    "body": "Welcome to Python.org",
+                },
+                {
+                    "title": "Missing href row",
+                    "body": "should be filtered before parse",
+                },
+            ]
+
+    monkeypatch.setattr(ddg_module, "DDGS", _FakeDDGS)
+
+    ladder = ProviderLadder(providers=[DuckDuckGoProvider()])
+    result = ladder.search("python", top_k=2, payload_loader=None)
+
+    assert result.ok is True
+    assert result.code == "ok"
+    assert result.selected_provider == "duckduckgo"
+    assert result.attempted_providers == ["duckduckgo"]
+    assert result.response is not None
+    assert len(result.response.items) >= 1
+    assert result.response.items[0].url == "https://www.python.org/"

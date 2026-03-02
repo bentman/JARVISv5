@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from ddgs import DDGS
+from ddgs.exceptions import DDGSException, RatelimitException, TimeoutException
+
 from backend.search.providers.base import (
     ProviderParseResult,
     ProviderRequest,
@@ -11,6 +14,27 @@ from backend.search.providers.base import (
 
 class DuckDuckGoProvider(SearchProviderBase):
     name = "duckduckgo"
+
+    def execute_request(self, request: ProviderRequest) -> ProviderParseResult:
+        try:
+            rows = list(DDGS().text(request.query, max_results=request.top_k))
+            normalized_rows: list[dict] = []
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                if "href" not in row:
+                    continue
+                normalized_rows.append(row)
+            payload = {"results": normalized_rows}
+            return self.parse_response(payload, request)
+        except RatelimitException:
+            return ProviderParseResult(ok=False, code="provider_unavailable", reason="ratelimit")
+        except TimeoutException:
+            return ProviderParseResult(ok=False, code="provider_unavailable", reason="timeout")
+        except DDGSException:
+            return ProviderParseResult(ok=False, code="provider_unavailable", reason="request_error")
+        except Exception:
+            return ProviderParseResult(ok=False, code="provider_unavailable", reason="request_error")
 
     def parse_response(self, payload: dict | str, request: ProviderRequest) -> ProviderParseResult:
         ok, data, reason = self._load_payload_dict(payload)

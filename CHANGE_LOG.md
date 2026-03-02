@@ -15,6 +15,20 @@
 
 ## Entries
 
+- 2026-03-02 03:19
+  - Summary: Implemented Task 8.6.2 by adding live DuckDuckGo provider execution via `ddgs` behind existing EXTERNAL/policy/privacy flow, while keeping unit validation deterministic and offline.
+  - Scope: `backend/search/providers/ddg.py`, `tests/unit/test_search_provider_ladder.py`.
+  - Evidence:
+    - Unit:
+      - `.\backend\.venv\Scripts\python.exe -m pytest tests\unit\test_search_provider_contracts.py tests\unit\test_search_provider_ladder.py tests\unit\test_search_tools.py -q`
+        - PASS excerpt: `15 passed in 0.20s`
+      - `.\backend\.venv\Scripts\python.exe scripts\validate_backend.py --scope unit`
+        - PASS excerpt: `PASS WITH SKIPS: unit: 210 tests, 1 skipped`
+        - PASS report: `reports\backend_validation_report_20260302_030838.txt`
+    - Smoke:
+      - `docker compose exec -T backend sh -lc "SEARCH_SEARXNG_URL=http://127.0.0.1:9/search python -c \"from backend.workflow.nodes.tool_call_node import ToolCallNode; ctx={'task_id':'smoke-862-ddg','tool_call':{'tool_name':'search_web','payload':{'query':'smoke','top_k':3},'external_call':True,'allow_external':True,'sandbox_roots':['/app']}}; out=ToolCallNode().execute(ctx); r=out.get('tool_result',{}); print('TOOL_OK', out.get('tool_ok')); print('CODE', r.get('code')); print('PROVIDER', r.get('provider')); print('ITEMS', len(r.get('items',[]))); print('PROVIDER_LADDER', r.get('attempted_providers')); print('REASON', r.get('reason'))\""`
+        - Output excerpt: `TOOL_OK True`, `CODE ok`, `PROVIDER duckduckgo`, `ITEMS 3`
+
 - 2026-03-02 02:38
   - Summary: Completed Task 8.6.1 smoke-only correction pass for live SearXNG path without backend code changes. Restored deterministic live smoke by using baseline-first compose flow, then minimal SearXNG settings mount for JSON plus required `server.secret_key` after explicit runtime error evidence.
   - Scope: `docker-compose.yml`, `backend/config/search/searxng/settings.yml`, `.env`, `CHANGE_LOG.md`.
