@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import os
+
+import httpx
+
 from backend.search.providers.base import (
     ProviderParseResult,
     ProviderRequest,
@@ -11,6 +15,35 @@ from backend.search.providers.base import (
 
 class SearXNGProvider(SearchProviderBase):
     name = "searxng"
+
+    def execute_request(self, request: ProviderRequest) -> ProviderParseResult:
+        base_url = os.getenv("SEARCH_SEARXNG_URL", "http://searxng:8080/search")
+        try:
+            with httpx.Client(timeout=httpx.Timeout(5.0, connect=2.0)) as client:
+                response = client.get(
+                    base_url,
+                    params={"q": request.query, "format": "json"},
+                )
+        except httpx.ConnectError:
+            return ProviderParseResult(ok=False, code="provider_unavailable", reason="connect_error")
+        except httpx.TimeoutException:
+            return ProviderParseResult(ok=False, code="provider_unavailable", reason="timeout")
+        except Exception:
+            return ProviderParseResult(ok=False, code="provider_unavailable", reason="live_request_failed")
+
+        if response.status_code != 200:
+            return ProviderParseResult(
+                ok=False,
+                code="provider_unavailable",
+                reason=f"http_status_{response.status_code}",
+            )
+
+        try:
+            payload = response.json()
+        except ValueError:
+            return ProviderParseResult(ok=False, code="parse_error", reason="invalid_json")
+
+        return self.parse_response(payload, request)
 
     def parse_response(self, payload: dict | str, request: ProviderRequest) -> ProviderParseResult:
         ok, data, reason = self._load_payload_dict(payload)

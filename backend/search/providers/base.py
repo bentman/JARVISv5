@@ -52,6 +52,15 @@ class SearchProviderBase(ABC):
     def parse_response(self, payload: dict | str, request: ProviderRequest) -> ProviderParseResult:
         raise NotImplementedError
 
+    def execute_request(self, request: ProviderRequest) -> ProviderParseResult:
+        _ = request
+        return ProviderParseResult(
+            ok=False,
+            code="provider_unavailable",
+            reason="live execution not implemented",
+            response=None,
+        )
+
     def _load_payload_dict(self, payload: dict | str) -> tuple[bool, dict, str]:
         if isinstance(payload, dict):
             return True, payload, ""

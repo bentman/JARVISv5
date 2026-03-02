@@ -15,6 +15,32 @@
 
 ## Entries
 
+- 2026-03-02 02:38
+  - Summary: Completed Task 8.6.1 smoke-only correction pass for live SearXNG path without backend code changes. Restored deterministic live smoke by using baseline-first compose flow, then minimal SearXNG settings mount for JSON plus required `server.secret_key` after explicit runtime error evidence.
+  - Scope: `docker-compose.yml`, `backend/config/search/searxng/settings.yml`, `.env`, `CHANGE_LOG.md`.
+  - Key behaviors:
+    - Baseline attempt (no custom settings mount) started container but host JSON endpoint returned `403` for `format=json`.
+    - Minimal mount re-enabled (`/etc/searxng/settings.yml`) with `search.formats: [html, json]`.
+    - Added `server.secret_key` only after container log explicitly required it: `server.secret_key is not changed. Please use something else instead of ultrasecretkey.`
+    - Compose topology check confirmed backend can resolve `searxng`; backend live URL remained `http://searxng:8080/search` while host smoke used `http://localhost:8080/search`.
+  - Evidence:
+    - Unit validation commands:
+      - `.\\backend\\.venv\\Scripts\\python.exe -m pytest tests\\unit\\test_search_provider_contracts.py tests\\unit\\test_search_provider_ladder.py tests\\unit\\test_search_tools.py -q`
+        - PASS excerpt: `14 passed in 0.17s`
+      - `.\\backend\\.venv\\Scripts\\python.exe scripts\\validate_backend.py --scope unit`
+        - PASS excerpt: `PASS WITH SKIPS: unit: 209 tests, 1 skipped`
+        - PASS excerpt: `UNIT=PASS_WITH_SKIPS`
+        - PASS report: `reports\\backend_validation_report_20260302_023738.txt`
+    - Smoke correction commands:
+      - `docker compose logs --no-color --tail=80 searxng`
+        - Required-key proof excerpt: `server.secret_key is not changed. Please use something else instead of ultrasecretkey.`
+      - `curl.exe -sS -o NUL -w "HTTP=%{http_code}\\n" "http://localhost:8080/search?q=smoke&format=json"`
+        - Success excerpt: `HTTP=200`
+      - `docker compose exec -T backend python -c "import httpx; r=httpx.get('http://searxng:8080/search', params={'q':'smoke','format':'json'}, timeout=10.0); print('HTTP', r.status_code); j=r.json(); print('HAS_RESULTS', isinstance(j.get('results'), list)); print('RESULT_COUNT', len(j.get('results', [])))"`
+        - Success excerpt: `HTTP 200`, `HAS_RESULTS True`, `RESULT_COUNT 32`
+      - `docker compose exec -T backend python -c "from backend.workflow.nodes.tool_call_node import ToolCallNode; ctx={'task_id':'smoke-861','tool_call':{'tool_name':'search_web','payload':{'query':'smoke','top_k':3},'external_call':True,'allow_external':True,'sandbox_roots':['/app']}}; out=ToolCallNode().execute(ctx); r=out.get('tool_result',{}); print('TOOL_OK', out.get('tool_ok')); print('CODE', r.get('code')); print('PROVIDER', r.get('provider')); print('ITEMS', len(r.get('items',[])))"`
+        - Success excerpt: `TOOL_OK True`, `CODE ok`, `PROVIDER searxng`, `ITEMS 3`
+
 - 2026-03-01 23:20
   - Summary: Implemented Task 8.5 tool surface + policy-bound escalation wiring by adding EXTERNAL `search_web`/`fetch_url` tools with deterministic offline fixture execution, policy-gated outcomes, and conditional ToolCallNode registration.
   - Scope: `backend/tools/search_tools.py`, `backend/workflow/nodes/tool_call_node.py`, `backend/tools/__init__.py`, `tests/unit/test_search_tools.py`.

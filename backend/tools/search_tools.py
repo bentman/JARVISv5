@@ -93,19 +93,19 @@ def build_search_tool_dispatch_map(
             return _deny_payload(decision)
 
         request = SearchWebInput.model_validate(payload)
-
-        if search_payload_loader is None:
-            return False, {
-                "code": "provider_unavailable",
-                "reason": "no provider returned results",
-                "policy": decision,
-            }
-
-        ladder_result = ladder.search(
-            request.query,
-            request.top_k,
-            payload_loader=lambda provider_name: search_payload_loader(provider_name, request.query),
-        )
+        search_loader = search_payload_loader
+        if search_loader is None:
+            ladder_result = ladder.search(
+                request.query,
+                request.top_k,
+                payload_loader=None,
+            )
+        else:
+            ladder_result = ladder.search(
+                request.query,
+                request.top_k,
+                payload_loader=lambda provider_name: search_loader(provider_name, request.query),
+            )
 
         if not ladder_result.ok or ladder_result.response is None:
             return False, {

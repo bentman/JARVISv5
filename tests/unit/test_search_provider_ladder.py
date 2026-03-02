@@ -1,6 +1,13 @@
 import json
 from pathlib import Path
 
+from backend.search.providers.base import (
+    ProviderParseResult,
+    ProviderRequest,
+    SearchProviderBase,
+    SearchResponse,
+    SearchResultItem,
+)
 from backend.search.providers.ladder import ProviderLadder
 
 
@@ -72,3 +79,44 @@ def test_ladder_returns_provider_unavailable_when_all_fail() -> None:
     assert result.reason == "no provider returned results"
     assert result.selected_provider is None
     assert result.attempted_providers == ["searxng", "duckduckgo", "tavily"]
+
+
+def test_ladder_without_payload_loader_uses_provider_execute_request_path() -> None:
+    class _LiveStubProvider(SearchProviderBase):
+        name = "searxng"
+
+        def parse_response(self, payload: dict | str, request: ProviderRequest) -> ProviderParseResult:
+            _ = payload
+            _ = request
+            return ProviderParseResult(ok=False, code="provider_unavailable", reason="not_used")
+
+        def execute_request(self, request: ProviderRequest) -> ProviderParseResult:
+            return ProviderParseResult(
+                ok=True,
+                code="ok",
+                reason="ok",
+                response=SearchResponse(
+                    items=[
+                        SearchResultItem(
+                            title=f"Live result for {request.query}",
+                            url="https://example.com/live",
+                            snippet="stub",
+                            source_provider=self.name,
+                        )
+                    ],
+                    provider=self.name,
+                    raw_cost_usd=0.0,
+                    warnings=[],
+                ),
+            )
+
+    ladder = ProviderLadder(providers=[_LiveStubProvider()])
+    result = ladder.search("python", top_k=1, payload_loader=None)
+
+    assert result.ok is True
+    assert result.code == "ok"
+    assert result.selected_provider == "searxng"
+    assert result.attempted_providers == ["searxng"]
+    assert result.response is not None
+    assert len(result.response.items) == 1
+    assert result.response.items[0].title == "Live result for python"

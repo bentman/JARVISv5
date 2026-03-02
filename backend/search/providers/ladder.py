@@ -21,21 +21,14 @@ class ProviderLadder:
         attempted: list[str] = []
         warnings: list[str] = []
 
-        if payload_loader is None:
-            return LadderSearchResult(
-                ok=False,
-                code="provider_unavailable",
-                reason="no provider returned results",
-                selected_provider=None,
-                attempted_providers=[],
-                warnings=["payload loader required"],
-            )
-
         for provider in self.providers:
             attempted.append(provider.name)
             request = provider.build_request(query, top_k=top_k)
-            payload = payload_loader(provider.name)
-            parsed = provider.parse_response(payload, request)
+            if payload_loader is None:
+                parsed = provider.execute_request(request)
+            else:
+                payload = payload_loader(provider.name)
+                parsed = provider.parse_response(payload, request)
             if parsed.ok and parsed.response is not None and len(parsed.response.items) > 0:
                 return LadderSearchResult(
                     ok=True,
