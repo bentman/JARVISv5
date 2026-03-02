@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+import os
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from backend.search.budget import SearchBudgetConfig, SearchBudgetLedger
 from backend.search.extract import extract_text_from_html
@@ -16,6 +17,20 @@ from backend.tools.sandbox import Sandbox
 class SearchWebInput(BaseModel):
     query: str = Field(min_length=1)
     top_k: int = Field(default=5, ge=1)
+    preferred_provider: str | None = None
+
+    @field_validator("preferred_provider")
+    @classmethod
+    def validate_preferred_provider(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip().lower()
+        if not normalized:
+            return None
+        valid_names = ProviderLadder.default_provider_names()
+        if normalized not in valid_names:
+            raise ValueError(f"preferred_provider must be one of: {', '.join(valid_names)}")
+        return normalized
 
 
 class FetchUrlInput(BaseModel):
@@ -99,13 +114,50 @@ def build_search_tool_dispatch_map(
                 request.query,
                 request.top_k,
                 payload_loader=None,
+                preferred_provider=request.preferred_provider,
             )
         else:
             ladder_result = ladder.search(
                 request.query,
                 request.top_k,
                 payload_loader=lambda provider_name: search_loader(provider_name, request.query),
+                preferred_provider=request.preferred_provider,
             )
+
+        if request.preferred_provider is not None:
+            if (
+                not ladder_result.ok
+                or ladder_result.response is None
+                or ladder_result.selected_provider != request.preferred_provider
+            ):
+                reason = ""
+                ladder_reason = str(ladder_result.reason).strip() if ladder_result.reason else ""
+                if ladder_reason and ladder_reason.lower() != "ok":
+                    reason = ladder_reason
+
+                if not reason:
+                    preferred_warning_prefix = f"{request.preferred_provider}:"
+                    for warning in ladder_result.warnings:
+                        warning_text = str(warning)
+                        if not warning_text.startswith(preferred_warning_prefix):
+                            continue
+                        warning_reason = warning_text[len(preferred_warning_prefix) :].strip()
+                        if warning_reason:
+                            reason = warning_reason
+                        break
+
+                if reason == "provider_unavailable" and request.preferred_provider == "tavily":
+                    tavily_api_key = os.getenv("TAVILY_API_KEY", "").strip()
+                    reason = "request_error" if tavily_api_key else "unauthorized"
+
+                if not reason:
+                    reason = "preferred provider unavailable"
+                return False, {
+                    "code": "provider_unavailable",
+                    "reason": reason,
+                    "preferred_provider": request.preferred_provider,
+                    "policy": decision,
+                }
 
         if not ladder_result.ok or ladder_result.response is None:
             return False, {

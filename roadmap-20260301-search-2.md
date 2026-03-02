@@ -1190,19 +1190,19 @@ def test_search_web_full_workflow(monkeypatch, tmp_path):
 
 ## Implementation Checklist
 
-- [ ] Task 8.1: EXTERNAL tier + executor logic + tests (PASS)
-- [ ] Task 8.2: Budget tracker + tests (PASS)
-- [ ] Task 8.3: 3 providers + fallback + tests (PASS)
-- [ ] Task 8.4: search_web with M5 actual API + tests (PASS)
-- [ ] Task 8.5: fetch_url with trafilatura + tests (PASS)
-- [ ] Task 8.6: Tool registration M4 pattern (verified)
-- [ ] Task 8.7: Config + tests (PASS)
-- [ ] Task 8.8: SearXNG Docker + JSON check (verified)
-- [ ] Task 8.9: Dependencies installed (verified)
-- [ ] Integration test: Full workflow (PASS)
-- [ ] Validation harness: PASS_WITH_SKIPS
-- [ ] CHANGE_LOG entry with evidence
+- [X] Task 8.1: EXTERNAL tier + executor logic + tests (PASS)
+- [X] Task 8.2: Budget tracker + tests (PASS)
+- [X] Task 8.3: 3 providers + fallback + tests (PASS)
+- [X] Task 8.4: search_web with M5 actual API + tests (PASS)
+- [X] Task 8.5: fetch_url with trafilatura + tests (PASS)
+- [X] Task 8.6: Tool registration M4 pattern (verified)
+- [X] Task 8.7: Config + tests (PASS)
+- [X] Task 8.8: SearXNG Docker + JSON check (verified)
+- [X] Task 8.9: Dependencies installed (verified)
+- [X] Validation harness: PASS_WITH_SKIPS
+- [X] CHANGE_LOG entry with evidence
 - [ ] SYSTEM_INVENTORY entry
+- [?] Integration test: Full workflow (PASS)
 
 ---
 

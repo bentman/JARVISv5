@@ -2,6 +2,14 @@ import json
 from pathlib import Path
 
 from backend.search.budget import SearchBudgetConfig, SearchBudgetLedger
+from backend.search.providers.base import (
+    ProviderParseResult,
+    ProviderRequest,
+    SearchProviderBase,
+    SearchResponse,
+    SearchResultItem,
+)
+from backend.search.providers.ladder import ProviderLadder
 from backend.tools.executor import ToolExecutionRequest, execute_tool_call
 from backend.tools.registry import ToolRegistry
 from backend.tools.sandbox import Sandbox, SandboxConfig
@@ -201,3 +209,114 @@ def test_fetch_url_denied_by_policy_is_deterministic(tmp_path: Path) -> None:
     assert ok is False
     assert result["code"] == "budget_exceeded"
     assert result["policy"]["code"] == "budget_exceeded"
+
+
+def test_search_web_preferred_provider_failure_is_deterministic_without_fallback(tmp_path: Path) -> None:
+    registry = ToolRegistry()
+    register_search_tools(registry)
+    sandbox = _sandbox(tmp_path)
+
+    class _FailingTavilyProvider(SearchProviderBase):
+        name = "tavily"
+
+        def parse_response(self, payload: dict | str, request: ProviderRequest) -> ProviderParseResult:
+            _ = payload
+            _ = request
+            return ProviderParseResult(ok=False, code="unauthorized", reason="unauthorized")
+
+        def execute_request(self, request: ProviderRequest) -> ProviderParseResult:
+            _ = request
+            return ProviderParseResult(ok=False, code="unauthorized", reason="unauthorized")
+
+    class _SuccessfulSearxngProvider(SearchProviderBase):
+        name = "searxng"
+
+        def parse_response(self, payload: dict | str, request: ProviderRequest) -> ProviderParseResult:
+            _ = payload
+            _ = request
+            return ProviderParseResult(ok=False, code="provider_unavailable", reason="not_used")
+
+        def execute_request(self, request: ProviderRequest) -> ProviderParseResult:
+            _ = request
+            return ProviderParseResult(
+                ok=True,
+                code="ok",
+                reason="ok",
+                response=SearchResponse(
+                    items=[
+                        SearchResultItem(
+                            title="SearXNG success",
+                            url="https://example.com/searxng",
+                            snippet="fallback should not be used",
+                            source_provider=self.name,
+                        )
+                    ],
+                    provider=self.name,
+                    raw_cost_usd=0.0,
+                    warnings=[],
+                ),
+            )
+
+    class _SuccessfulDdgProvider(SearchProviderBase):
+        name = "duckduckgo"
+
+        def parse_response(self, payload: dict | str, request: ProviderRequest) -> ProviderParseResult:
+            _ = payload
+            _ = request
+            return ProviderParseResult(ok=False, code="provider_unavailable", reason="not_used")
+
+        def execute_request(self, request: ProviderRequest) -> ProviderParseResult:
+            _ = request
+            return ProviderParseResult(
+                ok=True,
+                code="ok",
+                reason="ok",
+                response=SearchResponse(
+                    items=[
+                        SearchResultItem(
+                            title="DDG success",
+                            url="https://example.com/ddg",
+                            snippet="fallback should not be used",
+                            source_provider=self.name,
+                        )
+                    ],
+                    provider=self.name,
+                    raw_cost_usd=0.0,
+                    warnings=[],
+                ),
+            )
+
+    custom_ladder = ProviderLadder(
+        providers=[
+            _SuccessfulSearxngProvider(),
+            _SuccessfulDdgProvider(),
+            _FailingTavilyProvider(),
+        ]
+    )
+
+    dispatch_map = build_search_tool_dispatch_map(
+        allow_external=True,
+        task_id="task-preferred-failure",
+        date_key="2026-03-02",
+        budget_ledger=SearchBudgetLedger(path=tmp_path / "budget_preferred_failure.json"),
+        budget_config=SearchBudgetConfig(daily_limit_usd=2.0, per_call_estimate_usd=0.1),
+        provider_ladder=custom_ladder,
+    )
+
+    ok, result = execute_tool_call(
+        ToolExecutionRequest(
+            tool_name="search_web",
+            payload={"query": "python", "top_k": 3, "preferred_provider": "tavily"},
+            allow_external=True,
+        ),
+        registry,
+        sandbox,
+        dispatch_map,
+    )
+
+    assert ok is False
+    assert result["code"] == "provider_unavailable"
+    assert result["reason"] == "unauthorized"
+    assert result["preferred_provider"] == "tavily"
+    assert "provider" not in result
+    assert "items" not in result

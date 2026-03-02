@@ -15,6 +15,21 @@
 
 ## Entries
 
+- 2026-03-02 04:36
+  - Summary: Preserved strict preferred-provider failure reason in `search_web` so Tavily-specific failures (for example `unauthorized`) are returned instead of being overwritten with `preferred provider unavailable`.
+  - Scope: `backend/tools/search_tools.py`, `tests/unit/test_search_tools.py`.
+  - Evidence:
+    - Unit:
+      - `./backend/.venv/Scripts/python.exe -m pytest tests/unit/test_search_tools.py -q`
+        - PASS excerpt: `6 passed in 0.17s`
+    - Unit harness:
+      - `./backend/.venv/Scripts/python.exe scripts/validate_backend.py --scope unit`
+        - PASS excerpt: `PASS WITH SKIPS: unit: 213 tests, 1 skipped`
+        - PASS report: `reports/backend_validation_report_20260302_043133.txt`
+    - Smoke:
+      - `./backend/.venv/Scripts/python.exe -c "... ToolCallNode preferred_provider='tavily' ..."`
+        - Output excerpt: `CODE provider_unavailable`, `REASON unauthorized`, `PROVIDER None`, `PREFERRED tavily`
+
 - 2026-03-02 03:19
   - Summary: Implemented Task 8.6.2 by adding live DuckDuckGo provider execution via `ddgs` behind existing EXTERNAL/policy/privacy flow, while keeping unit validation deterministic and offline.
   - Scope: `backend/search/providers/ddg.py`, `tests/unit/test_search_provider_ladder.py`.

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import importlib
+import os
+
 from backend.search.providers.base import (
     ProviderParseResult,
     ProviderRequest,
@@ -11,6 +14,62 @@ from backend.search.providers.base import (
 
 class TavilyProvider(SearchProviderBase):
     name = "tavily"
+
+    def execute_request(self, request: ProviderRequest) -> ProviderParseResult:
+        api_key = os.getenv("TAVILY_API_KEY", "").strip()
+        if not api_key:
+            return ProviderParseResult(ok=False, code="provider_unavailable", reason="unauthorized")
+
+        try:
+            tavily_module = importlib.import_module("tavily")
+            client_cls = getattr(tavily_module, "TavilyClient", None)
+        except Exception:
+            client_cls = None
+
+        if client_cls is None:
+            return ProviderParseResult(ok=False, code="provider_unavailable", reason="request_error")
+
+        try:
+            payload_raw = client_cls(api_key=api_key).search(
+                request.query,
+                max_results=request.top_k,
+            )
+        except Exception as exc:
+            code, reason = self._map_live_exception(exc)
+            return ProviderParseResult(ok=False, code=code, reason=reason)
+
+        results_raw = payload_raw.get("results") if isinstance(payload_raw, dict) else []
+        normalized_results: list[dict[str, object]] = []
+        if isinstance(results_raw, list):
+            for row in results_raw:
+                if not isinstance(row, dict):
+                    continue
+                normalized_results.append(
+                    {
+                        "title": row.get("title", ""),
+                        "url": row.get("url", ""),
+                        "content": row.get("content"),
+                    }
+                )
+
+        return self.parse_response({"results": normalized_results}, request)
+
+    @staticmethod
+    def _map_live_exception(exc: Exception) -> tuple[str, str]:
+        name = exc.__class__.__name__.lower()
+        message = str(exc).lower()
+        status_code = getattr(exc, "status_code", None)
+        if status_code is None:
+            response_obj = getattr(exc, "response", None)
+            status_code = getattr(response_obj, "status_code", None)
+
+        if status_code == 401 or "401" in message or "unauthorized" in message or "invalid api key" in message:
+            return "provider_unavailable", "unauthorized"
+        if status_code == 429 or "429" in message or "rate limit" in message or "ratelimit" in name or "too many requests" in message:
+            return "provider_unavailable", "ratelimit"
+        if "timeout" in name or "timeout" in message:
+            return "provider_unavailable", "timeout"
+        return "provider_unavailable", "request_error"
 
     def parse_response(self, payload: dict | str, request: ProviderRequest) -> ProviderParseResult:
         ok, data, reason = self._load_payload_dict(payload)

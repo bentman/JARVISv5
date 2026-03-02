@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import backend.search.providers.ddg as ddg_module
+import backend.search.providers.tavily as tavily_module
 from backend.search.providers.base import (
     ProviderParseResult,
     ProviderRequest,
@@ -11,6 +12,7 @@ from backend.search.providers.base import (
 )
 from backend.search.providers.ddg import DuckDuckGoProvider
 from backend.search.providers.ladder import ProviderLadder
+from backend.search.providers.tavily import TavilyProvider
 
 
 FIXTURE_DIR = Path("tests/fixtures/search")
@@ -62,6 +64,26 @@ def test_ladder_falls_through_to_tavily_when_first_two_fail() -> None:
     assert result.attempted_providers == ["searxng", "duckduckgo", "tavily"]
     assert result.response is not None
     assert len(result.response.items) == 1
+
+
+def test_ladder_preferred_provider_tavily_is_attempted_first() -> None:
+    ladder = ProviderLadder()
+    loader = _payload_loader_from_map(
+        {
+            "searxng": "searxng_ok.json",
+            "duckduckgo": "ddg_ok.json",
+            "tavily": "tavily_ok.json",
+        }
+    )
+
+    result = ladder.search("python", top_k=2, payload_loader=loader, preferred_provider="tavily")
+
+    assert result.ok is True
+    assert result.code == "ok"
+    assert result.selected_provider == "tavily"
+    assert result.attempted_providers == ["tavily"]
+    assert result.response is not None
+    assert len(result.response.items) >= 1
 
 
 def test_ladder_returns_provider_unavailable_when_all_fail() -> None:
@@ -154,3 +176,39 @@ def test_ladder_without_payload_loader_uses_ddg_execute_request_with_monkeypatch
     assert result.response is not None
     assert len(result.response.items) >= 1
     assert result.response.items[0].url == "https://www.python.org/"
+
+
+def test_ladder_without_payload_loader_uses_tavily_execute_request_with_offline_override(monkeypatch) -> None:
+    class _FakeTavilyClient:
+        def __init__(self, api_key: str) -> None:
+            assert api_key == "test-key"
+
+        def search(self, query: str, max_results: int = 5, **kwargs):
+            _ = kwargs
+            assert query == "python"
+            assert max_results == 2
+            return {
+                "results": [
+                    {
+                        "title": "Tavily Python",
+                        "url": "https://example.com/tavily-python",
+                        "content": "deterministic",
+                    }
+                ]
+            }
+
+    class _FakeTavilyModule:
+        TavilyClient = _FakeTavilyClient
+
+    monkeypatch.setattr(tavily_module.importlib, "import_module", lambda name: _FakeTavilyModule if name == "tavily" else None)
+    monkeypatch.setenv("TAVILY_API_KEY", "test-key")
+
+    ladder = ProviderLadder(providers=[TavilyProvider()])
+    result = ladder.search("python", top_k=2, payload_loader=None)
+
+    assert result.ok is True
+    assert result.code == "ok"
+    assert result.selected_provider == "tavily"
+    assert result.attempted_providers == ["tavily"]
+    assert result.response is not None
+    assert len(result.response.items) >= 1
