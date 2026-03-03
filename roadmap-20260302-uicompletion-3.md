@@ -31,7 +31,7 @@ This revision applies four explicit tightening points:
 
 ## Phase 1: API Contracts (NEW - Foundation)
 
-### Task 9.0: Define API Response Schemas
+### ~~Task 9.0: Define API Response Schemas~~ added sub-tasks to prepare api surface
 
 **Status**: NEW REQUIREMENT (Agent feedback A)
 
@@ -191,12 +191,12 @@ def test_workflow_telemetry_schema():
 ```
 
 **Acceptance Criteria**:
-- [ ] All response schemas defined as Pydantic models
-- [ ] Version documented in docstrings (v1)
-- [ ] Example instantiation tests pass
-- [ ] No backend/frontend implementation yet (contracts only)
+- [X] All response schemas defined as Pydantic models
+- [X] Version documented in docstrings (v1)
+- [X] Example instantiation tests pass
+- [X] No backend/frontend implementation yet (contracts only)
 
-### Sub-Task 9.0.1: Endpoint Gap Map + Source-of-Truth Route Inventory
+### ~~Sub-Task 9.0.1: Endpoint Gap Map + Source-of-Truth Route Inventory~~ completed
 
 **Status**: NEW (course-correction prerequisite for 9.1+)
 
@@ -225,11 +225,11 @@ def test_workflow_telemetry_schema():
 - None (discovery-only; this is an execution planning artifact).
 
 **Acceptance Criteria**:
-- [ ] Gap map captured in roadmap with exact file:line route references
-- [ ] Required endpoints and expected schemas explicitly listed
-- [ ] Near-miss routes/capabilities identified for each missing endpoint
+- [X] Gap map captured in roadmap with exact file:line route references
+- [X] Required endpoints and expected schemas explicitly listed
+- [X] Near-miss routes/capabilities identified for each missing endpoint
 
-### Sub-Task 9.0.2: Add `GET /settings` (Schema-Aligned Projection)
+### ~~Sub-Task 9.0.2: Add `GET /settings` (Schema-Aligned Projection)~~ completed
 
 **Objective**: Add `GET /settings` returning `SettingsResponse` with keys aligned to `backend/config/settings.py`.
 
@@ -254,11 +254,11 @@ def test_workflow_telemetry_schema():
   - representative values reflect current settings defaults/overrides
 
 **Acceptance Criteria**:
-- [ ] `GET /settings` exists and returns `SettingsResponse`
-- [ ] Handler uses typed settings source (no ad-hoc drift)
-- [ ] API test coverage added/updated for happy-path response keys
+- [X] `GET /settings` exists and returns `SettingsResponse`
+- [X] Handler uses typed settings source (no ad-hoc drift)
+- [X] API test coverage added/updated for happy-path response keys
 
-### Sub-Task 9.0.3: Add `GET /budget` (Schema-Aligned Summary)
+### ~~Sub-Task 9.0.3: Add `GET /budget` (Schema-Aligned Summary)~~ completed
 
 **Objective**: Add `GET /budget` returning `BudgetResponse` from budget ledger/config abstractions.
 
@@ -283,11 +283,11 @@ def test_workflow_telemetry_schema():
   - presence of `limit_usd`, `spent_usd`, `remaining_usd` in each period object
 
 **Acceptance Criteria**:
-- [ ] `GET /budget` exists and returns `BudgetResponse`
-- [ ] Response contract is schema-valid with deterministic numeric fields
-- [ ] API test coverage added/updated for budget keys
+- [X] `GET /budget` exists and returns `BudgetResponse`
+- [X] Response contract is schema-valid with deterministic numeric fields
+- [X] API test coverage added/updated for budget keys
 
-### Sub-Task 9.0.4: Add `GET /health/detailed` (Detailed Diagnostics Contract)
+### ~~Sub-Task 9.0.4: Add `GET /health/detailed` (Detailed Diagnostics Contract)~~ completed
 
 **Objective**: Add detailed health endpoint returning `DetailedHealthResponse` without altering existing `/health` behavior.
 
@@ -312,11 +312,11 @@ def test_workflow_telemetry_schema():
   - presence of detailed blocks (`hardware`, `model`, `cache`) when available
 
 **Acceptance Criteria**:
-- [ ] `GET /health/detailed` exists and returns `DetailedHealthResponse`
-- [ ] Existing `GET /health` remains unchanged and passing existing tests
-- [ ] API test coverage added/updated for detailed health contract
+- [X] `GET /health/detailed` exists and returns `DetailedHealthResponse`
+- [X] Existing `GET /health` remains unchanged and passing existing tests
+- [X] API test coverage added/updated for detailed health contract
 
-### Sub-Task 9.0.5: Add `GET /health/ready` (Readiness Tier)
+### ~~Sub-Task 9.0.5: Add `GET /health/ready` (Readiness Tier)~~ completed
 
 **Objective**: Add readiness endpoint for M9 health-tier split, separate from liveness and detailed diagnostics.
 
@@ -341,11 +341,11 @@ def test_workflow_telemetry_schema():
   - no regression on `/health`
 
 **Acceptance Criteria**:
-- [ ] `GET /health/ready` exists with stable readiness payload
-- [ ] Readiness check does not break existing liveness behavior
-- [ ] API test coverage added/updated for readiness route
+- [X] `GET /health/ready` exists with stable readiness payload
+- [X] Readiness check does not break existing liveness behavior
+- [X] API test coverage added/updated for readiness route
 
-### Sub-Task 9.0.6: Add `GET /workflow/{task_id}` (Telemetry Contract Route)
+### ~~Sub-Task 9.0.6: Add `GET /workflow/{task_id}` (Telemetry Contract Route)~~ completed
 
 **Objective**: Add dedicated workflow telemetry endpoint returning `WorkflowTelemetryResponse`.
 
@@ -373,9 +373,9 @@ def test_workflow_telemetry_schema():
   - deterministic ordering assertion for `node_events` (based on available offset/timing field)
 
 **Acceptance Criteria**:
-- [ ] `GET /workflow/{task_id}` exists and returns `WorkflowTelemetryResponse`
-- [ ] Unknown task returns `404` consistent with existing API semantics
-- [ ] API test coverage added/updated for success + not-found + event ordering
+- [X] `GET /workflow/{task_id}` exists and returns `WorkflowTelemetryResponse`
+- [X] Unknown task returns `404` consistent with existing API semantics
+- [X] API test coverage added/updated for success + not-found + event ordering
 
 ---
 
