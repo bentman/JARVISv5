@@ -15,6 +15,86 @@
 
 ## Entries
 
+- 2026-03-03 12:00
+  - Summary: Completed Milestone 9 / Sub-Task 9.0.6 by adding `GET /workflow/{task_id}` returning `WorkflowTelemetryResponse` using existing task state and episodic DAG telemetry.
+  - Scope: `backend/api/main.py`, `tests/unit/test_api_workflow_telemetry.py`.
+  - Key behaviors:
+    - Added `GET /workflow/{task_id}` returning `WorkflowTelemetryResponse` using existing task state + episodic DAG telemetry.
+    - Unknown task returns `404` with `detail="Task not found"`, matching existing `/task/{task_id}` behavior.
+    - Schema-aligned defaults are returned when telemetry is absent: `workflow_graph={}`, `workflow_execution_order=[]`, `node_events=[]`.
+    - Populated telemetry path maps graph/order from task state and node events from episodic `dag_node_event` decision records.
+    - Node event ordering is deterministic by decision `id` ascending; malformed JSON `content` rows are skipped fail-safe.
+    - Added dedicated unit tests in `tests/unit/test_api_workflow_telemetry.py` covering 404, defaults, and populated telemetry with malformed+valid row behavior using definition-site patching of `MemoryManager.get_task_state` and `EpisodicMemory.search_decisions`.
+  - Evidence:
+    - `backend/.venv/Scripts/python -m pytest tests/unit/test_api.py tests/unit/test_api_entrypoint.py tests/unit/test_api_schemas.py tests/unit/test_api_workflow_telemetry.py -q`
+      - PASS excerpt: `9 passed in 20.09s`
+    - `backend/.venv/Scripts/python scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `PASS WITH SKIPS: unit: 229 tests, 1 skipped`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS report: `reports/backend_validation_report_20260303_115716.txt`
+
+- 2026-03-03 11:40
+  - Summary: Completed Milestone 9 / Sub-Task 9.0.5 by adding readiness-tier endpoint `GET /health/ready`.
+  - Scope: `backend/api/main.py`, `tests/unit/test_api_health_ready.py`.
+  - Key behaviors:
+    - Added readiness-tier endpoint `GET /health/ready`.
+    - Ready path returns `HTTP 200` with deterministic body including `ready=true`, `service`, and `detail="ready"`.
+    - Not-ready path returns `HTTP 503` with deterministic payload indicating `ready=false` and `detail="readiness_unavailable"` when `Settings()` or `_build_memory_manager(settings)` fails (via `HTTPException`).
+    - Added dedicated unit tests in `tests/unit/test_api_health_ready.py` covering ready and not-ready paths with deterministic patching of `_build_memory_manager`.
+  - Evidence:
+    - `backend/.venv/Scripts/python -m pytest tests/unit/test_api.py tests/unit/test_api_health_detailed.py tests/unit/test_api_health_ready.py -q`
+      - PASS excerpt: `6 passed in 7.10s`
+    - `backend/.venv/Scripts/python scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `PASS WITH SKIPS: unit: 226 tests, 1 skipped`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS report: `reports/backend_validation_report_20260303_113749.txt`
+
+- 2026-03-03 11:31
+  - Summary: Completed Milestone 9 / Sub-Task 9.0.4 by adding `GET /health/detailed` returning `DetailedHealthResponse` with schema-aligned `hardware`, `model`, and `cache` payloads.
+  - Scope: `backend/api/main.py`, `tests/unit/test_api_health_detailed.py`.
+  - Key behaviors:
+    - Added `GET /health/detailed` route returning `DetailedHealthResponse` with schema-aligned component payloads (`hardware`, `model`, `cache`).
+    - Implemented deterministic status semantics (`ok` / `degraded`) and top-level failure mapping to `HTTP 500` with `detail="health_details_unavailable"`.
+    - Model selection role is evidence-based and uses `role="chat"`, aligned with existing controller role usage and catalog roles.
+    - Added dedicated unit tests in `tests/unit/test_api_health_detailed.py` covering schema-aligned ok response, degraded cache-disconnected path, and unavailable `500` path using deterministic definition-site patching.
+  - Evidence:
+    - `backend/.venv/Scripts/python -m pytest tests/unit/test_api.py tests/unit/test_api_settings.py tests/unit/test_api_budget.py tests/unit/test_api_health_detailed.py -q`
+      - PASS excerpt: `10 passed in 2.39s`
+    - `backend/.venv/Scripts/python scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `PASS WITH SKIPS: unit: 224 tests, 1 skipped`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS report: `reports/backend_validation_report_20260303_112938.txt`
+
+- 2026-03-03 11:22
+  - Summary: Completed Milestone 9 / Sub-Task 9.0.3 by adding `GET /budget` returning `BudgetResponse` with daily projection from existing budget ledger/config and `monthly=None`.
+  - Scope: `backend/api/main.py`, `tests/unit/test_api_budget.py`.
+  - Key behaviors:
+    - Added `GET /budget` route returning `BudgetResponse` with daily fields projected from `SearchBudgetConfig` + `SearchBudgetLedger`, and `monthly=None`.
+    - Added deterministic failure mapping to `HTTP 500` with `detail="budget_unavailable"` when budget setup/projection fails.
+    - Added dedicated unit tests in `tests/unit/test_api_budget.py` covering schema-aligned response, env override, and unavailable path using deterministic definition-site patching for fixed date key behavior.
+  - Evidence:
+    - `backend/.venv/Scripts/python -m pytest tests/unit/test_api.py tests/unit/test_api_entrypoint.py tests/unit/test_api_settings.py tests/unit/test_api_budget.py -q`
+      - PASS excerpt: `10 passed in 15.10s`
+    - `backend/.venv/Scripts/python scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `PASS WITH SKIPS: unit: 221 tests, 1 skipped`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS report: `reports/backend_validation_report_20260303_105128.txt`
+
+- 2026-03-03 10:36
+  - Summary: Completed Milestone 9 / Sub-Task 9.0.2 by adding `GET /settings` in the backend API, returning `SettingsResponse` via projection from typed `Settings` fields only.
+  - Scope: `backend/api/main.py`, `tests/unit/test_api_settings.py`.
+  - Key behaviors:
+    - Added `GET /settings` route with `response_model=SettingsResponse` and projected values from `Settings` (`APP_NAME`, `DEBUG`, `HARDWARE_PROFILE`, `LOG_LEVEL`, `MODEL_PATH`, `DATA_PATH`, `BACKEND_PORT`).
+    - Added deterministic settings-load failure mapping to `HTTP 500` with `detail="settings_unavailable"`.
+    - Added dedicated unit tests in `tests/unit/test_api_settings.py` covering schema-aligned keys, env-override behavior, and invalid settings path returning `500`.
+  - Evidence:
+    - `backend/.venv/Scripts/python -m pytest tests/unit/test_api.py tests/unit/test_api_entrypoint.py tests/unit/test_api_settings.py -q`
+      - PASS excerpt: `7 passed in 15.94s`
+    - `backend/.venv/Scripts/python scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `PASS WITH SKIPS: unit: 218 tests, 1 skipped`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS report: `reports/backend_validation_report_20260303_084710.txt`
+
 - 2026-03-03 06:10
   - Summary: Added v1 Pydantic response schemas for Milestone 9 endpoints and minimal instantiation/serialization unit tests (no API wiring).
   - Scope: `backend/api/schemas.py`, `tests/unit/test_api_schemas.py`.

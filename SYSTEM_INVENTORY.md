@@ -23,6 +23,11 @@
 
 ## Inventory
 
+- Capability: Milestone 9.0 — UI Completion API surface (9.0.1–9.0.6: `/settings`, `/budget`, `/health/detailed`, `/health/ready`, `/workflow/{task_id}`) - 2026-03-03 12:09
+  - State: Verified
+  - Location: `backend/api/main.py`, `backend/api/schemas.py`, `tests/unit/test_api_schemas.py`, `tests/unit/test_api_settings.py`, `tests/unit/test_api_budget.py`, `tests/unit/test_api_health_detailed.py`, `tests/unit/test_api_health_ready.py`, `tests/unit/test_api_workflow_telemetry.py`
+  - Validation: `.\backend\.venv\Scripts\python.exe scripts\validate_backend.py --scope unit`; `.\backend\.venv\Scripts\python.exe -m pytest tests/unit/test_api.py tests/unit/test_api_entrypoint.py tests/unit/test_api_schemas.py tests/unit/test_api_workflow_telemetry.py -q`
+
 - Capability: Milestone 8 Live Provider Execution (8.B) — SearXNG + DDG + Tavily - 2026-03-02 05:15
   - State: Verified
   - Location: `backend/search/providers/searxng.py`, `backend/search/providers/ddg.py`, `backend/search/providers/tavily.py`, `backend/search/providers/base.py`, `backend/search/providers/ladder.py`, `backend/tools/search_tools.py`, `backend/workflow/nodes/tool_call_node.py`, `backend/config/search/searxng/settings.yml`, `docker-compose.yml`, `backend/requirements.txt`, `.env`, `.env.example`, `tests/unit/test_search_provider_ladder.py`, `tests/unit/test_search_tools.py`
