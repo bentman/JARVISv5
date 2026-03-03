@@ -196,6 +196,187 @@ def test_workflow_telemetry_schema():
 - [ ] Example instantiation tests pass
 - [ ] No backend/frontend implementation yet (contracts only)
 
+### Sub-Task 9.0.1: Endpoint Gap Map + Source-of-Truth Route Inventory
+
+**Status**: NEW (course-correction prerequisite for 9.1+)
+
+**Objective**: Lock an explicit map of required-vs-existing API routes before endpoint wiring.
+
+**Scope**: Discovery/report only (no code changes).
+
+**Current Registered Routes (verified)**:
+- `GET /health` → `backend/api/main.py:41-43`
+- `POST /task` → `backend/api/main.py:46-62`
+- `GET /task/{task_id}` → `backend/api/main.py:65-72`
+- `FastAPI` app declaration → `backend/api/main.py:12`
+- Additional routers: **none** (`APIRouter` / `include_router` not present in registered API surface).
+
+**Required Endpoint Gap Map (M9 backend APIs)**:
+
+| Required endpoint | Expected schema | Exists now? | Current route if different | Handler/capability location | Notes |
+|---|---|---|---|---|---|
+| `/settings` | `SettingsResponse` | No | None | `backend/config/settings.py` | Typed settings source exists; no API projection route yet. |
+| `/budget` | `BudgetResponse` | No | None | `backend/search/budget.py` | Budget ledger/config exist; no API summary route yet. |
+| `/health/detailed` | `DetailedHealthResponse` | No | Near-miss: `/health` | `backend/api/main.py:41-43` | Only liveness payload exists today (`status`, `service`). |
+| `/health/ready` | roadmap health-tier readiness payload | No | Near-miss: `/health` | `backend/api/main.py:41-43` | Readiness tier is planned but absent. |
+| `/workflow/{task_id}` | `WorkflowTelemetryResponse` | No | Near-miss: `/task/{task_id}` | `backend/api/main.py:65-72`, `backend/controller/controller_service.py` | Workflow graph/ordering may exist in task state; no dedicated telemetry contract route. |
+
+**Recommended tests to add/adjust for this sub-task**:
+- None (discovery-only; this is an execution planning artifact).
+
+**Acceptance Criteria**:
+- [ ] Gap map captured in roadmap with exact file:line route references
+- [ ] Required endpoints and expected schemas explicitly listed
+- [ ] Near-miss routes/capabilities identified for each missing endpoint
+
+### Sub-Task 9.0.2: Add `GET /settings` (Schema-Aligned Projection)
+
+**Objective**: Add `GET /settings` returning `SettingsResponse` with keys aligned to `backend/config/settings.py`.
+
+**Current State**:
+- Missing endpoint.
+- Source capability exists in typed `Settings` model (`backend/config/settings.py`).
+
+**Required route/handler target**:
+- Route: `GET /settings`
+- Response model: `SettingsResponse`
+- File: `backend/api/main.py`
+
+**Execution notes**:
+- Use `Settings()` as source of truth for current values.
+- Keep response shape aligned with existing schema fields in `backend/api/schemas.py`.
+- If a field is not available from current settings model, return schema optional defaults (no fabricated runtime values).
+
+**Recommended tests to add/adjust**:
+- Extend or add API tests (FastAPI `TestClient`) to verify:
+  - `200` response
+  - top-level keys expected by `SettingsResponse`
+  - representative values reflect current settings defaults/overrides
+
+**Acceptance Criteria**:
+- [ ] `GET /settings` exists and returns `SettingsResponse`
+- [ ] Handler uses typed settings source (no ad-hoc drift)
+- [ ] API test coverage added/updated for happy-path response keys
+
+### Sub-Task 9.0.3: Add `GET /budget` (Schema-Aligned Summary)
+
+**Objective**: Add `GET /budget` returning `BudgetResponse` from budget ledger/config abstractions.
+
+**Current State**:
+- Missing endpoint.
+- Budget capability exists in `backend/search/budget.py` (`SearchBudgetConfig`, `SearchBudgetLedger`).
+
+**Required route/handler target**:
+- Route: `GET /budget`
+- Response model: `BudgetResponse`
+- File: `backend/api/main.py`
+
+**Execution notes**:
+- Build response from existing budget module capabilities.
+- Keep semantics explicit for daily and monthly fields in returned payload.
+- Avoid introducing private-structure coupling if public helpers are present/added.
+
+**Recommended tests to add/adjust**:
+- API test for:
+  - `200` response
+  - presence of `daily` and `monthly`
+  - presence of `limit_usd`, `spent_usd`, `remaining_usd` in each period object
+
+**Acceptance Criteria**:
+- [ ] `GET /budget` exists and returns `BudgetResponse`
+- [ ] Response contract is schema-valid with deterministic numeric fields
+- [ ] API test coverage added/updated for budget keys
+
+### Sub-Task 9.0.4: Add `GET /health/detailed` (Detailed Diagnostics Contract)
+
+**Objective**: Add detailed health endpoint returning `DetailedHealthResponse` without altering existing `/health` behavior.
+
+**Current State**:
+- Missing endpoint.
+- Near-miss exists: `GET /health` currently returns `{status, service}` only.
+
+**Required route/handler target**:
+- Route: `GET /health/detailed`
+- Response model: `DetailedHealthResponse`
+- File: `backend/api/main.py`
+
+**Execution notes**:
+- Preserve current `GET /health` response shape and behavior.
+- Populate `hardware`, `model`, `cache` blocks using existing backend services where available.
+- If any sub-block data is unavailable, use schema optional behavior instead of fabricated values.
+
+**Recommended tests to add/adjust**:
+- API test for:
+  - `200` response
+  - top-level keys: `status`, `service`
+  - presence of detailed blocks (`hardware`, `model`, `cache`) when available
+
+**Acceptance Criteria**:
+- [ ] `GET /health/detailed` exists and returns `DetailedHealthResponse`
+- [ ] Existing `GET /health` remains unchanged and passing existing tests
+- [ ] API test coverage added/updated for detailed health contract
+
+### Sub-Task 9.0.5: Add `GET /health/ready` (Readiness Tier)
+
+**Objective**: Add readiness endpoint for M9 health-tier split, separate from liveness and detailed diagnostics.
+
+**Current State**:
+- Missing endpoint.
+- Only liveness endpoint currently exists (`GET /health`).
+
+**Required route/handler target**:
+- Route: `GET /health/ready`
+- Response model: optional/simple dict contract (roadmap-defined readiness payload)
+- File: `backend/api/main.py`
+
+**Execution notes**:
+- Keep liveness endpoint lightweight and unchanged.
+- Readiness should validate minimum backend-serving prerequisites (for example settings/memory instantiation path).
+- Preserve deterministic fail-safe response behavior.
+
+**Recommended tests to add/adjust**:
+- API test for:
+  - success path (`ready: true` or equivalent)
+  - fail path handling (if injectable in tests)
+  - no regression on `/health`
+
+**Acceptance Criteria**:
+- [ ] `GET /health/ready` exists with stable readiness payload
+- [ ] Readiness check does not break existing liveness behavior
+- [ ] API test coverage added/updated for readiness route
+
+### Sub-Task 9.0.6: Add `GET /workflow/{task_id}` (Telemetry Contract Route)
+
+**Objective**: Add dedicated workflow telemetry endpoint returning `WorkflowTelemetryResponse`.
+
+**Current State**:
+- Missing endpoint.
+- Near-miss route exists: `GET /task/{task_id}` returns full task state.
+- Workflow telemetry ingredients exist in runtime state/logging:
+  - task `workflow_graph` and `workflow_execution_order` persistence
+  - `dag_node_event` logging in controller service
+
+**Required route/handler target**:
+- Route: `GET /workflow/{task_id}`
+- Response model: `WorkflowTelemetryResponse`
+- File: `backend/api/main.py`
+
+**Execution notes**:
+- Keep `/task/{task_id}` behavior unchanged.
+- Build telemetry response from existing task-state + episodic DAG event records.
+- Preserve current 404 behavior for unknown task IDs.
+
+**Recommended tests to add/adjust**:
+- API test(s) for:
+  - 200 for known task, 404 for unknown task
+  - top-level keys: `task_id`, `workflow_graph`, `workflow_execution_order`, `node_events`
+  - deterministic ordering assertion for `node_events` (based on available offset/timing field)
+
+**Acceptance Criteria**:
+- [ ] `GET /workflow/{task_id}` exists and returns `WorkflowTelemetryResponse`
+- [ ] Unknown task returns `404` consistent with existing API semantics
+- [ ] API test coverage added/updated for success + not-found + event ordering
+
 ---
 
 ## Phase 2: Backend - Settings Consistency (Agent feedback B)

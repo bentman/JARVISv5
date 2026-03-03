@@ -15,6 +15,16 @@
 
 ## Entries
 
+- 2026-03-03 06:10
+  - Summary: Added v1 Pydantic response schemas for Milestone 9 endpoints and minimal instantiation/serialization unit tests (no API wiring).
+  - Scope: `backend/api/schemas.py`, `tests/unit/test_api_schemas.py`.
+  - Evidence:
+    - `backend/.venv/Scripts/python -m pytest tests/unit/test_api_schemas.py -q`
+      - PASS excerpt: `2 passed in 1.48s`
+    - `backend/.venv/Scripts/python scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS report: `reports/backend_validation_report_20260303_060637.txt`
+
 - 2026-03-02 04:36
   - Summary: Preserved strict preferred-provider failure reason in `search_web` so Tavily-specific failures (for example `unauthorized`) are returned instead of being overwritten with `preferred provider unavailable`.
   - Scope: `backend/tools/search_tools.py`, `tests/unit/test_search_tools.py`.
