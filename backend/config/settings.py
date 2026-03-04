@@ -1,3 +1,5 @@
+from typing import TypedDict
+
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic_settings.sources import PydanticBaseSettingsSource
@@ -11,6 +13,11 @@ class Settings(BaseSettings):
     MODEL_PATH: str = "models/"
     DATA_PATH: str = "data/"
     BACKEND_PORT: int = 8000
+    REDACT_PII_QUERIES: bool = True
+    REDACT_PII_RESULTS: bool = False
+    ALLOW_EXTERNAL_SEARCH: bool = False
+    DEFAULT_SEARCH_PROVIDER: str = "duckduckgo"
+    CACHE_ENABLED: bool = False
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
@@ -56,3 +63,35 @@ class Settings(BaseSettings):
             env_settings,
             file_secret_settings,
         )
+
+
+class SafeConfigProjection(TypedDict):
+    app_name: str
+    debug: bool
+    hardware_profile: str
+    log_level: str
+    model_path: str
+    data_path: str
+    backend_port: int
+    redact_pii_queries: bool
+    redact_pii_results: bool
+    allow_external_search: bool
+    default_search_provider: str
+    cache_enabled: bool
+
+
+def get_safe_config_projection(settings: Settings) -> SafeConfigProjection:
+    return {
+        "app_name": settings.APP_NAME,
+        "debug": settings.DEBUG,
+        "hardware_profile": settings.HARDWARE_PROFILE,
+        "log_level": settings.LOG_LEVEL,
+        "model_path": settings.MODEL_PATH,
+        "data_path": settings.DATA_PATH,
+        "backend_port": settings.BACKEND_PORT,
+        "redact_pii_queries": settings.REDACT_PII_QUERIES,
+        "redact_pii_results": settings.REDACT_PII_RESULTS,
+        "allow_external_search": settings.ALLOW_EXTERNAL_SEARCH,
+        "default_search_provider": settings.DEFAULT_SEARCH_PROVIDER,
+        "cache_enabled": settings.CACHE_ENABLED,
+    }

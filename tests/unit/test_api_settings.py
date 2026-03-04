@@ -7,7 +7,23 @@ from backend.api.main import app
 client = TestClient(app)
 
 
-def test_settings_endpoint_returns_schema_aligned_keys() -> None:
+def test_settings_endpoint_returns_schema_aligned_keys(monkeypatch) -> None:
+    class _DefaultSettings:
+        APP_NAME = "JARVISv5"
+        DEBUG = True
+        HARDWARE_PROFILE = "Medium"
+        LOG_LEVEL = "INFO"
+        MODEL_PATH = "models/"
+        DATA_PATH = "data/"
+        BACKEND_PORT = 8000
+        REDACT_PII_QUERIES = True
+        REDACT_PII_RESULTS = False
+        ALLOW_EXTERNAL_SEARCH = False
+        DEFAULT_SEARCH_PROVIDER = "duckduckgo"
+        CACHE_ENABLED = False
+
+    monkeypatch.setattr("backend.api.main.Settings", lambda: _DefaultSettings)
+
     response = client.get("/settings")
     assert response.status_code == 200
 
@@ -28,6 +44,11 @@ def test_settings_endpoint_returns_schema_aligned_keys() -> None:
             "cache_enabled",
         ]
     ).issubset(body.keys())
+    assert body["redact_pii_queries"] is True
+    assert body["redact_pii_results"] is False
+    assert body["allow_external_search"] is False
+    assert body["default_search_provider"] == "duckduckgo"
+    assert body["cache_enabled"] is False
 
 
 def test_settings_endpoint_respects_env_overrides(monkeypatch) -> None:
@@ -35,6 +56,11 @@ def test_settings_endpoint_respects_env_overrides(monkeypatch) -> None:
     monkeypatch.setenv("LOG_LEVEL", "DEBUG")
     monkeypatch.setenv("BACKEND_PORT", "9001")
     monkeypatch.setenv("DEBUG", "false")
+    monkeypatch.setenv("REDACT_PII_QUERIES", "false")
+    monkeypatch.setenv("REDACT_PII_RESULTS", "true")
+    monkeypatch.setenv("ALLOW_EXTERNAL_SEARCH", "true")
+    monkeypatch.setenv("DEFAULT_SEARCH_PROVIDER", "tavily")
+    monkeypatch.setenv("CACHE_ENABLED", "true")
 
     class _EnvSettings:
         APP_NAME = os.environ["APP_NAME"]
@@ -44,6 +70,11 @@ def test_settings_endpoint_respects_env_overrides(monkeypatch) -> None:
         MODEL_PATH = "models/"
         DATA_PATH = "data/"
         BACKEND_PORT = int(os.environ["BACKEND_PORT"])
+        REDACT_PII_QUERIES = os.environ["REDACT_PII_QUERIES"].strip().lower() in {"1", "true", "yes", "on"}
+        REDACT_PII_RESULTS = os.environ["REDACT_PII_RESULTS"].strip().lower() in {"1", "true", "yes", "on"}
+        ALLOW_EXTERNAL_SEARCH = os.environ["ALLOW_EXTERNAL_SEARCH"].strip().lower() in {"1", "true", "yes", "on"}
+        DEFAULT_SEARCH_PROVIDER = os.environ["DEFAULT_SEARCH_PROVIDER"]
+        CACHE_ENABLED = os.environ["CACHE_ENABLED"].strip().lower() in {"1", "true", "yes", "on"}
 
     monkeypatch.setattr("backend.api.main.Settings", lambda: _EnvSettings)
 
@@ -55,6 +86,11 @@ def test_settings_endpoint_respects_env_overrides(monkeypatch) -> None:
     assert body["log_level"] == "DEBUG"
     assert body["backend_port"] == 9001
     assert body["debug"] is False
+    assert body["redact_pii_queries"] is False
+    assert body["redact_pii_results"] is True
+    assert body["allow_external_search"] is True
+    assert body["default_search_provider"] == "tavily"
+    assert body["cache_enabled"] is True
 
 
 def test_settings_endpoint_invalid_debug_returns_500(monkeypatch) -> None:

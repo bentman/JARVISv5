@@ -1,5 +1,6 @@
 import os
 import json
+import time
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -18,7 +19,7 @@ from backend.api.schemas import (
     WorkflowTelemetryResponse,
 )
 from backend.cache import redis_client as cache_redis_client
-from backend.config.settings import Settings
+from backend.config.settings import Settings, get_safe_config_projection
 from backend.controller.controller_service import ControllerService
 from backend.memory.memory_manager import MemoryManager
 from backend.models import hardware_profiler
@@ -34,6 +35,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Detailed health cache is intentionally in-process (module memory):
+# - Scope: per worker/process only (not shared across workers/pods/instances)
+# - TTL: 30 seconds
+# - Purpose: reduce expensive diagnostics for lower-frequency detailed polling
+_DETAILED_HEALTH_CACHE_TTL_SECONDS = 30.0
+_detailed_health_cache: DetailedHealthResponse | None = None
+_detailed_health_cache_timestamp = 0.0
+
+
+def _monotonic_now() -> float:
+    return time.monotonic()
 
 
 class TaskRequest(BaseModel):
@@ -84,6 +98,15 @@ def health_ready() -> dict[str, bool | str]:
 
 @app.get("/health/detailed", response_model=DetailedHealthResponse)
 def detailed_health() -> DetailedHealthResponse:
+    global _detailed_health_cache, _detailed_health_cache_timestamp
+
+    now = _monotonic_now()
+    if (
+        _detailed_health_cache is not None
+        and (now - _detailed_health_cache_timestamp) < _DETAILED_HEALTH_CACHE_TTL_SECONDS
+    ):
+        return _detailed_health_cache
+
     try:
         service_name = "JARVISv5-backend"
 
@@ -142,13 +165,16 @@ def detailed_health() -> DetailedHealthResponse:
         elif bool(cache.enabled) and not bool(cache.connected):
             degraded = True
 
-        return DetailedHealthResponse(
+        result = DetailedHealthResponse(
             status="degraded" if degraded else "ok",
             service=service_name,
             hardware=hardware,
             model=model,
             cache=cache,
         )
+        _detailed_health_cache = result
+        _detailed_health_cache_timestamp = now
+        return result
     except Exception as exc:
         raise HTTPException(status_code=500, detail="health_details_unavailable") from exc
 
@@ -160,14 +186,20 @@ def get_settings() -> SettingsResponse:
     except Exception as exc:
         raise HTTPException(status_code=500, detail="settings_unavailable") from exc
 
+    projection = get_safe_config_projection(settings)
     return SettingsResponse(
-        app_name=settings.APP_NAME,
-        debug=settings.DEBUG,
-        hardware_profile=settings.HARDWARE_PROFILE,
-        log_level=settings.LOG_LEVEL,
-        model_path=settings.MODEL_PATH,
-        data_path=settings.DATA_PATH,
-        backend_port=settings.BACKEND_PORT,
+        app_name=projection["app_name"],
+        debug=projection["debug"],
+        hardware_profile=projection["hardware_profile"],
+        log_level=projection["log_level"],
+        model_path=projection["model_path"],
+        data_path=projection["data_path"],
+        backend_port=projection["backend_port"],
+        redact_pii_queries=projection["redact_pii_queries"],
+        redact_pii_results=projection["redact_pii_results"],
+        allow_external_search=projection["allow_external_search"],
+        default_search_provider=projection["default_search_provider"],
+        cache_enabled=projection["cache_enabled"],
     )
 
 
@@ -282,6 +314,16 @@ def get_workflow_telemetry(task_id: str) -> WorkflowTelemetryResponse:
                 error=str(payload.get("error")) if payload.get("error") is not None else None,
             )
         )
+
+    indexed_node_events = list(enumerate(node_events))
+    indexed_node_events.sort(
+        key=lambda pair: (
+            pair[1].start_offset_ns is None,
+            int(pair[1].start_offset_ns) if pair[1].start_offset_ns is not None else 0,
+            pair[0],
+        )
+    )
+    node_events = [event for _, event in indexed_node_events]
 
     return WorkflowTelemetryResponse(
         task_id=task_id,

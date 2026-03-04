@@ -82,3 +82,63 @@ def test_workflow_telemetry_returns_schema_aligned_payload(monkeypatch) -> None:
     assert event["node_id"] == "router"
     assert event["event_type"] == "node_start"
     assert event["start_offset_ns"] == 10
+
+
+def test_workflow_telemetry_orders_events_by_offset_with_missing_offsets_last(monkeypatch) -> None:
+    def _get_task_state(self, task_id: str):
+        return {
+            "task_id": task_id,
+            "workflow_graph": {},
+            "workflow_execution_order": [],
+        }
+
+    payload_a = {
+        "node_id": "node-a",
+        "node_type": "LLMWorkerNode",
+        "controller_state": "EXECUTE",
+        "event_type": "node_end",
+        "success": True,
+        "start_offset_ns": 20,
+    }
+    payload_b = {
+        "node_id": "node-b",
+        "node_type": "RouterNode",
+        "controller_state": "EXECUTE",
+        "event_type": "node_start",
+        "success": True,
+        "start_offset_ns": None,
+    }
+    payload_c = {
+        "node_id": "node-c",
+        "node_type": "ContextBuilderNode",
+        "controller_state": "EXECUTE",
+        "event_type": "node_end",
+        "success": True,
+        "start_offset_ns": 10,
+    }
+    payload_d = {
+        "node_id": "node-d",
+        "node_type": "ValidatorNode",
+        "controller_state": "EXECUTE",
+        "event_type": "node_end",
+        "success": True,
+        "start_offset_ns": 20,
+    }
+
+    def _search_decisions(self, query: str, limit: int = 20, task_id: str | None = None):
+        return [
+            {"id": 9, "action_type": "dag_node_event", "content": json.dumps(payload_a)},
+            {"id": 2, "action_type": "dag_node_event", "content": json.dumps(payload_b)},
+            {"id": 7, "action_type": "dag_node_event", "content": json.dumps(payload_c)},
+            {"id": 10, "action_type": "dag_node_event", "content": json.dumps(payload_d)},
+        ]
+
+    monkeypatch.setattr("backend.memory.memory_manager.MemoryManager.get_task_state", _get_task_state)
+    monkeypatch.setattr("backend.memory.episodic_db.EpisodicMemory.search_decisions", _search_decisions)
+
+    response = client.get("/workflow/task-offset-order")
+    assert response.status_code == 200
+
+    events = response.json()["node_events"]
+    assert [event["node_id"] for event in events] == ["node-c", "node-a", "node-d", "node-b"]
+    assert [event["start_offset_ns"] for event in events] == [10, 20, 20, None]

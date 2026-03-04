@@ -15,6 +15,96 @@
 
 ## Entries
 
+- 2026-03-03 20:28
+  - Summary: Completed Milestone 9 / Task 9.5 by extending the centralized frontend API client with all Milestone 9 endpoint methods.
+  - Scope: `frontend/src/api/taskClient.js`.
+  - Key behaviors:
+    - Added `getSettings` (`GET /settings`), `getBudget` (`GET /budget`), `getDetailedHealth` (`GET /health/detailed`), `getReadyHealth` (`GET /health/ready`), and `getWorkflow(taskId)` (`GET /workflow/{task_id}` with encoded task id).
+    - Retained throw-on-non-OK behavior with route-specific error messages for all new methods.
+    - Kept return shapes unchanged by returning `response.json()` without remapping.
+  - Evidence:
+    - `npm --prefix frontend run build`
+      - PASS excerpt: `vite v5.4.21 building for production...`
+      - PASS excerpt: `✓ 31 modules transformed.`
+      - PASS excerpt: `✓ built in 468ms`
+
+- 2026-03-03 19:51
+  - Summary: Completed Milestone 9 / Task 9.4 by enforcing deterministic monotonic offset ordering for workflow telemetry events.
+  - Scope: `backend/api/main.py`, `tests/unit/test_api_workflow_telemetry.py`.
+  - Key behaviors:
+    - Updated `GET /workflow/{task_id}` to sort returned `node_events` deterministically by offset-present first, then `start_offset_ns` ascending, then stable append-index tie-break.
+    - Preserved existing behavior for missing tasks (`404`), schema-default responses when telemetry is absent, and malformed telemetry row skip policy.
+    - Added `test_workflow_telemetry_orders_events_by_offset_with_missing_offsets_last` to prove offset ordering, missing-offset-last behavior, and deterministic tie handling.
+  - Evidence:
+    - `backend/.venv/Scripts/python -m pytest tests/unit/test_api_workflow_telemetry.py -q`
+      - PASS excerpt: `4 passed in 10.14s`
+    - `backend/.venv/Scripts/python scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `PASS WITH SKIPS: unit: 234 tests, 1 skipped`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS report: `reports/backend_validation_report_20260303_194845.txt`
+
+- 2026-03-03 19:07
+  - Summary: Completed Milestone 9 / Task 9.3.2 with documentation-only alignment by adding explicit process-local detailed-health cache semantics note.
+  - Scope: `backend/api/main.py`.
+  - Key behaviors:
+    - Added explicit comment near module-level detailed-health cache state describing in-process/module-memory cache behavior.
+    - Documented scope as per worker/process and not shared across workers/pods/instances.
+    - Documented TTL as 30 seconds and intended lower-frequency detailed polling usage.
+    - No behavior changes and no endpoint shape changes.
+  - Evidence:
+    - `backend/.venv/Scripts/python -m pytest tests/unit/test_api_health_detailed.py -q`
+      - PASS excerpt: `4 passed in 2.31s`
+
+- 2026-03-03 19:01
+  - Summary: Completed Milestone 9 / Task 9.3.1 only by adding a 30s in-process cache for `GET /health/detailed` and deterministic cache-window test coverage.
+  - Scope: `backend/api/main.py`, `tests/unit/test_api_health_detailed.py`.
+  - Key behaviors:
+    - Added 30s per-process in-process cache for `GET /health/detailed` in `backend/api/main.py`.
+    - Added `_monotonic_now()` time-source helper in `backend/api/main.py` for deterministic cache behavior in tests.
+    - Added deterministic unit test validating cache reuse within TTL and recompute after TTL expiration.
+    - No change to `/health` or `/health/ready` in this task.
+  - Evidence:
+    - `backend/.venv/Scripts/python -m pytest tests/unit/test_api_health_detailed.py -q`
+      - PASS excerpt: `4 passed in 2.34s`
+    - `backend/.venv/Scripts/python -m pytest tests/unit/test_api.py tests/unit/test_api_health_ready.py tests/unit/test_api_health_detailed.py tests/unit/test_api_schemas.py -q`
+      - PASS excerpt: `9 passed in 6.83s`
+    - `backend/.venv/Scripts/python scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `PASS WITH SKIPS: unit: 233 tests, 1 skipped`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS report: `reports/backend_validation_report_20260303_155714.txt`
+
+- 2026-03-03 12:56
+  - Summary: Completed Milestone 9 / Task 9.2 by adding typed public budget query helpers and deterministic rolling 30-day monthly semantics in the budget module.
+  - Scope: `backend/search/budget.py`, `tests/unit/test_search_budget.py`.
+  - Key behaviors:
+    - Added typed public budget query helpers in `backend/search/budget.py`: `get_daily_summary(...)`, `get_rolling_30d_spent(...)`, `get_monthly_summary(...)`.
+    - Rolling monthly semantics are explicit and deterministic: UTC, inclusive end date, 30-day window.
+    - Added deterministic unit tests in `tests/unit/test_search_budget.py` covering daily summary parity vs existing behavior, rolling boundary correctness, monthly summary output shape/values, and fail-safe behavior for missing/corrupt ledger.
+    - No `/budget` API refactor was performed in this task.
+  - Evidence:
+    - `backend/.venv/Scripts/python -m pytest tests/unit/test_search_budget.py tests/unit/test_api_budget.py -q`
+      - PASS excerpt: `9 passed in 0.58s`
+    - `backend/.venv/Scripts/python scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `PASS WITH SKIPS: unit: 232 tests, 1 skipped`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS report: `reports/backend_validation_report_20260303_125112.txt`
+
+- 2026-03-03 12:36
+  - Summary: Completed Milestone 9 / Task 9.1 by centralizing `/settings` projection through typed settings and a single canonical projection helper.
+  - Scope: `backend/config/settings.py`, `backend/api/main.py`, `tests/unit/test_api_settings.py`.
+  - Key behaviors:
+    - Added missing typed settings fields in `backend/config/settings.py`: `REDACT_PII_QUERIES=True`, `REDACT_PII_RESULTS=False`, `ALLOW_EXTERNAL_SEARCH=False`, `DEFAULT_SEARCH_PROVIDER="duckduckgo"`, `CACHE_ENABLED=False`.
+    - Added `get_safe_config_projection(settings)` returning flat keys aligned to existing `SettingsResponse` (no schema shape change).
+    - Updated `GET /settings` to use projection-only flow for `SettingsResponse` construction (no direct env access in API settings path).
+    - Extended `tests/unit/test_api_settings.py` to assert new fields are populated and env overrides are deterministic; retained invalid-settings `500` path.
+  - Evidence:
+    - `backend/.venv/Scripts/python -m pytest tests/unit/test_api_settings.py tests/unit/test_api_schemas.py tests/unit/test_api.py -q`
+      - PASS excerpt: `6 passed in 0.59s`
+    - `backend/.venv/Scripts/python scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `PASS WITH SKIPS: unit: 229 tests, 1 skipped`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS report: `reports/backend_validation_report_20260303_123030.txt`
+
 - 2026-03-03 12:00
   - Summary: Completed Milestone 9 / Sub-Task 9.0.6 by adding `GET /workflow/{task_id}` returning `WorkflowTelemetryResponse` using existing task state and episodic DAG telemetry.
   - Scope: `backend/api/main.py`, `tests/unit/test_api_workflow_telemetry.py`.

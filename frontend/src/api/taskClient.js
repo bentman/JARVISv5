@@ -34,3 +34,53 @@ export async function getHealth() {
 
   return response.json()
 }
+
+export async function getSettings() {
+  const response = await fetch(`${API_BASE_URL}/settings`)
+
+  if (!response.ok) {
+    throw new Error(`GET /settings failed: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+export async function getBudget() {
+  const response = await fetch(`${API_BASE_URL}/budget`)
+
+  if (!response.ok) {
+    throw new Error(`GET /budget failed: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+export async function getDetailedHealth() {
+  const response = await fetch(`${API_BASE_URL}/health/detailed`)
+
+  if (!response.ok) {
+    throw new Error(`GET /health/detailed failed: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+export async function getReadyHealth() {
+  const response = await fetch(`${API_BASE_URL}/health/ready`)
+
+  if (!response.ok) {
+    throw new Error(`GET /health/ready failed: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+export async function getWorkflow(taskId) {
+  const response = await fetch(`${API_BASE_URL}/workflow/${encodeURIComponent(taskId)}`)
+
+  if (!response.ok) {
+    throw new Error(`GET /workflow/{task_id} failed: ${response.status}`)
+  }
+
+  return response.json()
+}

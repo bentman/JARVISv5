@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, TypedDict
 
 from pydantic import BaseModel, Field
 
@@ -12,6 +12,21 @@ class SearchBudgetConfig(BaseModel):
     daily_limit_usd: float = Field(default=0.0, ge=0.0)
     per_call_estimate_usd: float = Field(default=0.0, ge=0.0)
     rollover: bool = False
+
+
+class DailyBudgetSummary(TypedDict):
+    date_key: str
+    limit_usd: float
+    spent_usd: float
+    remaining_usd: float
+
+
+class MonthlyBudgetSummary(TypedDict):
+    window: str
+    end_date_key: str
+    limit_usd: float
+    spent_usd: float
+    remaining_usd: float
 
 
 class SearchBudgetLedger:
@@ -93,6 +108,54 @@ class SearchBudgetLedger:
         spent = self.get_spent(date_key)
         remaining = float(daily_limit_usd) - spent
         return remaining if remaining > 0.0 else 0.0
+
+    def get_daily_summary(
+        self,
+        date_key: str | None = None,
+        daily_limit_usd: float = 0.0,
+    ) -> DailyBudgetSummary:
+        target_date_key = date_key or self.today_key()
+        limit_usd = float(daily_limit_usd)
+        spent_usd = self.get_spent(target_date_key)
+        remaining_usd = self.remaining_budget_usd(target_date_key, limit_usd)
+
+        return {
+            "date_key": target_date_key,
+            "limit_usd": limit_usd,
+            "spent_usd": spent_usd,
+            "remaining_usd": remaining_usd,
+        }
+
+    def get_rolling_30d_spent(self, end_date_key: str | None = None) -> float:
+        end_key = end_date_key or self.today_key()
+        end_date = datetime.fromisoformat(end_key).date()
+
+        rolling_spend = 0.0
+        for days_ago in range(30):
+            day_key = (end_date - timedelta(days=days_ago)).isoformat()
+            rolling_spend += self.get_spent(day_key)
+
+        return rolling_spend
+
+    def get_monthly_summary(
+        self,
+        monthly_limit_usd: float,
+        end_date_key: str | None = None,
+    ) -> MonthlyBudgetSummary:
+        target_end_date_key = end_date_key or self.today_key()
+        limit_usd = float(monthly_limit_usd)
+        spent_usd = self.get_rolling_30d_spent(end_date_key=target_end_date_key)
+        remaining_usd = limit_usd - spent_usd
+        if remaining_usd < 0.0:
+            remaining_usd = 0.0
+
+        return {
+            "window": "rolling_30d_utc",
+            "end_date_key": target_end_date_key,
+            "limit_usd": limit_usd,
+            "spent_usd": spent_usd,
+            "remaining_usd": remaining_usd,
+        }
 
     def can_spend(self, amount_usd: float, date_key: str, daily_limit_usd: float) -> bool:
         if amount_usd < 0.0 or daily_limit_usd < 0.0:

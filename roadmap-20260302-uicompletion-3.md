@@ -381,7 +381,7 @@ def test_workflow_telemetry_schema():
 
 ## Phase 2: Backend - Settings Consistency (Agent feedback B)
 
-### Task 9.1: Centralized Config Projection
+### ~~Task 9.1: Centralized Config Projection~~ completed
 
 **Status**: REVISED (Agent feedback B)
 
@@ -455,17 +455,17 @@ def get_settings() -> SettingsResponse:
 ```
 
 **Acceptance Criteria**:
-- [ ] All UI-exposed settings fields exist on typed `Settings`
-- [ ] Single config source (`get_safe_config_projection(settings)`)
-- [ ] No direct `os.getenv` usage in settings projection or API layer
-- [ ] Response validated against schema
-- [ ] Test: Settings returned match actual runtime config
+- [X] All UI-exposed settings fields exist on typed `Settings`
+- [X] Single config source (`get_safe_config_projection(settings)`)
+- [X] No direct `os.getenv` usage in settings projection or API layer
+- [X] Response validated against schema
+- [X] Test: Settings returned match actual runtime config
 
 ---
 
 ## Phase 3: Backend - Budget Public API (Agent feedback C)
 
-### Task 9.2: Budget Query Helpers
+### ~~Task 9.2: Budget Query Helpers~~
 
 **Status**: REVISED (Agent feedback C)
 
@@ -567,19 +567,19 @@ def get_budget() -> BudgetResponse:
 ```
 
 **Acceptance Criteria**:
-- [ ] Budget module exposes public `get_daily_summary()`
-- [ ] Budget module exposes public `get_monthly_summary()`
-- [ ] API endpoint uses public methods only (no `._ledger`)
-- [ ] Monthly semantics explicitly defined as `rolling_30d_utc`
-- [ ] No placeholder values in budget API examples
-- [ ] Deterministic precision policy documented and tested (e.g., 6 decimal places)
-- [ ] Test: Monthly rolling window and boundary dates are correct
+- [X] Budget module exposes public `get_daily_summary()`
+- [X] Budget module exposes public `get_monthly_summary()`
+- [X] API endpoint uses public methods only (no `._ledger`)
+- [X] Monthly semantics explicitly defined as `rolling_30d_utc`
+- [X] No placeholder values in budget API examples
+- [X] Deterministic precision policy documented and tested (e.g., 6 decimal places)
+- [X] Test: Monthly rolling window and boundary dates are correct
 
 ---
 
 ## Phase 4: Backend - Health Endpoint Strategy (Agent feedback E)
 
-### Task 9.3: Separate Health Endpoints
+### ~~Task 9.3: Separate Health Endpoints~~ completed
 
 **Status**: REVISED (Agent feedback E)
 
@@ -695,18 +695,18 @@ def health_detailed() -> DetailedHealthResponse:
 ```
 
 **Acceptance Criteria**:
-- [ ] GET /health - Fast liveness (<1ms)
-- [ ] GET /health/ready - Readiness with instantiation check
-- [ ] GET /health/detailed - Expensive diagnostics cached 30s
-- [ ] `/health/detailed` cache behavior documented as process-local
-- [ ] Frontend polls /health every 5s, /health/detailed every 30s
-- [ ] Test: Cache works within one process (same result returned within 30s)
+- [X] GET /health - Fast liveness (<1ms)
+- [X] GET /health/ready - Readiness with instantiation check
+- [X] GET /health/detailed - Expensive diagnostics cached 30s
+- [X] `/health/detailed` cache behavior documented as process-local
+- [X] Frontend polls /health every 5s, /health/detailed every 30s
+- [X] Test: Cache works within one process (same result returned within 30s)
 
 ---
 
 ## Phase 5: Backend - Workflow Telemetry (Stable Events)
 
-### Task 9.4: Workflow Endpoint with Deterministic Events
+### ~~Task 9.4: Workflow Endpoint with Deterministic Events~~ completed
 
 **Status**: REVISED (Agent feedback A, stable schema)
 
@@ -794,16 +794,16 @@ def get_workflow(task_id: str) -> WorkflowTelemetryResponse:
 ```
 
 **Acceptance Criteria**:
-- [ ] Returns typed `WorkflowTelemetryResponse`
-- [ ] Events sorted by `timestamp_offset_ns` (monotonic)
-- [ ] 404 for non-existent tasks
-- [ ] Test: Event ordering is deterministic
+- [X] Returns typed `WorkflowTelemetryResponse`
+- [X] Events sorted by `timestamp_offset_ns` (monotonic)
+- [X] 404 for non-existent tasks
+- [X] Test: Event ordering is deterministic
 
 ---
 
 ## Phase 6: Frontend - Component Structure (Agent feedback componentization)
 
-### Task 9.5: API Client Extension
+### ~~Task 9.5: API Client Extension~~ completed
 
 **Status**: REVISED (centralized API client)
 
@@ -851,9 +851,9 @@ export async function getDetailedHealth() {
 ```
 
 **Acceptance Criteria**:
-- [ ] All M9 endpoints in centralized client
-- [ ] Error handling consistent
-- [ ] Used by all components (no inline fetch)
+- [X] All M9 endpoints in centralized client
+- [X] Error handling consistent
+- [X] Used by all components (no inline fetch)
 
 ---
 
