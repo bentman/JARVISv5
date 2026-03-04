@@ -11,7 +11,12 @@ class LLMWorkerNode(BaseNode):
 
     def execute(self, context: dict[str, Any]) -> dict[str, Any]:
         user_input = str(context.get("user_input", ""))
-        prompt_lines: list[str] = ["Answer the user's latest message directly and concisely."]
+        prompt_lines: list[str] = [
+            "You are the assistant in a single-turn exchange.",
+            "Follow user formatting constraints exactly.",
+            "Return only the assistant answer text.",
+            "Do not add prefaces, explanations, or follow-up prompts unless explicitly requested.",
+        ]
         prompt_lines.append(f"User: {user_input}")
         prompt_lines.append("Assistant:")
         prompt = "\n".join(prompt_lines)
@@ -45,20 +50,100 @@ class LLMWorkerNode(BaseNode):
                 prompt=prompt,
                 max_tokens=320,
                 echo=False,
-                stop=["\nUser:", "\nAssistant:", "User:", "Assistant:"],
+                stop=list(_STOP_SEQUENCES),
             )
 
             choices = response.get("choices", []) if isinstance(response, dict) else []
             text = str(choices[0].get("text", "")) if choices else ""
             context["llm_raw_output"] = text
 
-            first_turn = text
-            for marker in ("\nUser:", "\nAssistant:", "User:", "Assistant:"):
-                if marker in first_turn:
-                    first_turn = first_turn.split(marker, 1)[0]
-            context["llm_output"] = first_turn.strip()
+            context["llm_output"] = _normalize_llm_output(text)
         except Exception as exc:
             context["llm_output"] = ""
             context["llm_error"] = f"llm_generation_error: {exc}"
 
         return context
+
+
+_LEADING_TOKENS: tuple[str, ...] = (
+    "<|assistant|>",
+    "<|im_start|>assistant",
+    "Assistant:",
+    "assistant:",
+    "</s>",
+    "<|end|>",
+    "<|im_end|>",
+)
+
+
+_STOP_SEQUENCES: tuple[str, ...] = (
+    "\nUser:",
+    "\nAssistant:",
+    "\n\nUser:",
+    "\n\nAssistant:",
+    "User:",
+    "Assistant:",
+    "<|user|>",
+    "<|assistant|>",
+    "<|system|>",
+    "<|im_start|>user",
+    "<|im_start|>assistant",
+    "<|im_start|>system",
+    "<|im_end|>",
+    "</s>",
+)
+
+
+_BOUNDARY_MARKERS: tuple[str, ...] = (
+    "\nUser:",
+    "\nAssistant:",
+    "User:",
+    "Assistant:",
+    "<|user|>",
+    "<|assistant|>",
+    "<|system|>",
+    "<|im_start|>user",
+    "<|im_start|>assistant",
+    "<|im_start|>system",
+)
+
+
+_TRAILING_TOKENS: tuple[str, ...] = (
+    "</s>",
+    "<|end|>",
+    "<|im_end|>",
+)
+
+
+def _normalize_llm_output(raw_text: str) -> str:
+    text = str(raw_text or "").strip()
+
+    changed = True
+    while changed and text:
+        changed = False
+        for token in _LEADING_TOKENS:
+            if text.startswith(token):
+                text = text[len(token) :].lstrip()
+                changed = True
+
+    cut_positions = [text.find(marker) for marker in _BOUNDARY_MARKERS if marker in text]
+    cut_positions = [position for position in cut_positions if position >= 0]
+    if cut_positions:
+        text = text[: min(cut_positions)]
+
+    # If generation continues into a new paragraph after a short one-line answer,
+    # keep only the first assistant segment.
+    if "\n\n" in text:
+        first_segment, _rest = text.split("\n\n", 1)
+        if first_segment and "\n" not in first_segment and len(first_segment.split()) <= 6:
+            text = first_segment
+
+    changed = True
+    while changed and text:
+        changed = False
+        for token in _TRAILING_TOKENS:
+            if text.endswith(token):
+                text = text[: -len(token)].rstrip()
+                changed = True
+
+    return text.strip()

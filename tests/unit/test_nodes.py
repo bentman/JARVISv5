@@ -10,6 +10,8 @@ from backend.workflow import (
     RouterNode,
     ValidatorNode,
 )
+from backend.workflow.nodes.llm_worker_node import _normalize_llm_output
+from backend.workflow.nodes.llm_worker_node import _STOP_SEQUENCES
 
 
 TEST_MODEL_PATH = "models/test-model.gguf"
@@ -149,3 +151,28 @@ def test_validator_node_marks_context_invalid_for_empty_output() -> None:
     result = node.execute({"llm_output": ""})
 
     assert result["is_valid"] is False
+
+
+def test_normalize_llm_output_removes_assistant_prefix_token() -> None:
+    raw = "<|assistant|> OK"
+    assert _normalize_llm_output(raw) == "OK"
+
+
+def test_normalize_llm_output_truncates_at_next_speaker_marker() -> None:
+    raw = "OK\nUser: continue"
+    assert _normalize_llm_output(raw) == "OK"
+
+
+def test_normalize_llm_output_strict_exact_short_answer_on_continuation() -> None:
+    raw = "OK\n\nNow, in the context of a more complex scenario:"
+    assert _normalize_llm_output(raw) == "OK"
+
+
+def test_normalize_llm_output_strips_assistant_token_and_truncates_on_user_marker() -> None:
+    raw = "<|assistant|>\nOK\n\nUser: continue"
+    assert _normalize_llm_output(raw) == "OK"
+
+
+def test_llm_worker_stop_sequences_include_required_boundaries() -> None:
+    required = {"\nUser:", "\nAssistant:", "<|user|>", "<|assistant|>"}
+    assert required.issubset(set(_STOP_SEQUENCES))
