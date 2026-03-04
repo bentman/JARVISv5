@@ -15,6 +15,48 @@
 
 ## Entries
 
+- 2026-03-04 05:08
+  - Summary: Completed Milestone 9 / Task 9.8 by adding enhanced header status indicators with split liveness and detailed diagnostics polling.
+  - Scope: `frontend/src/App.jsx`.
+  - Key behaviors:
+    - Added `/health/detailed` polling every 30s via centralized client `getDetailedHealth()`, with immediate fetch on mount and interval cleanup on unmount.
+    - Preserved existing `/health` liveness polling every 5s via `getHealth()` to drive Online/Offline only.
+    - Graceful degradation on detailed poll failure: Online/Offline is unchanged, last-known-good detailed snapshot is preserved, and header shows `Diagnostics unavailable`.
+    - Added minimal header indicators derived from detailed snapshot: `Model` and `Cache`.
+  - Evidence:
+    - `npm --prefix frontend run build`
+      - PASS excerpt: `vite v5.4.21 building for production...`
+      - PASS excerpt: `✓ 33 modules transformed.`
+      - PASS excerpt: `✓ built in 394ms`
+
+- 2026-03-03 21:15
+  - Summary: Completed Milestone 9 / Task 9.7 by adding a read-only SettingsPanel wired to centralized frontend API client methods for settings and budget display.
+  - Scope: `frontend/src/components/SettingsPanel.jsx`, `frontend/src/App.jsx`.
+  - Key behaviors:
+    - Added `frontend/src/components/SettingsPanel.jsx` using centralized client calls `getSettings()` and `getBudget()` via `Promise.all([...])`.
+    - Refresh behavior polls every 10 seconds only while panel is open, with interval cleanup on close/unmount.
+    - UI includes loading/error/empty states with stable read-only key/value rendering; budget shows daily + monthly, and monthly `null` renders `N/A`.
+    - Updated `frontend/src/App.jsx` to add a Settings toggle and mount panel with `isOpen` / `onClose`.
+  - Evidence:
+    - `npm --prefix frontend run build`
+      - PASS excerpt: `vite v5.4.21 building for production...`
+      - PASS excerpt: `✓ 33 modules transformed.`
+      - PASS excerpt: `✓ built in 418ms`
+
+- 2026-03-03 21:03
+  - Summary: Completed Milestone 9 / Task 9.6 usability fix by making WorkflowVisualizer treat workflow telemetry 404 polling responses as a neutral not-yet-available state instead of repeated red error rendering.
+  - Scope: `frontend/src/components/WorkflowVisualizer.jsx`.
+  - Key behaviors:
+    - `GET /workflow/{task_id}` 404 during polling is now rendered as neutral `Workflow telemetry not available yet.` (no red error spam for expected transient absence).
+    - Telemetry/error availability state is reset on `taskId` change.
+    - Execution order section now renders explicit fallback text `None yet.` when order is empty.
+    - No backend changes and no new libraries.
+  - Evidence:
+    - `npm --prefix frontend run build`
+      - PASS excerpt: `vite v5.4.21 building for production...`
+      - PASS excerpt: `✓ 32 modules transformed.`
+      - PASS excerpt: `✓ built in 411ms`
+
 - 2026-03-03 20:28
   - Summary: Completed Milestone 9 / Task 9.5 by extending the centralized frontend API client with all Milestone 9 endpoint methods.
   - Scope: `frontend/src/api/taskClient.js`.

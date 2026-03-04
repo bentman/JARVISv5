@@ -857,7 +857,7 @@ export async function getDetailedHealth() {
 
 ---
 
-### Task 9.6: WorkflowVisualizer Component
+### ~~Task 9.6: WorkflowVisualizer Component~~ completed
 
 **Status**: UNCHANGED (uses centralized client)
 
@@ -892,7 +892,7 @@ useEffect(() => {
 
 ---
 
-### Task 9.7: SettingsPanel Component
+### ~~Task 9.7: SettingsPanel Component~~ completed
 
 **Status**: REVISED (uses centralized client + schema types)
 
@@ -933,7 +933,7 @@ useEffect(() => {
 
 ---
 
-### Task 9.8: Enhanced Status Indicators
+### ~~Task 9.8: Enhanced Status Indicators~~ completed
 
 **Status**: REVISED (uses /health/detailed with 30s polling)
 
@@ -980,9 +980,9 @@ useEffect(() => {
 ```
 
 **Acceptance Criteria**:
-- [ ] GET /health polled every 5s (fast)
-- [ ] GET /health/detailed polled every 30s (cached)
-- [ ] Graceful degradation when detailed unavailable
+- [X] GET /health polled every 5s (fast)
+- [X] GET /health/detailed polled every 30s (cached)
+- [X] Graceful degradation when detailed unavailable
 
 ---
 

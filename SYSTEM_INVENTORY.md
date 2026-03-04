@@ -23,6 +23,11 @@
 
 ## Inventory
 
+- Capability: Milestone 9 — UI Completion (9.0–9.8; 9.9 deferred): API surface (`/settings`, `/budget`, `/health/ready`, `/health/detailed`, `/workflow/{task_id}`), centralized settings projection, budget helpers (rolling 30-day), detailed-health 30s cache semantics, telemetry offset ordering, and frontend client/WorkflowVisualizer/SettingsPanel/header polling split - 2026-03-04 05:16
+  - State: Verified
+  - Location: `backend/api/main.py`, `backend/api/schemas.py`, `backend/config/settings.py`, `backend/search/budget.py`, `frontend/src/api/taskClient.js`, `frontend/src/App.jsx`, `frontend/src/components/WorkflowVisualizer.jsx`, `frontend/src/components/SettingsPanel.jsx`, `tests/unit/test_api_settings.py`, `tests/unit/test_api_budget.py`, `tests/unit/test_api_health_detailed.py`, `tests/unit/test_api_health_ready.py`, `tests/unit/test_api_workflow_telemetry.py`, `tests/unit/test_api_schemas.py`
+  - Validation: `.\backend\.venv\Scripts\python.exe scripts\validate_backend.py --scope unit`; `npm --prefix frontend run build`
+
 - Capability: Milestone 9.0 — UI Completion API surface (9.0.1–9.0.6: `/settings`, `/budget`, `/health/detailed`, `/health/ready`, `/workflow/{task_id}`) - 2026-03-03 12:09
   - State: Verified
   - Location: `backend/api/main.py`, `backend/api/schemas.py`, `tests/unit/test_api_schemas.py`, `tests/unit/test_api_settings.py`, `tests/unit/test_api_budget.py`, `tests/unit/test_api_health_detailed.py`, `tests/unit/test_api_health_ready.py`, `tests/unit/test_api_workflow_telemetry.py`

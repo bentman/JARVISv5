@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { createOrContinueTask, getHealth } from './api/taskClient'
+import { createOrContinueTask, getDetailedHealth, getHealth } from './api/taskClient'
+import SettingsPanel from './components/SettingsPanel'
+import WorkflowVisualizer from './components/WorkflowVisualizer'
 
 function renderAssistantContent(content) {
   const parts = String(content ?? '').split('```')
@@ -51,6 +53,9 @@ function App() {
   const [taskId, setTaskId] = useState(null)
   const [finalState, setFinalState] = useState(null)
   const [isBackendOnline, setIsBackendOnline] = useState(false)
+  const [detailedHealth, setDetailedHealth] = useState(null)
+  const [isDetailedDiagnosticsUnavailable, setIsDetailedDiagnosticsUnavailable] = useState(false)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [input, setInput] = useState('')
   const inputRef = useRef(null)
@@ -85,6 +90,39 @@ function App() {
       clearInterval(intervalId)
     }
   }, [])
+
+  useEffect(() => {
+    let isMounted = true
+
+    const checkDetailedHealth = async () => {
+      try {
+        const data = await getDetailedHealth()
+        if (isMounted) {
+          setDetailedHealth(data)
+          setIsDetailedDiagnosticsUnavailable(false)
+        }
+      } catch {
+        if (isMounted) {
+          setIsDetailedDiagnosticsUnavailable(true)
+        }
+      }
+    }
+
+    checkDetailedHealth()
+    const intervalId = setInterval(checkDetailedHealth, 30000)
+
+    return () => {
+      isMounted = false
+      clearInterval(intervalId)
+    }
+  }, [])
+
+  const modelIndicator = detailedHealth?.model?.selected || 'unknown'
+  const cacheIndicator = detailedHealth?.cache
+    ? `${detailedHealth.cache.enabled ? 'enabled' : 'disabled'} / ${
+        detailedHealth.cache.connected ? 'connected' : 'disconnected'
+      }`
+    : 'unknown'
 
   const handleSend = async () => {
     const userInput = input.trim()
@@ -182,7 +220,31 @@ function App() {
             <span>Task: {shortTaskId || '—'}</span>
             <span style={{ opacity: 0.6 }}>|</span>
             <span>State: {finalState || '—'}</span>
+            <span style={{ opacity: 0.6 }}>|</span>
+            <span>Model: {modelIndicator}</span>
+            <span style={{ opacity: 0.6 }}>|</span>
+            <span>Cache: {cacheIndicator}</span>
+            {isDetailedDiagnosticsUnavailable ? (
+              <>
+                <span style={{ opacity: 0.6 }}>|</span>
+                <span style={{ color: '#f59e0b' }}>Diagnostics unavailable</span>
+              </>
+            ) : null}
           </div>
+          <button
+            type="button"
+            onClick={() => setIsSettingsOpen(true)}
+            style={{
+              border: '1px solid #00d4ff80',
+              background: '#1a2332',
+              color: '#00d4ff',
+              padding: '8px 12px',
+              borderRadius: 10,
+              cursor: 'pointer',
+            }}
+          >
+            Settings
+          </button>
           <button
             type="button"
             onClick={handleNewChat}
@@ -201,6 +263,8 @@ function App() {
 
         <div />
       </div>
+
+      <SettingsPanel isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
 
       <div
         style={{
@@ -261,6 +325,7 @@ function App() {
             </div>
           )
         })}
+        {taskId ? <WorkflowVisualizer taskId={taskId} /> : null}
         <div ref={messagesEndRef} />
       </div>
 
