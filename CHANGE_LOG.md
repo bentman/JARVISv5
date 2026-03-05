@@ -15,6 +15,104 @@
 
 ## Entries
 
+- 2026-03-05 05:49
+  - Summary: Completed Milestone 10 / Task 10.6 by wiring fixed-seed generation control across settings, API/controller threading, and inference completion calls; fixed-seed drift variance integration test now executes and passes.
+  - Scope: `backend/config/settings.py`, `backend/api/main.py`, `backend/controller/controller_service.py`, `backend/workflow/nodes/llm_worker_node.py`, `backend/models/local_inference.py`, `tests/unit/test_config.py`, `tests/unit/test_nodes.py`, `tests/unit/test_local_inference.py`, `tests/integration/test_drift_rate_measurement.py`.
+  - Evidence:
+    - `./backend/.venv/Scripts/python -m pytest tests/unit/test_config.py tests/unit/test_nodes.py tests/unit/test_local_inference.py -v`
+      - PASS excerpt: `24 passed, 1 skipped`
+    - `./backend/.venv/Scripts/python -m pytest tests/integration/test_drift_rate_measurement.py -v`
+      - PASS excerpt: `4 passed`
+    - `./backend/.venv/Scripts/python scripts/validate_backend.py --scope integration`
+      - PASS excerpt: `PASS WITH SKIPS: integration: 17 tests, 1 skipped`
+      - PASS excerpt: `PASS: tests.integration.test_drift_rate_measurement::test_model_output_variance_fixed_seed`
+      - PASS excerpt: `INTEGRATION: PASS_WITH_SKIPS`
+      - PASS report: `reports/backend_validation_report_20260305_054018.txt`
+
+- 2026-03-04 20:53
+  - Summary: Completed Milestone 10 / Task 10.5 by adding controller latency P95 integration validation with warm-up + 100+ measured runs and controller-overhead isolation from existing DAG timing artifacts.
+  - Scope: `tests/integration/test_controller_latency_p95.py`.
+  - Key behaviors:
+    - Added roadmap-required latency measurement protocol with warm-up + measured runs and percentile reporting (p50/p95/p99), with p95 as the gating metric.
+    - Implemented component checks for DAG dispatch overhead and memory access latency across working state, episodic, and semantic paths.
+    - Implemented `test_fsm_transition_overhead` as explicit `pytest.skip` with reason: no direct per-transition elapsed timing artifact available.
+  - Evidence:
+    - `./backend/.venv/Scripts/python -m pytest tests/integration/test_controller_latency_p95.py -v`
+      - PASS excerpt: `4 passed, 1 skipped in 79.40s`
+    - `./backend/.venv/Scripts/python scripts/validate_backend.py --scope integration`
+      - PASS excerpt: `PASS WITH SKIPS: integration: 17 tests, 2 skipped`
+      - PASS excerpt: `INTEGRATION: PASS_WITH_SKIPS`
+      - PASS excerpt: `INTEGRATION=PASS_WITH_SKIPS`
+
+- 2026-03-04 20:01
+  - Summary: Completed Milestone 10 / Task 10.4 by adding segmented drift-rate integration validation with deterministic offline protocol and explicit fixed-seed prerequisite handling.
+  - Scope: `tests/integration/test_drift_rate_measurement.py`.
+  - Key behaviors:
+    - Added segmented drift measurement and reporting for orchestration, retrieval, and generation with aggregate overall drift calculation.
+    - Implemented gates: repeated-input output stability exact-match rate >= 0.95, semantic embedding stability mean cosine similarity >= 0.99, and decision consistency across runs >= 0.95.
+    - Implemented fixed-seed variance test as explicit `pytest.skip` with reason `seed control not wired; required for fixed-seed variance test`; documented prerequisite seed-wiring requirement.
+    - Omitted BLEU because no BLEU dependency is present in repository dependencies; metrics use cosine similarity and Levenshtein/edit distance.
+  - Evidence:
+    - `backend/.venv/Scripts/python -m pytest tests/integration/test_drift_rate_measurement.py -v`
+      - PASS excerpt: `3 passed, 1 skipped in 5.09s`
+    - `backend/.venv/Scripts/python scripts/validate_backend.py --scope integration`
+      - PASS excerpt: `PASS WITH SKIPS: integration: 12 tests, 1 skipped`
+      - PASS excerpt: `INTEGRATION: PASS_WITH_SKIPS`
+      - PASS excerpt: `INTEGRATION=PASS_WITH_SKIPS`
+
+- 2026-03-04 19:40
+  - Summary: Completed Milestone 10 / Task 10.3 by adding deterministic offline task-success-rate validation across representative agentic scenarios with category-level gates.
+  - Scope: `tests/agentic/test_task_success_rate.py`.
+  - Key behaviors:
+    - Added 50 deterministic offline scenarios across 5 categories (qa, code, tool, search, conversation; 10 each) using `ControllerService` with isolated per-scenario storage roots.
+    - Implemented gated metrics: overall success rate >= 0.85 with per-category breakdown + failure analysis; intent classification accuracy >= 0.90; tool execution success rate >= 0.95 for valid sandbox-scoped tool scenarios; validation gate TPR >= 0.95 and FPR <= 0.05.
+    - Search scenarios use existing Milestone 8 offline fixtures under `tests/fixtures/search/` via deterministic payload loader injection.
+  - Evidence:
+    - `backend/.venv/Scripts/python -m pytest tests/agentic/test_task_success_rate.py -v`
+      - PASS excerpt: `4 passed in 18.99s`
+    - `backend/.venv/Scripts/python scripts/validate_backend.py --scope agentic`
+      - PASS excerpt: `SUCCESS: agentic: 4 tests`
+      - PASS excerpt: `AGENTIC: PASS`
+      - PASS excerpt: `AGENTIC=PASS`
+
+- 2026-03-04 19:27
+  - Summary: Completed Milestone 10 / Task 10.2 by adding memory recall accuracy integration validation with roadmap-required metric gates over a versioned offline benchmark.
+  - Scope: `tests/integration/test_memory_recall_accuracy.py`, `tests/fixtures/retrieval_benchmark/v1/README.md`, `tests/fixtures/retrieval_benchmark/v1/corpus.json`, `tests/fixtures/retrieval_benchmark/v1/queries.json`, `tests/fixtures/retrieval_benchmark/v1/qrels.json`.
+  - Key behaviors:
+    - Implemented 4 metric tests and gates: semantic precision/recall/MRR at k=1,3,5,10 (gates: Precision@5>=0.95, Recall@10>=0.95), episodic relevance/coverage >=0.95, hybrid NDCG@10 >=0.90, and context-builder top-5 relevance >=0.95.
+    - Added deterministic offline benchmark fixtures under `tests/fixtures/retrieval_benchmark/v1/` with committed corpus/query/qrels data.
+    - Documented metric definitions and determinism rules in test/fixture docs, using isolated `tmp_path` memory roots for integration runs.
+  - Evidence:
+    - `./backend/.venv/Scripts/python -m pytest tests/integration/test_memory_recall_accuracy.py -v`
+      - PASS excerpt: `4 passed in 1.00s`
+    - `./backend/.venv/Scripts/python scripts/validate_backend.py --scope integration`
+      - PASS excerpt: `SUCCESS: integration: 8 tests`
+      - PASS excerpt: `INTEGRATION: PASS`
+
+- 2026-03-04 14:46
+  - Summary: Completed Milestone 10 / Task 10.1 by adding integration reproducibility validation with Track A-first artifact determinism and explicit volatile-field exclusions.
+  - Scope: `tests/integration/test_reproducibility_validation.py`.
+  - Key behaviors:
+    - Added Track A reproducibility validation via canonicalized artifact equality and explicit volatile-field exclusions; Track B metrics remain non-blocking/report-only.
+    - Added roadmap-required replay scenarios: single task replay, multi-turn replay, tool execution replay (sandbox-only), and retrieval integration replay.
+    - Enforced deterministic ordered semantic DAG event sequence comparison while excluding raw timing fields (`elapsed_ns`, `start_offset_ns`) from equality.
+  - Evidence:
+    - `backend/.venv/Scripts/python -m pytest tests/integration/test_reproducibility_validation.py -v`
+      - PASS excerpt: `4 passed in 2.24s`
+    - `backend/.venv/Scripts/python scripts/validate_backend.py --scope integration`
+      - PASS excerpt: `INTEGRATION: PASS`
+      - PASS excerpt: `INTEGRATION=PASS`
+
+- 2026-03-04 14:42
+  - Summary: Course-corrected validation scope routing by splitting Docker-orchestrating replay baseline coverage out of integration scope.
+  - Scope: `tests/docker/test_replay_baseline.py`, `scripts/validate_backend.py`.
+  - Changes:
+    - Moved `tests/integration/test_replay_baseline.py` → `tests/docker/test_replay_baseline.py`.
+    - Added `--scope docker` in `scripts/validate_backend.py` to run `tests/docker/**` with docker-scope timeout/visibility handling.
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest -q`
+      - PASS excerpt: `238 passed, 1 skipped in 50.13s`
+
 - 2026-03-04 05:08
   - Summary: Completed Milestone 9 / Task 9.8 by adding enhanced header status indicators with split liveness and detailed diagnostics polling.
   - Scope: `frontend/src/App.jsx`.

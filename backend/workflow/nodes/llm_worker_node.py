@@ -46,12 +46,17 @@ class LLMWorkerNode(BaseNode):
 
         try:
             llm = Llama(model_path=model_path, n_ctx=2048, verbose=False)
-            response = llm.create_completion(
-                prompt=prompt,
-                max_tokens=320,
-                echo=False,
-                stop=list(_STOP_SEQUENCES),
-            )
+            completion_kwargs: dict[str, Any] = {
+                "prompt": prompt,
+                "max_tokens": 320,
+                "echo": False,
+                "stop": list(_STOP_SEQUENCES),
+            }
+            seed = context.get("generation_seed")
+            if seed is not None:
+                completion_kwargs["seed"] = int(seed)
+
+            response = llm.create_completion(**completion_kwargs)
 
             choices = response.get("choices", []) if isinstance(response, dict) else []
             text = str(choices[0].get("text", "")) if choices else ""

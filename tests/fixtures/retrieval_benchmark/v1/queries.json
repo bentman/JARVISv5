@@ -1,0 +1,119 @@
+{
+  "benchmark_version": "v1",
+  "top_k": [
+    1,
+    3,
+    5,
+    10
+  ],
+  "queries": [
+    {
+      "query_id": "Q_SEM_00",
+      "query_text": "Recall topic_00 KEY_TOPIC_00",
+      "scenario": "semantic"
+    },
+    {
+      "query_id": "Q_SEM_01",
+      "query_text": "Recall topic_01 KEY_TOPIC_01",
+      "scenario": "semantic"
+    },
+    {
+      "query_id": "Q_SEM_02",
+      "query_text": "Recall topic_02 KEY_TOPIC_02",
+      "scenario": "semantic"
+    },
+    {
+      "query_id": "Q_SEM_03",
+      "query_text": "Recall topic_03 KEY_TOPIC_03",
+      "scenario": "semantic"
+    },
+    {
+      "query_id": "Q_SEM_04",
+      "query_text": "Recall topic_04 KEY_TOPIC_04",
+      "scenario": "semantic"
+    },
+    {
+      "query_id": "Q_SEM_05",
+      "query_text": "Recall topic_05 KEY_TOPIC_05",
+      "scenario": "semantic"
+    },
+    {
+      "query_id": "Q_SEM_06",
+      "query_text": "Recall topic_06 KEY_TOPIC_06",
+      "scenario": "semantic"
+    },
+    {
+      "query_id": "Q_SEM_07",
+      "query_text": "Recall topic_07 KEY_TOPIC_07",
+      "scenario": "semantic"
+    },
+    {
+      "query_id": "Q_EPI_08",
+      "query_text": "Recall topic_08 KEY_TOPIC_08",
+      "scenario": "episodic"
+    },
+    {
+      "query_id": "Q_EPI_09",
+      "query_text": "Recall topic_09 KEY_TOPIC_09",
+      "scenario": "episodic"
+    },
+    {
+      "query_id": "Q_EPI_10",
+      "query_text": "Recall topic_10 KEY_TOPIC_10",
+      "scenario": "episodic"
+    },
+    {
+      "query_id": "Q_EPI_11",
+      "query_text": "Recall topic_11 KEY_TOPIC_11",
+      "scenario": "episodic"
+    },
+    {
+      "query_id": "Q_HYB_12",
+      "query_text": "Recall topic_12 KEY_TOPIC_12",
+      "scenario": "hybrid",
+      "task_id": "task_hybrid_12"
+    },
+    {
+      "query_id": "Q_HYB_13",
+      "query_text": "Recall topic_13 KEY_TOPIC_13",
+      "scenario": "hybrid",
+      "task_id": "task_hybrid_13"
+    },
+    {
+      "query_id": "Q_HYB_14",
+      "query_text": "Recall topic_14 KEY_TOPIC_14",
+      "scenario": "hybrid",
+      "task_id": "task_hybrid_14"
+    },
+    {
+      "query_id": "Q_HYB_15",
+      "query_text": "Recall topic_15 KEY_TOPIC_15",
+      "scenario": "hybrid",
+      "task_id": "task_hybrid_15"
+    },
+    {
+      "query_id": "Q_CTX_16",
+      "query_text": "Recall topic_16 KEY_TOPIC_16",
+      "scenario": "context_builder",
+      "task_id": "task_context_16"
+    },
+    {
+      "query_id": "Q_CTX_17",
+      "query_text": "Recall topic_17 KEY_TOPIC_17",
+      "scenario": "context_builder",
+      "task_id": "task_context_17"
+    },
+    {
+      "query_id": "Q_CTX_18",
+      "query_text": "Recall topic_18 KEY_TOPIC_18",
+      "scenario": "context_builder",
+      "task_id": "task_context_18"
+    },
+    {
+      "query_id": "Q_CTX_19",
+      "query_text": "Recall topic_19 KEY_TOPIC_19",
+      "scenario": "context_builder",
+      "task_id": "task_context_19"
+    }
+  ]
+}

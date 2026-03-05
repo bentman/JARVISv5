@@ -19,10 +19,12 @@ class ControllerService:
         memory_manager: MemoryManager | None = None,
         hardware_service: HardwareService | None = None,
         model_registry: ModelRegistry | None = None,
+        generation_seed: int | None = None,
     ) -> None:
         self.memory = memory_manager or MemoryManager()
         self.hardware = hardware_service or HardwareService()
         self.registry = model_registry or ModelRegistry()
+        self.generation_seed = generation_seed
 
     def _log_state(self, task_id: str, state: ControllerState, status: str) -> None:
         self.memory.log_decision(
@@ -114,6 +116,7 @@ class ControllerService:
             "user_input": user_input,
             "task_id": resolved_task_id,
             "memory_manager": self.memory,
+            "generation_seed": self.generation_seed,
         }
         if tool_call is not None:
             context["tool_call"] = tool_call

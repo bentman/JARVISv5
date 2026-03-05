@@ -17,15 +17,18 @@ class LocalInferenceClient:
             verbose=False,
         )
 
-    def generate(self, prompt: str, max_tokens: int = 100) -> str:
+    def generate(self, prompt: str, max_tokens: int = 100, seed: int | None = None) -> str:
         if self.model is None:
             raise RuntimeError("Model is not loaded. Call load_model() before generate().")
 
-        response = self.model.create_completion(
-            prompt,
-            max_tokens=max_tokens,
-            echo=False,
-        )
+        completion_kwargs: dict[str, Any] = {
+            "max_tokens": max_tokens,
+            "echo": False,
+        }
+        if seed is not None:
+            completion_kwargs["seed"] = int(seed)
+
+        response = self.model.create_completion(prompt, **completion_kwargs)
 
         choices = response.get("choices", []) if isinstance(response, dict) else []
         if not choices:

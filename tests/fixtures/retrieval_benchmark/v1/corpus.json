@@ -1,0 +1,1513 @@
+{
+  "benchmark_version": "v1",
+  "entries": [
+    {
+      "doc_id": "DOC_S_0000",
+      "source": "semantic",
+      "topic": "topic_00",
+      "token": "KEY_TOPIC_00",
+      "text": "Recall topic_00 KEY_TOPIC_00 semantic DOC_S_0000",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_00",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0001",
+      "source": "semantic",
+      "topic": "topic_00",
+      "token": "KEY_TOPIC_00",
+      "text": "Recall topic_00 KEY_TOPIC_00 semantic DOC_S_0001",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_00",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0002",
+      "source": "semantic",
+      "topic": "topic_00",
+      "token": "KEY_TOPIC_00",
+      "text": "Recall topic_00 KEY_TOPIC_00 semantic DOC_S_0002",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_00",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0003",
+      "source": "semantic",
+      "topic": "topic_00",
+      "token": "KEY_TOPIC_00",
+      "text": "Recall topic_00 KEY_TOPIC_00 semantic DOC_S_0003",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_00",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0004",
+      "source": "semantic",
+      "topic": "topic_00",
+      "token": "KEY_TOPIC_00",
+      "text": "Recall topic_00 KEY_TOPIC_00 semantic DOC_S_0004",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_00",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0100",
+      "source": "semantic",
+      "topic": "topic_01",
+      "token": "KEY_TOPIC_01",
+      "text": "Recall topic_01 KEY_TOPIC_01 semantic DOC_S_0100",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_01",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0101",
+      "source": "semantic",
+      "topic": "topic_01",
+      "token": "KEY_TOPIC_01",
+      "text": "Recall topic_01 KEY_TOPIC_01 semantic DOC_S_0101",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_01",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0102",
+      "source": "semantic",
+      "topic": "topic_01",
+      "token": "KEY_TOPIC_01",
+      "text": "Recall topic_01 KEY_TOPIC_01 semantic DOC_S_0102",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_01",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0103",
+      "source": "semantic",
+      "topic": "topic_01",
+      "token": "KEY_TOPIC_01",
+      "text": "Recall topic_01 KEY_TOPIC_01 semantic DOC_S_0103",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_01",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0104",
+      "source": "semantic",
+      "topic": "topic_01",
+      "token": "KEY_TOPIC_01",
+      "text": "Recall topic_01 KEY_TOPIC_01 semantic DOC_S_0104",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_01",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0200",
+      "source": "semantic",
+      "topic": "topic_02",
+      "token": "KEY_TOPIC_02",
+      "text": "Recall topic_02 KEY_TOPIC_02 semantic DOC_S_0200",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_02",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0201",
+      "source": "semantic",
+      "topic": "topic_02",
+      "token": "KEY_TOPIC_02",
+      "text": "Recall topic_02 KEY_TOPIC_02 semantic DOC_S_0201",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_02",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0202",
+      "source": "semantic",
+      "topic": "topic_02",
+      "token": "KEY_TOPIC_02",
+      "text": "Recall topic_02 KEY_TOPIC_02 semantic DOC_S_0202",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_02",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0203",
+      "source": "semantic",
+      "topic": "topic_02",
+      "token": "KEY_TOPIC_02",
+      "text": "Recall topic_02 KEY_TOPIC_02 semantic DOC_S_0203",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_02",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0204",
+      "source": "semantic",
+      "topic": "topic_02",
+      "token": "KEY_TOPIC_02",
+      "text": "Recall topic_02 KEY_TOPIC_02 semantic DOC_S_0204",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_02",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0300",
+      "source": "semantic",
+      "topic": "topic_03",
+      "token": "KEY_TOPIC_03",
+      "text": "Recall topic_03 KEY_TOPIC_03 semantic DOC_S_0300",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_03",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0301",
+      "source": "semantic",
+      "topic": "topic_03",
+      "token": "KEY_TOPIC_03",
+      "text": "Recall topic_03 KEY_TOPIC_03 semantic DOC_S_0301",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_03",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0302",
+      "source": "semantic",
+      "topic": "topic_03",
+      "token": "KEY_TOPIC_03",
+      "text": "Recall topic_03 KEY_TOPIC_03 semantic DOC_S_0302",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_03",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0303",
+      "source": "semantic",
+      "topic": "topic_03",
+      "token": "KEY_TOPIC_03",
+      "text": "Recall topic_03 KEY_TOPIC_03 semantic DOC_S_0303",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_03",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0304",
+      "source": "semantic",
+      "topic": "topic_03",
+      "token": "KEY_TOPIC_03",
+      "text": "Recall topic_03 KEY_TOPIC_03 semantic DOC_S_0304",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_03",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0400",
+      "source": "semantic",
+      "topic": "topic_04",
+      "token": "KEY_TOPIC_04",
+      "text": "Recall topic_04 KEY_TOPIC_04 semantic DOC_S_0400",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_04",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0401",
+      "source": "semantic",
+      "topic": "topic_04",
+      "token": "KEY_TOPIC_04",
+      "text": "Recall topic_04 KEY_TOPIC_04 semantic DOC_S_0401",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_04",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0402",
+      "source": "semantic",
+      "topic": "topic_04",
+      "token": "KEY_TOPIC_04",
+      "text": "Recall topic_04 KEY_TOPIC_04 semantic DOC_S_0402",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_04",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0403",
+      "source": "semantic",
+      "topic": "topic_04",
+      "token": "KEY_TOPIC_04",
+      "text": "Recall topic_04 KEY_TOPIC_04 semantic DOC_S_0403",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_04",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0404",
+      "source": "semantic",
+      "topic": "topic_04",
+      "token": "KEY_TOPIC_04",
+      "text": "Recall topic_04 KEY_TOPIC_04 semantic DOC_S_0404",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_04",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0500",
+      "source": "semantic",
+      "topic": "topic_05",
+      "token": "KEY_TOPIC_05",
+      "text": "Recall topic_05 KEY_TOPIC_05 semantic DOC_S_0500",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_05",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0501",
+      "source": "semantic",
+      "topic": "topic_05",
+      "token": "KEY_TOPIC_05",
+      "text": "Recall topic_05 KEY_TOPIC_05 semantic DOC_S_0501",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_05",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0502",
+      "source": "semantic",
+      "topic": "topic_05",
+      "token": "KEY_TOPIC_05",
+      "text": "Recall topic_05 KEY_TOPIC_05 semantic DOC_S_0502",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_05",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0503",
+      "source": "semantic",
+      "topic": "topic_05",
+      "token": "KEY_TOPIC_05",
+      "text": "Recall topic_05 KEY_TOPIC_05 semantic DOC_S_0503",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_05",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0504",
+      "source": "semantic",
+      "topic": "topic_05",
+      "token": "KEY_TOPIC_05",
+      "text": "Recall topic_05 KEY_TOPIC_05 semantic DOC_S_0504",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_05",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0600",
+      "source": "semantic",
+      "topic": "topic_06",
+      "token": "KEY_TOPIC_06",
+      "text": "Recall topic_06 KEY_TOPIC_06 semantic DOC_S_0600",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_06",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0601",
+      "source": "semantic",
+      "topic": "topic_06",
+      "token": "KEY_TOPIC_06",
+      "text": "Recall topic_06 KEY_TOPIC_06 semantic DOC_S_0601",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_06",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0602",
+      "source": "semantic",
+      "topic": "topic_06",
+      "token": "KEY_TOPIC_06",
+      "text": "Recall topic_06 KEY_TOPIC_06 semantic DOC_S_0602",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_06",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0603",
+      "source": "semantic",
+      "topic": "topic_06",
+      "token": "KEY_TOPIC_06",
+      "text": "Recall topic_06 KEY_TOPIC_06 semantic DOC_S_0603",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_06",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0604",
+      "source": "semantic",
+      "topic": "topic_06",
+      "token": "KEY_TOPIC_06",
+      "text": "Recall topic_06 KEY_TOPIC_06 semantic DOC_S_0604",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_06",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0700",
+      "source": "semantic",
+      "topic": "topic_07",
+      "token": "KEY_TOPIC_07",
+      "text": "Recall topic_07 KEY_TOPIC_07 semantic DOC_S_0700",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_07",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0701",
+      "source": "semantic",
+      "topic": "topic_07",
+      "token": "KEY_TOPIC_07",
+      "text": "Recall topic_07 KEY_TOPIC_07 semantic DOC_S_0701",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_07",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0702",
+      "source": "semantic",
+      "topic": "topic_07",
+      "token": "KEY_TOPIC_07",
+      "text": "Recall topic_07 KEY_TOPIC_07 semantic DOC_S_0702",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_07",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0703",
+      "source": "semantic",
+      "topic": "topic_07",
+      "token": "KEY_TOPIC_07",
+      "text": "Recall topic_07 KEY_TOPIC_07 semantic DOC_S_0703",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_07",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_S_0704",
+      "source": "semantic",
+      "topic": "topic_07",
+      "token": "KEY_TOPIC_07",
+      "text": "Recall topic_07 KEY_TOPIC_07 semantic DOC_S_0704",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_07",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_E_0800",
+      "source": "episodic_decision",
+      "topic": "topic_08",
+      "token": "KEY_TOPIC_08",
+      "text": "Recall topic_08 KEY_TOPIC_08 episodic decision DOC_E_0800",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_08",
+          "episodic_decision"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_E_0801",
+      "source": "episodic_decision",
+      "topic": "topic_08",
+      "token": "KEY_TOPIC_08",
+      "text": "Recall topic_08 KEY_TOPIC_08 episodic decision DOC_E_0801",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_08",
+          "episodic_decision"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_E_0802",
+      "source": "episodic_decision",
+      "topic": "topic_08",
+      "token": "KEY_TOPIC_08",
+      "text": "Recall topic_08 KEY_TOPIC_08 episodic decision DOC_E_0802",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_08",
+          "episodic_decision"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_E_0850",
+      "source": "episodic_toolcall",
+      "topic": "topic_08",
+      "token": "KEY_TOPIC_08",
+      "text": "Recall topic_08 KEY_TOPIC_08 episodic tool DOC_E_0850",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_08",
+          "episodic_toolcall"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_E_0851",
+      "source": "episodic_toolcall",
+      "topic": "topic_08",
+      "token": "KEY_TOPIC_08",
+      "text": "Recall topic_08 KEY_TOPIC_08 episodic tool DOC_E_0851",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_08",
+          "episodic_toolcall"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_E_0900",
+      "source": "episodic_decision",
+      "topic": "topic_09",
+      "token": "KEY_TOPIC_09",
+      "text": "Recall topic_09 KEY_TOPIC_09 episodic decision DOC_E_0900",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_09",
+          "episodic_decision"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_E_0901",
+      "source": "episodic_decision",
+      "topic": "topic_09",
+      "token": "KEY_TOPIC_09",
+      "text": "Recall topic_09 KEY_TOPIC_09 episodic decision DOC_E_0901",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_09",
+          "episodic_decision"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_E_0902",
+      "source": "episodic_decision",
+      "topic": "topic_09",
+      "token": "KEY_TOPIC_09",
+      "text": "Recall topic_09 KEY_TOPIC_09 episodic decision DOC_E_0902",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_09",
+          "episodic_decision"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_E_0950",
+      "source": "episodic_toolcall",
+      "topic": "topic_09",
+      "token": "KEY_TOPIC_09",
+      "text": "Recall topic_09 KEY_TOPIC_09 episodic tool DOC_E_0950",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_09",
+          "episodic_toolcall"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_E_0951",
+      "source": "episodic_toolcall",
+      "topic": "topic_09",
+      "token": "KEY_TOPIC_09",
+      "text": "Recall topic_09 KEY_TOPIC_09 episodic tool DOC_E_0951",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_09",
+          "episodic_toolcall"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_E_1000",
+      "source": "episodic_decision",
+      "topic": "topic_10",
+      "token": "KEY_TOPIC_10",
+      "text": "Recall topic_10 KEY_TOPIC_10 episodic decision DOC_E_1000",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_10",
+          "episodic_decision"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_E_1001",
+      "source": "episodic_decision",
+      "topic": "topic_10",
+      "token": "KEY_TOPIC_10",
+      "text": "Recall topic_10 KEY_TOPIC_10 episodic decision DOC_E_1001",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_10",
+          "episodic_decision"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_E_1002",
+      "source": "episodic_decision",
+      "topic": "topic_10",
+      "token": "KEY_TOPIC_10",
+      "text": "Recall topic_10 KEY_TOPIC_10 episodic decision DOC_E_1002",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_10",
+          "episodic_decision"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_E_1050",
+      "source": "episodic_toolcall",
+      "topic": "topic_10",
+      "token": "KEY_TOPIC_10",
+      "text": "Recall topic_10 KEY_TOPIC_10 episodic tool DOC_E_1050",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_10",
+          "episodic_toolcall"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_E_1051",
+      "source": "episodic_toolcall",
+      "topic": "topic_10",
+      "token": "KEY_TOPIC_10",
+      "text": "Recall topic_10 KEY_TOPIC_10 episodic tool DOC_E_1051",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_10",
+          "episodic_toolcall"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_E_1100",
+      "source": "episodic_decision",
+      "topic": "topic_11",
+      "token": "KEY_TOPIC_11",
+      "text": "Recall topic_11 KEY_TOPIC_11 episodic decision DOC_E_1100",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_11",
+          "episodic_decision"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_E_1101",
+      "source": "episodic_decision",
+      "topic": "topic_11",
+      "token": "KEY_TOPIC_11",
+      "text": "Recall topic_11 KEY_TOPIC_11 episodic decision DOC_E_1101",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_11",
+          "episodic_decision"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_E_1102",
+      "source": "episodic_decision",
+      "topic": "topic_11",
+      "token": "KEY_TOPIC_11",
+      "text": "Recall topic_11 KEY_TOPIC_11 episodic decision DOC_E_1102",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_11",
+          "episodic_decision"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_E_1150",
+      "source": "episodic_toolcall",
+      "topic": "topic_11",
+      "token": "KEY_TOPIC_11",
+      "text": "Recall topic_11 KEY_TOPIC_11 episodic tool DOC_E_1150",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_11",
+          "episodic_toolcall"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_E_1151",
+      "source": "episodic_toolcall",
+      "topic": "topic_11",
+      "token": "KEY_TOPIC_11",
+      "text": "Recall topic_11 KEY_TOPIC_11 episodic tool DOC_E_1151",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_11",
+          "episodic_toolcall"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_HS_1200",
+      "source": "semantic",
+      "topic": "topic_12",
+      "token": "KEY_TOPIC_12",
+      "text": "Recall topic_12 KEY_TOPIC_12 hybrid semantic DOC_HS_1200",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_12",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_HS_1201",
+      "source": "semantic",
+      "topic": "topic_12",
+      "token": "KEY_TOPIC_12",
+      "text": "Recall topic_12 KEY_TOPIC_12 hybrid semantic DOC_HS_1201",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_12",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_HD_1200",
+      "source": "episodic_decision",
+      "topic": "topic_12",
+      "token": "KEY_TOPIC_12",
+      "text": "Recall topic_12 KEY_TOPIC_12 hybrid decision DOC_HD_1200",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_12",
+          "episodic_decision"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_HT_1200",
+      "source": "episodic_toolcall",
+      "topic": "topic_12",
+      "token": "KEY_TOPIC_12",
+      "text": "Recall topic_12 KEY_TOPIC_12 hybrid tool DOC_HT_1200",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_12",
+          "episodic_toolcall"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_HW_1200",
+      "source": "working_state",
+      "topic": "topic_12",
+      "token": "KEY_TOPIC_12",
+      "text": "Recall topic_12 KEY_TOPIC_12 hybrid working DOC_HW_1200",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_12",
+          "working_state"
+        ],
+        "difficulty": "easy"
+      },
+      "task_id": "task_hybrid_12"
+    },
+    {
+      "doc_id": "DOC_HS_1300",
+      "source": "semantic",
+      "topic": "topic_13",
+      "token": "KEY_TOPIC_13",
+      "text": "Recall topic_13 KEY_TOPIC_13 hybrid semantic DOC_HS_1300",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_13",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_HS_1301",
+      "source": "semantic",
+      "topic": "topic_13",
+      "token": "KEY_TOPIC_13",
+      "text": "Recall topic_13 KEY_TOPIC_13 hybrid semantic DOC_HS_1301",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_13",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_HD_1300",
+      "source": "episodic_decision",
+      "topic": "topic_13",
+      "token": "KEY_TOPIC_13",
+      "text": "Recall topic_13 KEY_TOPIC_13 hybrid decision DOC_HD_1300",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_13",
+          "episodic_decision"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_HT_1300",
+      "source": "episodic_toolcall",
+      "topic": "topic_13",
+      "token": "KEY_TOPIC_13",
+      "text": "Recall topic_13 KEY_TOPIC_13 hybrid tool DOC_HT_1300",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_13",
+          "episodic_toolcall"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_HW_1300",
+      "source": "working_state",
+      "topic": "topic_13",
+      "token": "KEY_TOPIC_13",
+      "text": "Recall topic_13 KEY_TOPIC_13 hybrid working DOC_HW_1300",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_13",
+          "working_state"
+        ],
+        "difficulty": "easy"
+      },
+      "task_id": "task_hybrid_13"
+    },
+    {
+      "doc_id": "DOC_HS_1400",
+      "source": "semantic",
+      "topic": "topic_14",
+      "token": "KEY_TOPIC_14",
+      "text": "Recall topic_14 KEY_TOPIC_14 hybrid semantic DOC_HS_1400",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_14",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_HS_1401",
+      "source": "semantic",
+      "topic": "topic_14",
+      "token": "KEY_TOPIC_14",
+      "text": "Recall topic_14 KEY_TOPIC_14 hybrid semantic DOC_HS_1401",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_14",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_HD_1400",
+      "source": "episodic_decision",
+      "topic": "topic_14",
+      "token": "KEY_TOPIC_14",
+      "text": "Recall topic_14 KEY_TOPIC_14 hybrid decision DOC_HD_1400",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_14",
+          "episodic_decision"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_HT_1400",
+      "source": "episodic_toolcall",
+      "topic": "topic_14",
+      "token": "KEY_TOPIC_14",
+      "text": "Recall topic_14 KEY_TOPIC_14 hybrid tool DOC_HT_1400",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_14",
+          "episodic_toolcall"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_HW_1400",
+      "source": "working_state",
+      "topic": "topic_14",
+      "token": "KEY_TOPIC_14",
+      "text": "Recall topic_14 KEY_TOPIC_14 hybrid working DOC_HW_1400",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_14",
+          "working_state"
+        ],
+        "difficulty": "easy"
+      },
+      "task_id": "task_hybrid_14"
+    },
+    {
+      "doc_id": "DOC_HS_1500",
+      "source": "semantic",
+      "topic": "topic_15",
+      "token": "KEY_TOPIC_15",
+      "text": "Recall topic_15 KEY_TOPIC_15 hybrid semantic DOC_HS_1500",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_15",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_HS_1501",
+      "source": "semantic",
+      "topic": "topic_15",
+      "token": "KEY_TOPIC_15",
+      "text": "Recall topic_15 KEY_TOPIC_15 hybrid semantic DOC_HS_1501",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_15",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_HD_1500",
+      "source": "episodic_decision",
+      "topic": "topic_15",
+      "token": "KEY_TOPIC_15",
+      "text": "Recall topic_15 KEY_TOPIC_15 hybrid decision DOC_HD_1500",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_15",
+          "episodic_decision"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_HT_1500",
+      "source": "episodic_toolcall",
+      "topic": "topic_15",
+      "token": "KEY_TOPIC_15",
+      "text": "Recall topic_15 KEY_TOPIC_15 hybrid tool DOC_HT_1500",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_15",
+          "episodic_toolcall"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_HW_1500",
+      "source": "working_state",
+      "topic": "topic_15",
+      "token": "KEY_TOPIC_15",
+      "text": "Recall topic_15 KEY_TOPIC_15 hybrid working DOC_HW_1500",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_15",
+          "working_state"
+        ],
+        "difficulty": "easy"
+      },
+      "task_id": "task_hybrid_15"
+    },
+    {
+      "doc_id": "DOC_CS_1600",
+      "source": "semantic",
+      "topic": "topic_16",
+      "token": "KEY_TOPIC_16",
+      "text": "Recall topic_16 KEY_TOPIC_16 context semantic DOC_CS_1600",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_16",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_CS_1601",
+      "source": "semantic",
+      "topic": "topic_16",
+      "token": "KEY_TOPIC_16",
+      "text": "Recall topic_16 KEY_TOPIC_16 context semantic DOC_CS_1601",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_16",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_CD_1600",
+      "source": "episodic_decision",
+      "topic": "topic_16",
+      "token": "KEY_TOPIC_16",
+      "text": "Recall topic_16 KEY_TOPIC_16 context decision DOC_CD_1600",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_16",
+          "episodic_decision"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_CX_1600",
+      "source": "episodic_toolcall",
+      "topic": "topic_16",
+      "token": "KEY_TOPIC_16",
+      "text": "Recall topic_16 KEY_TOPIC_16 context tool DOC_CX_1600",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_16",
+          "episodic_toolcall"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_CW_1600",
+      "source": "working_state",
+      "topic": "topic_16",
+      "token": "KEY_TOPIC_16",
+      "text": "Recall topic_16 KEY_TOPIC_16 context working DOC_CW_1600",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_16",
+          "working_state"
+        ],
+        "difficulty": "easy"
+      },
+      "task_id": "task_context_16"
+    },
+    {
+      "doc_id": "DOC_CS_1700",
+      "source": "semantic",
+      "topic": "topic_17",
+      "token": "KEY_TOPIC_17",
+      "text": "Recall topic_17 KEY_TOPIC_17 context semantic DOC_CS_1700",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_17",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_CS_1701",
+      "source": "semantic",
+      "topic": "topic_17",
+      "token": "KEY_TOPIC_17",
+      "text": "Recall topic_17 KEY_TOPIC_17 context semantic DOC_CS_1701",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_17",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_CD_1700",
+      "source": "episodic_decision",
+      "topic": "topic_17",
+      "token": "KEY_TOPIC_17",
+      "text": "Recall topic_17 KEY_TOPIC_17 context decision DOC_CD_1700",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_17",
+          "episodic_decision"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_CX_1700",
+      "source": "episodic_toolcall",
+      "topic": "topic_17",
+      "token": "KEY_TOPIC_17",
+      "text": "Recall topic_17 KEY_TOPIC_17 context tool DOC_CX_1700",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_17",
+          "episodic_toolcall"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_CW_1700",
+      "source": "working_state",
+      "topic": "topic_17",
+      "token": "KEY_TOPIC_17",
+      "text": "Recall topic_17 KEY_TOPIC_17 context working DOC_CW_1700",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_17",
+          "working_state"
+        ],
+        "difficulty": "easy"
+      },
+      "task_id": "task_context_17"
+    },
+    {
+      "doc_id": "DOC_CS_1800",
+      "source": "semantic",
+      "topic": "topic_18",
+      "token": "KEY_TOPIC_18",
+      "text": "Recall topic_18 KEY_TOPIC_18 context semantic DOC_CS_1800",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_18",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_CS_1801",
+      "source": "semantic",
+      "topic": "topic_18",
+      "token": "KEY_TOPIC_18",
+      "text": "Recall topic_18 KEY_TOPIC_18 context semantic DOC_CS_1801",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_18",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_CD_1800",
+      "source": "episodic_decision",
+      "topic": "topic_18",
+      "token": "KEY_TOPIC_18",
+      "text": "Recall topic_18 KEY_TOPIC_18 context decision DOC_CD_1800",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_18",
+          "episodic_decision"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_CX_1800",
+      "source": "episodic_toolcall",
+      "topic": "topic_18",
+      "token": "KEY_TOPIC_18",
+      "text": "Recall topic_18 KEY_TOPIC_18 context tool DOC_CX_1800",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_18",
+          "episodic_toolcall"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_CW_1800",
+      "source": "working_state",
+      "topic": "topic_18",
+      "token": "KEY_TOPIC_18",
+      "text": "Recall topic_18 KEY_TOPIC_18 context working DOC_CW_1800",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_18",
+          "working_state"
+        ],
+        "difficulty": "easy"
+      },
+      "task_id": "task_context_18"
+    },
+    {
+      "doc_id": "DOC_CS_1900",
+      "source": "semantic",
+      "topic": "topic_19",
+      "token": "KEY_TOPIC_19",
+      "text": "Recall topic_19 KEY_TOPIC_19 context semantic DOC_CS_1900",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_19",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_CS_1901",
+      "source": "semantic",
+      "topic": "topic_19",
+      "token": "KEY_TOPIC_19",
+      "text": "Recall topic_19 KEY_TOPIC_19 context semantic DOC_CS_1901",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_19",
+          "semantic"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_CD_1900",
+      "source": "episodic_decision",
+      "topic": "topic_19",
+      "token": "KEY_TOPIC_19",
+      "text": "Recall topic_19 KEY_TOPIC_19 context decision DOC_CD_1900",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_19",
+          "episodic_decision"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_CX_1900",
+      "source": "episodic_toolcall",
+      "topic": "topic_19",
+      "token": "KEY_TOPIC_19",
+      "text": "Recall topic_19 KEY_TOPIC_19 context tool DOC_CX_1900",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_19",
+          "episodic_toolcall"
+        ],
+        "difficulty": "easy"
+      }
+    },
+    {
+      "doc_id": "DOC_CW_1900",
+      "source": "working_state",
+      "topic": "topic_19",
+      "token": "KEY_TOPIC_19",
+      "text": "Recall topic_19 KEY_TOPIC_19 context working DOC_CW_1900",
+      "metadata": {
+        "timestamp": "2026-01-01T00:00:00Z",
+        "tags": [
+          "topic_19",
+          "working_state"
+        ],
+        "difficulty": "easy"
+      },
+      "task_id": "task_context_19"
+    }
+  ]
+}

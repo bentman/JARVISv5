@@ -233,7 +233,10 @@ def create_task(request: TaskRequest) -> dict[str, str]:
     if request.task_id is not None and memory.get_task_state(request.task_id) is None:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    service = ControllerService(memory_manager=memory)
+    service = ControllerService(
+        memory_manager=memory,
+        generation_seed=settings.GENERATION_SEED,
+    )
     result = service.run(user_input=request.user_input, task_id=request.task_id)
     context = result.get("context", {})
 

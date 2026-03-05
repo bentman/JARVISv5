@@ -139,6 +139,57 @@ def test_llm_worker_node_preserves_multiline_output(monkeypatch) -> None:
     assert result["llm_output"] == "```python\nprint('abc123XYZ789')\n```"
 
 
+def test_llm_worker_node_passes_seed_when_present(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class _StubLlama:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def create_completion(self, **kwargs):
+            captured.update(kwargs)
+            return {"choices": [{"text": "seeded"}]}
+
+    monkeypatch.setitem(sys.modules, "llama_cpp", types.SimpleNamespace(Llama=_StubLlama))
+
+    node = LLMWorkerNode()
+    result = node.execute(
+        {
+            "user_input": "hello",
+            "llm_model_path": TEST_MODEL_PATH,
+            "generation_seed": 42,
+        }
+    )
+
+    assert result["llm_output"] == "seeded"
+    assert captured.get("seed") == 42
+
+
+def test_llm_worker_node_omits_seed_when_absent(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class _StubLlama:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def create_completion(self, **kwargs):
+            captured.update(kwargs)
+            return {"choices": [{"text": "unseeded"}]}
+
+    monkeypatch.setitem(sys.modules, "llama_cpp", types.SimpleNamespace(Llama=_StubLlama))
+
+    node = LLMWorkerNode()
+    result = node.execute(
+        {
+            "user_input": "hello",
+            "llm_model_path": TEST_MODEL_PATH,
+        }
+    )
+
+    assert result["llm_output"] == "unseeded"
+    assert "seed" not in captured
+
+
 def test_validator_node_marks_context_valid_for_non_empty_output() -> None:
     node = ValidatorNode()
     result = node.execute({"llm_output": "some output"})

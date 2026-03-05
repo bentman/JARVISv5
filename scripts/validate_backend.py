@@ -18,6 +18,7 @@ from pathlib import Path
 SUITES = {
     "unit": "tests/unit",
     "integration": "tests/integration",
+    "docker": "tests/docker",
     "agentic": "tests/agentic",
 }
 
@@ -70,16 +71,18 @@ def parse_scope(argv: list[str]) -> list[str]:
     if "--scope" in argv:
         index = argv.index("--scope")
         if index + 1 >= len(argv):
-            raise ValueError("--scope requires a value: all|unit|integration|agentic|docker-inference")
+            raise ValueError("--scope requires a value: all|unit|integration|docker|agentic|docker-inference")
         scope = argv[index + 1].strip().lower()
 
     if scope == "all":
         return ["unit", "integration", "agentic", DOCKER_SCOPE]
     if scope == DOCKER_SCOPE:
         return [DOCKER_SCOPE]
+    if scope == "docker":
+        return ["docker"]
     if scope in SUITES:
         return [scope]
-    raise ValueError("Invalid --scope value. Use: all|unit|integration|agentic|docker-inference")
+    raise ValueError("Invalid --scope value. Use: all|unit|integration|docker|agentic|docker-inference")
 
 
 def cleanup_old_reports(logger: ValidationLogger):
@@ -171,15 +174,24 @@ def run_pytest_suite(logger: ValidationLogger, suite_name: str, suite_path: str)
 
     python_exe = resolve_python_executable()
     xml_file = Path(f"test_results_{suite_name}_{datetime.now().strftime('%H%M%S')}.xml")
+    timeout_seconds = 900 if suite_name == "docker" else 300
+    stream_output = suite_name == "docker"
 
     try:
-        result = subprocess.run(
-            [python_exe, "-m", "pytest", suite_path, "--junitxml", str(xml_file), "--tb=short", "-v"],
-            cwd=Path.cwd(),
-            capture_output=True,
-            text=True,
-            timeout=300
-        )
+        if stream_output:
+            result = subprocess.run(
+                [python_exe, "-m", "pytest", suite_path, "--junitxml", str(xml_file), "--tb=short", "-v", "-s"],
+                cwd=Path.cwd(),
+                timeout=timeout_seconds,
+            )
+        else:
+            result = subprocess.run(
+                [python_exe, "-m", "pytest", suite_path, "--junitxml", str(xml_file), "--tb=short", "-v"],
+                cwd=Path.cwd(),
+                capture_output=True,
+                text=True,
+                timeout=timeout_seconds,
+            )
 
         test_results, summary, xml_success, has_skips = parse_junit_xml(xml_file)
 
@@ -199,11 +211,17 @@ def run_pytest_suite(logger: ValidationLogger, suite_name: str, suite_path: str)
         else:
             logger.log(f"FAILED: {suite_name}: {summary}")
             if result.stderr and not test_results:
-                logger.log(result.stderr.strip()[:500])
+                stderr_excerpt = ""
+                if isinstance(result.stderr, str):
+                    stderr_excerpt = result.stderr.strip()[:500]
+                elif isinstance(result.stdout, str):
+                    stderr_excerpt = result.stdout.strip()[:500]
+                if stderr_excerpt:
+                    logger.log(stderr_excerpt)
             return 'FAIL'
 
     except subprocess.TimeoutExpired:
-        logger.log(f"FAILED: {suite_name}: Timeout after 300s")
+        logger.log(f"FAILED: {suite_name}: Timeout after {timeout_seconds}s")
         return 'FAIL'
     except Exception as e:
         logger.log(f"FAILED: {suite_name}: {e}")

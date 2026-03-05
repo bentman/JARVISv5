@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     ALLOW_EXTERNAL_SEARCH: bool = False
     DEFAULT_SEARCH_PROVIDER: str = "duckduckgo"
     CACHE_ENABLED: bool = False
+    GENERATION_SEED: int | None = None
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

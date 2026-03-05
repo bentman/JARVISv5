@@ -23,6 +23,11 @@
 
 ## Inventory
 
+- Capability: Milestone 10 — Final Metrics & Invariant Closure (10.1–10.6): 10.1 reproducibility validation (Track A-first); 10.2 memory recall accuracy benchmark + gates; 10.3 agentic task success rate + gates (agentic scope); 10.4 segmented drift measurement + fixed-seed variance (enabled via 10.6); 10.5 controller latency p95 validation (with documented skip where artifact missing); 10.6 generation seed wiring (unskips fixed-seed drift test) - 2026-03-05 06:01
+  - State: Verified
+  - Location: `tests/integration/test_reproducibility_validation.py`, `tests/integration/test_memory_recall_accuracy.py`, `tests/integration/test_drift_rate_measurement.py`, `tests/integration/test_controller_latency_p95.py`, `tests/agentic/test_task_success_rate.py`, `tests/fixtures/retrieval_benchmark/v1/*`, `backend/config/settings.py`, `backend/api/main.py`, `backend/controller/controller_service.py`, `backend/workflow/nodes/llm_worker_node.py`, `backend/models/local_inference.py`
+  - Validation: `.\backend\.venv\Scripts\python.exe scripts\validate_backend.py --scope integration`; `.\backend\.venv\Scripts\python.exe scripts\validate_backend.py --scope agentic`
+
 - Capability: Milestone 9 — UI Completion (9.0–9.8; 9.9 deferred): API surface (`/settings`, `/budget`, `/health/ready`, `/health/detailed`, `/workflow/{task_id}`), centralized settings projection, budget helpers (rolling 30-day), detailed-health 30s cache semantics, telemetry offset ordering, and frontend client/WorkflowVisualizer/SettingsPanel/header polling split - 2026-03-04 05:16
   - State: Verified
   - Location: `backend/api/main.py`, `backend/api/schemas.py`, `backend/config/settings.py`, `backend/search/budget.py`, `frontend/src/api/taskClient.js`, `frontend/src/App.jsx`, `frontend/src/components/WorkflowVisualizer.jsx`, `frontend/src/components/SettingsPanel.jsx`, `tests/unit/test_api_settings.py`, `tests/unit/test_api_budget.py`, `tests/unit/test_api_health_detailed.py`, `tests/unit/test_api_health_ready.py`, `tests/unit/test_api_workflow_telemetry.py`, `tests/unit/test_api_schemas.py`
