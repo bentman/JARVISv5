@@ -1,10 +1,19 @@
 from fastapi.testclient import TestClient
 import os
+from pathlib import Path
 
 from backend.api.main import app
 
 
 client = TestClient(app)
+
+
+def _write_env(path: Path, content: str) -> None:
+    path.write_text(content, encoding="utf-8")
+
+
+def _read_env(path: Path) -> str:
+    return path.read_text(encoding="utf-8")
 
 
 def test_settings_endpoint_returns_schema_aligned_keys(monkeypatch) -> None:
@@ -103,3 +112,104 @@ def test_settings_endpoint_invalid_debug_returns_500(monkeypatch) -> None:
     assert response.status_code == 500
     body = response.json()
     assert body.get("detail") == "settings_unavailable"
+
+
+def test_settings_write_endpoint_updates_projection_and_returns_restart_headers_for_hardware_profile(
+    monkeypatch, tmp_path: Path
+) -> None:
+    env_path = tmp_path / ".env"
+    _write_env(
+        env_path,
+        "\n".join(
+            [
+                "APP_NAME=JARVISv5",
+                "DEBUG=true",
+                "HARDWARE_PROFILE=medium",
+                "LOG_LEVEL=INFO",
+                "MODEL_PATH=models/",
+                "DATA_PATH=data/",
+                "BACKEND_PORT=8000",
+                "REDACT_PII_QUERIES=true",
+                "REDACT_PII_RESULTS=false",
+                "ALLOW_EXTERNAL_SEARCH=false",
+                "DEFAULT_SEARCH_PROVIDER=duckduckgo",
+                "CACHE_ENABLED=false",
+            ]
+        )
+        + "\n",
+    )
+    monkeypatch.setattr("backend.api.main._SETTINGS_ENV_PATH", env_path)
+
+    response = client.post(
+        "/settings",
+        json={
+            "hardware_profile": "heavy",
+            "log_level": "warning",
+            "allow_external_search": True,
+            "default_search_provider": "tavily",
+            "cache_enabled": True,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["hardware_profile"] == "heavy"
+    assert body["log_level"] == "WARNING"
+    assert body["allow_external_search"] is True
+    assert body["default_search_provider"] == "tavily"
+    assert body["cache_enabled"] is True
+
+    assert response.headers.get("X-Settings-Restart-Required") == "true"
+    restart_fields_header = response.headers.get("X-Settings-Restart-Required-Fields", "")
+    restart_fields = [item for item in restart_fields_header.split(",") if item]
+    assert "hardware_profile" in restart_fields
+
+    hot_applied_header = response.headers.get("X-Settings-Hot-Applied-Fields", "")
+    hot_applied_fields = [item for item in hot_applied_header.split(",") if item]
+    assert "hardware_profile" not in hot_applied_fields
+    assert set(hot_applied_fields) == {
+        "log_level",
+        "allow_external_search",
+        "default_search_provider",
+        "cache_enabled",
+    }
+
+
+def test_settings_write_endpoint_rejects_invalid_value_without_partial_write(
+    monkeypatch, tmp_path: Path
+) -> None:
+    env_path = tmp_path / ".env"
+    original = "\n".join(
+        [
+            "APP_NAME=JARVISv5",
+            "DEBUG=true",
+            "HARDWARE_PROFILE=medium",
+            "LOG_LEVEL=INFO",
+            "ALLOW_EXTERNAL_SEARCH=false",
+            "DEFAULT_SEARCH_PROVIDER=duckduckgo",
+            "CACHE_ENABLED=false",
+        ]
+    ) + "\n"
+    _write_env(env_path, original)
+    monkeypatch.setattr("backend.api.main._SETTINGS_ENV_PATH", env_path)
+
+    response = client.post(
+        "/settings",
+        json={
+            "log_level": "INFO",
+            "default_search_provider": "invalid-provider",
+        },
+    )
+
+    assert response.status_code == 422
+    assert _read_env(env_path) == original
+
+
+def test_settings_write_endpoint_requires_at_least_one_field(monkeypatch, tmp_path: Path) -> None:
+    env_path = tmp_path / ".env"
+    _write_env(env_path, "APP_NAME=JARVISv5\n")
+    monkeypatch.setattr("backend.api.main._SETTINGS_ENV_PATH", env_path)
+
+    response = client.post("/settings", json={})
+    assert response.status_code == 400
+    assert response.json().get("detail") == "no_settings_updates_provided"

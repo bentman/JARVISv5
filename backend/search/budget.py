@@ -1,11 +1,73 @@
 from __future__ import annotations
 
 import json
+import math
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, TypedDict
 
 from pydantic import BaseModel, Field
+
+
+def persist_budget_limit_updates(
+    updates: dict[str, float],
+    env_path: str | Path = ".env",
+) -> None:
+    allowed = {
+        "daily_limit_usd": "DAILY_BUDGET_USD",
+        "monthly_limit_usd": "MONTHLY_BUDGET_USD",
+    }
+
+    normalized: dict[str, str] = {}
+    for key, value in updates.items():
+        if key not in allowed:
+            raise ValueError(f"unsupported_budget_field:{key}")
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"invalid_budget_value:{key}") from exc
+        if not math.isfinite(numeric) or numeric < 0.0:
+            raise ValueError(f"invalid_budget_value:{key}")
+        normalized[allowed[key]] = str(numeric)
+
+    if not normalized:
+        raise ValueError("no_budget_updates_provided")
+
+    target_path = Path(env_path)
+    if target_path.exists():
+        original_text = target_path.read_text(encoding="utf-8")
+        lines = original_text.splitlines()
+    else:
+        lines = []
+
+    seen: set[str] = set()
+    updated_lines: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in line:
+            updated_lines.append(line)
+            continue
+
+        key, _, _value = line.partition("=")
+        key = key.strip()
+        if key in normalized:
+            updated_lines.append(f"{key}={normalized[key]}")
+            seen.add(key)
+        else:
+            updated_lines.append(line)
+
+    for key, value in normalized.items():
+        if key not in seen:
+            updated_lines.append(f"{key}={value}")
+
+    text_out = "\n".join(updated_lines)
+    if updated_lines:
+        text_out += "\n"
+
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = target_path.with_suffix(f"{target_path.suffix}.tmp")
+    tmp_path.write_text(text_out, encoding="utf-8")
+    tmp_path.replace(target_path)
 
 
 class SearchBudgetConfig(BaseModel):

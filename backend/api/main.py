@@ -2,7 +2,7 @@ import json
 import time
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
@@ -14,13 +14,19 @@ from backend.api.schemas import (
     HardwareHealth,
     ModelHealth,
     SettingsResponse,
+    SettingsUpdateRequest,
     TaskFailureMetadata,
     TaskResponse,
     WorkflowNodeEvent,
     WorkflowTelemetryResponse,
 )
 from backend.cache import redis_client as cache_redis_client
-from backend.config.settings import Settings, get_safe_config_projection
+from backend.config.settings import (
+    Settings,
+    get_safe_config_projection,
+    persist_settings_updates,
+    settings_update_restart_semantics,
+)
 from backend.controller.controller_service import ControllerService
 from backend.memory.memory_manager import MemoryManager
 from backend.models import hardware_profiler
@@ -45,6 +51,7 @@ app.add_middleware(
 _DETAILED_HEALTH_CACHE_TTL_SECONDS = 30.0
 _detailed_health_cache: DetailedHealthResponse | None = None
 _detailed_health_cache_timestamp = 0.0
+_SETTINGS_ENV_PATH = Path(".env")
 
 
 def _monotonic_now() -> float:
@@ -58,6 +65,11 @@ class TaskRequest(BaseModel):
         ...,
         validation_alias=AliasChoices("user_input", "input"),
     )
+
+
+class BudgetUpdateRequest(BaseModel):
+    daily_limit_usd: float | None = Field(default=None, ge=0.0)
+    monthly_limit_usd: float | None = Field(default=None, ge=0.0)
 
 
 def _build_memory_manager(settings: Settings) -> MemoryManager:
@@ -204,6 +216,60 @@ def get_settings() -> SettingsResponse:
     )
 
 
+@app.post("/settings", response_model=SettingsResponse)
+def update_settings(request: SettingsUpdateRequest, response: Response) -> SettingsResponse:
+    updates = request.model_dump(exclude_none=True)
+    if not updates:
+        raise HTTPException(status_code=400, detail="no_settings_updates_provided")
+
+    try:
+        persist_settings_updates(updates=updates, env_path=_SETTINGS_ENV_PATH)
+        semantics = settings_update_restart_semantics(set(updates.keys()))
+        settings = Settings()
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="settings_update_unavailable") from exc
+
+    response.headers["X-Settings-Restart-Required"] = (
+        "true" if bool(semantics.get("restart_required", False)) else "false"
+    )
+    restart_required_fields = semantics.get("restart_required_fields", [])
+    hot_applied_fields = semantics.get("hot_applied_fields", [])
+    restart_required_list = (
+        [str(item) for item in restart_required_fields]
+        if isinstance(restart_required_fields, list)
+        else []
+    )
+    hot_applied_list = (
+        [str(item) for item in hot_applied_fields]
+        if isinstance(hot_applied_fields, list)
+        else []
+    )
+    response.headers["X-Settings-Restart-Required-Fields"] = ",".join(restart_required_list)
+    response.headers["X-Settings-Hot-Applied-Fields"] = ",".join(hot_applied_list)
+
+    projection = get_safe_config_projection(settings)
+    for field_name, value in updates.items():
+        if field_name in projection:
+            projection[field_name] = value
+
+    return SettingsResponse(
+        app_name=projection["app_name"],
+        debug=projection["debug"],
+        hardware_profile=projection["hardware_profile"],
+        log_level=projection["log_level"],
+        model_path=projection["model_path"],
+        data_path=projection["data_path"],
+        backend_port=projection["backend_port"],
+        redact_pii_queries=projection["redact_pii_queries"],
+        redact_pii_results=projection["redact_pii_results"],
+        allow_external_search=projection["allow_external_search"],
+        default_search_provider=projection["default_search_provider"],
+        cache_enabled=projection["cache_enabled"],
+    )
+
+
 @app.get("/budget", response_model=BudgetResponse)
 def get_budget() -> BudgetResponse:
     try:
@@ -219,6 +285,48 @@ def get_budget() -> BudgetResponse:
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail="budget_unavailable") from exc
+
+    return BudgetResponse(
+        daily=BudgetPeriod(
+            limit_usd=float(config.daily_limit_usd),
+            spent_usd=float(spent_usd),
+            remaining_usd=float(remaining_usd),
+        ),
+        monthly=BudgetPeriod(
+            limit_usd=float(monthly_summary["limit_usd"]),
+            spent_usd=float(monthly_summary["spent_usd"]),
+            remaining_usd=float(monthly_summary["remaining_usd"]),
+        ),
+    )
+
+
+@app.post("/budget", response_model=BudgetResponse)
+def update_budget(request: BudgetUpdateRequest) -> BudgetResponse:
+    updates = request.model_dump(exclude_none=True)
+    if not updates:
+        raise HTTPException(status_code=400, detail="no_budget_updates_provided")
+
+    try:
+        search_budget.persist_budget_limit_updates(
+            updates=updates,
+            env_path=_SETTINGS_ENV_PATH,
+        )
+        settings = Settings()
+        daily_limit_usd = float(updates.get("daily_limit_usd", settings.DAILY_BUDGET_USD))
+        monthly_limit_usd = float(updates.get("monthly_limit_usd", settings.MONTHLY_BUDGET_USD))
+        config = search_budget.SearchBudgetConfig(daily_limit_usd=daily_limit_usd)
+        ledger = search_budget.SearchBudgetLedger()
+        date_key = ledger.today_key()
+        spent_usd = ledger.get_spent(date_key)
+        remaining_usd = ledger.remaining_budget_usd(date_key, config.daily_limit_usd)
+        monthly_summary = ledger.get_monthly_summary(
+            monthly_limit_usd=monthly_limit_usd,
+            end_date_key=date_key,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="budget_update_unavailable") from exc
 
     return BudgetResponse(
         daily=BudgetPeriod(

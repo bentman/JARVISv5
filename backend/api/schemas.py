@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from backend.config.settings import (
+    normalize_default_search_provider,
+    normalize_hardware_profile,
+    normalize_log_level,
+)
 
 
 class WorkflowGraphEdge(BaseModel):
@@ -67,6 +73,35 @@ class SettingsResponse(BaseModel):
     allow_external_search: bool | None = None
     default_search_provider: str | None = None
     cache_enabled: bool | None = None
+
+
+class SettingsUpdateRequest(BaseModel):
+    hardware_profile: str | None = None
+    log_level: str | None = None
+    allow_external_search: bool | None = None
+    default_search_provider: str | None = None
+    cache_enabled: bool | None = None
+
+    @field_validator("hardware_profile")
+    @classmethod
+    def validate_hardware_profile(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return normalize_hardware_profile(value)
+
+    @field_validator("log_level")
+    @classmethod
+    def validate_log_level(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return normalize_log_level(value)
+
+    @field_validator("default_search_provider")
+    @classmethod
+    def validate_default_search_provider(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return normalize_default_search_provider(value)
 
 
 class BudgetPeriod(BaseModel):

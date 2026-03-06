@@ -1,3 +1,5 @@
+import os
+from pathlib import Path
 from typing import TypedDict
 
 from pydantic import field_validator
@@ -98,4 +100,124 @@ def get_safe_config_projection(settings: Settings) -> SafeConfigProjection:
         "allow_external_search": settings.ALLOW_EXTERNAL_SEARCH,
         "default_search_provider": settings.DEFAULT_SEARCH_PROVIDER,
         "cache_enabled": settings.CACHE_ENABLED,
+    }
+
+
+EDITABLE_SETTINGS_ENV_KEYS: dict[str, str] = {
+    "hardware_profile": "HARDWARE_PROFILE",
+    "log_level": "LOG_LEVEL",
+    "allow_external_search": "ALLOW_EXTERNAL_SEARCH",
+    "default_search_provider": "DEFAULT_SEARCH_PROVIDER",
+    "cache_enabled": "CACHE_ENABLED",
+}
+
+ALLOWED_HARDWARE_PROFILES = {"light", "medium", "heavy", "test", "npu-optimized"}
+ALLOWED_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+ALLOWED_DEFAULT_SEARCH_PROVIDERS = {"searxng", "duckduckgo", "tavily"}
+
+
+def normalize_hardware_profile(value: str) -> str:
+    normalized = str(value).strip().lower().replace("_", "-")
+    if normalized not in ALLOWED_HARDWARE_PROFILES:
+        allowed = ", ".join(sorted(ALLOWED_HARDWARE_PROFILES))
+        raise ValueError(f"hardware_profile must be one of: {allowed}")
+    return normalized
+
+
+def normalize_log_level(value: str) -> str:
+    normalized = str(value).strip().upper()
+    if normalized not in ALLOWED_LOG_LEVELS:
+        allowed = ", ".join(sorted(ALLOWED_LOG_LEVELS))
+        raise ValueError(f"log_level must be one of: {allowed}")
+    return normalized
+
+
+def normalize_default_search_provider(value: str) -> str:
+    normalized = str(value).strip().lower()
+    if normalized not in ALLOWED_DEFAULT_SEARCH_PROVIDERS:
+        allowed = ", ".join(sorted(ALLOWED_DEFAULT_SEARCH_PROVIDERS))
+        raise ValueError(f"default_search_provider must be one of: {allowed}")
+    return normalized
+
+
+def serialize_editable_setting_value(field_name: str, value: object) -> str:
+    if field_name not in EDITABLE_SETTINGS_ENV_KEYS:
+        raise ValueError(f"unsupported editable setting: {field_name}")
+
+    if field_name == "hardware_profile":
+        return normalize_hardware_profile(str(value))
+    if field_name == "log_level":
+        return normalize_log_level(str(value))
+    if field_name == "default_search_provider":
+        return normalize_default_search_provider(str(value))
+    if field_name in {"allow_external_search", "cache_enabled"}:
+        return "true" if bool(value) else "false"
+
+    raise ValueError(f"unsupported editable setting: {field_name}")
+
+
+def persist_settings_updates(updates: dict[str, object], env_path: Path | None = None) -> None:
+    """Atomically persist validated editable settings to .env."""
+    if not updates:
+        raise ValueError("no settings provided")
+
+    target_path = env_path or Path(".env")
+    serialized: dict[str, str] = {}
+    for field_name, raw_value in updates.items():
+        env_key = EDITABLE_SETTINGS_ENV_KEYS.get(field_name)
+        if env_key is None:
+            raise ValueError(f"unsupported editable setting: {field_name}")
+        serialized[env_key] = serialize_editable_setting_value(field_name, raw_value)
+
+    existing_lines = []
+    if target_path.exists():
+        existing_lines = target_path.read_text(encoding="utf-8").splitlines()
+
+    out_lines: list[str] = []
+    touched_keys: set[str] = set()
+
+    for line in existing_lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in line:
+            out_lines.append(line)
+            continue
+
+        key, _ = line.split("=", 1)
+        normalized_key = key.strip()
+        if normalized_key in serialized:
+            out_lines.append(f"{normalized_key}={serialized[normalized_key]}")
+            touched_keys.add(normalized_key)
+        else:
+            out_lines.append(line)
+
+    for key, value in serialized.items():
+        if key not in touched_keys:
+            out_lines.append(f"{key}={value}")
+
+    content = "\n".join(out_lines) + "\n"
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = target_path.with_name(f"{target_path.name}.tmp")
+    tmp_path.write_text(content, encoding="utf-8")
+    os.replace(tmp_path, target_path)
+
+
+def settings_update_restart_semantics(updated_fields: set[str]) -> dict[str, object]:
+    """Restart semantics for editable settings updates.
+
+    Roadmap T11.3.1 requires profile/model-affecting values to be restart-required.
+    """
+    restart_required_fields: list[str] = []
+    if "hardware_profile" in updated_fields:
+        restart_required_fields.append("hardware_profile")
+
+    hot_applied_fields = sorted(
+        field
+        for field in updated_fields
+        if field in EDITABLE_SETTINGS_ENV_KEYS and field not in set(restart_required_fields)
+    )
+
+    return {
+        "restart_required": len(restart_required_fields) > 0,
+        "restart_required_fields": restart_required_fields,
+        "hot_applied_fields": hot_applied_fields,
     }

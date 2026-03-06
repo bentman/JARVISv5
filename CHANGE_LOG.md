@@ -15,6 +15,36 @@
 
 ## Entries
 
+- 2026-03-06 07:03
+  - Summary: Completed Milestone 11 / Sub-Task T11.3.3 by adding budget management basics for `daily_limit_usd` and `monthly_limit_usd`, including backend write path and settings panel budget edit/save flow with immediate apply behavior (no restart required).
+  - Scope: `backend/api/main.py`, `backend/search/budget.py`, `frontend/src/components/SettingsPanel.jsx`, `frontend/src/api/taskClient.js`, `tests/unit/test_api_budget.py`.
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit/test_api_budget.py -q`
+      - PASS excerpt: `7 passed in 0.57s`
+
+- 2026-03-06 06:29
+  - Summary: Completed Milestone 11 / Sub-Task T11.3.2 by adding settings panel edit/save flow for the approved fields with save/cancel UX, backend restart-notice surfacing, and unsaved-edit-safe refresh handling.
+  - Scope: `frontend/src/api/taskClient.js`, `frontend/src/components/SettingsPanel.jsx`.
+  - Key behaviors:
+    - Added frontend settings write client method for `POST /settings` and parsed restart semantics headers for UI use.
+    - Added editable controls and save/cancel flow for approved fields only: `hardware_profile`, `log_level`, `allow_external_search`, `default_search_provider`, `cache_enabled`.
+    - Added loading/saving and success/failure feedback, explicit restart-required/hot-applied notice rendering, and polling-safe protection that preserves local unsaved edits during refresh.
+  - Evidence:
+    - `npm --prefix frontend run build`
+      - PASS excerpt: `✓ 195 modules transformed.`
+      - PASS excerpt: `✓ built in 677ms`
+
+- 2026-03-05 23:00
+  - Summary: Completed Milestone 11 / Sub-Task T11.3.1 by adding a minimal settings write API path and then correcting restart semantics so `hardware_profile` is restart-required.
+  - Scope: `backend/api/main.py`, `backend/api/schemas.py`, `backend/config/settings.py`, `tests/unit/test_api_settings.py`.
+  - Key behaviors:
+    - Added additive `POST /settings` write path for the approved minimal editable settings subset, while leaving `GET /settings` unchanged.
+    - Enforced restart signaling for `hardware_profile`: `X-Settings-Restart-Required=true`, `X-Settings-Restart-Required-Fields` includes `hardware_profile`, and `hardware_profile` is excluded from hot-applied fields.
+    - Preserved existing behavior for other in-scope fields unless required by this correction.
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit/test_api_settings.py -q`
+      - PASS excerpt: `6 passed in 0.57s`
+
 - 2026-03-05 22:10
   - Summary: Completed Milestone 11 / Sub-Task T11.2.4 by adding frontend user-facing search/tool failure explanation rendering from projected `/task` failure metadata.
   - Scope: `frontend/src/api/taskClient.js`, `frontend/src/App.jsx`.
