@@ -1,51 +1,74 @@
 import { useEffect, useRef, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
 import { createOrContinueTask, getDetailedHealth, getHealth } from './api/taskClient'
 import SettingsPanel from './components/SettingsPanel'
 import WorkflowVisualizer from './components/WorkflowVisualizer'
 
 function renderAssistantContent(content) {
-  const parts = String(content ?? '').split('```')
+  return (
+    <div
+      style={{
+        whiteSpace: 'pre-wrap',
+        overflowWrap: 'anywhere',
+      }}
+    >
+      <ReactMarkdown
+        components={{
+          pre({ children }) {
+            return (
+              <pre
+                style={{
+                  margin: '8px 0',
+                  padding: '10px',
+                  borderRadius: 10,
+                  background: '#050810',
+                  border: '1px solid #00d4ff80',
+                  boxShadow: '0 0 10px #00d4ff33',
+                  whiteSpace: 'pre-wrap',
+                  overflowWrap: 'anywhere',
+                }}
+              >
+                {children}
+              </pre>
+            )
+          },
+          code({ inline, className, children, ...props }) {
+            if (inline) {
+              return (
+                <code
+                  className={className}
+                  style={{
+                    fontFamily: 'Consolas, Monaco, monospace',
+                    background: '#050810',
+                    border: '1px solid #00d4ff55',
+                    borderRadius: 6,
+                    padding: '1px 4px',
+                  }}
+                  {...props}
+                >
+                  {children}
+                </code>
+              )
+            }
 
-  return parts.map((part, index) => {
-    const isCodeBlock = index % 2 === 1
-
-    if (!isCodeBlock) {
-      return (
-        <div
-          key={`text-${index}`}
-          style={{
-            whiteSpace: 'pre-wrap',
-            overflowWrap: 'anywhere',
-          }}
-        >
-          {part}
-        </div>
-      )
-    }
-
-    const lines = part.split('\n')
-    const firstLine = lines[0] ?? ''
-    const hasLanguageTag = /^[a-zA-Z0-9_+-]+$/.test(firstLine.trim())
-    const codeContent = hasLanguageTag ? lines.slice(1).join('\n') : part
-
-    return (
-      <pre
-        key={`code-${index}`}
-        style={{
-          margin: '8px 0',
-          padding: '10px',
-          borderRadius: 10,
-          background: '#050810',
-          border: '1px solid #00d4ff80',
-          boxShadow: '0 0 10px #00d4ff33',
-          whiteSpace: 'pre-wrap',
-          overflowWrap: 'anywhere',
+            return (
+              <code
+                className={className}
+                style={{
+                  fontFamily: 'Consolas, Monaco, monospace',
+                }}
+                {...props}
+              >
+                {children}
+              </code>
+            )
+          },
         }}
       >
-        <code style={{ fontFamily: 'Consolas, Monaco, monospace' }}>{codeContent}</code>
-      </pre>
-    )
-  })
+        {String(content ?? '')}
+      </ReactMarkdown>
+    </div>
+  )
 }
 
 function App() {
@@ -118,11 +141,14 @@ function App() {
   }, [])
 
   const modelIndicator = detailedHealth?.model?.selected || 'unknown'
-  const cacheIndicator = detailedHealth?.cache
-    ? `${detailedHealth.cache.enabled ? 'enabled' : 'disabled'} / ${
-        detailedHealth.cache.connected ? 'connected' : 'disconnected'
-      }`
-    : 'unknown'
+  const cache = detailedHealth?.cache
+  const cacheIndicator = !cache
+    ? 'unknown'
+    : cache.enabled === false
+      ? 'disabled'
+      : cache.connected === true
+        ? 'enabled / connected'
+        : 'enabled / disconnected'
 
   const handleSend = async () => {
     const userInput = input.trim()
@@ -148,6 +174,7 @@ function App() {
         {
           role: 'assistant',
           content: assistantContent,
+          failure: response.failure ?? null,
         },
       ])
     } catch (err) {
@@ -221,7 +248,22 @@ function App() {
             <span style={{ opacity: 0.6 }}>|</span>
             <span>State: {finalState || '—'}</span>
             <span style={{ opacity: 0.6 }}>|</span>
-            <span>Model: {modelIndicator}</span>
+            <span>
+              Model:{' '}
+              <span
+                title={modelIndicator}
+                style={{
+                  display: 'inline-block',
+                  maxWidth: 220,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  verticalAlign: 'bottom',
+                }}
+              >
+                {modelIndicator}
+              </span>
+            </span>
             <span style={{ opacity: 0.6 }}>|</span>
             <span>Cache: {cacheIndicator}</span>
             {isDetailedDiagnosticsUnavailable ? (
@@ -306,8 +348,40 @@ function App() {
                     wordBreak: 'break-word',
                   }}
                 >
-                  {message.role === 'assistant' && String(message.content).includes('```') ? (
-                    renderAssistantContent(message.content)
+                  {message.role === 'assistant' ? (
+                    <>
+                      {renderAssistantContent(message.content)}
+                      {message.failure ? (
+                        <div
+                          style={{
+                            marginTop: 10,
+                            padding: '8px 10px',
+                            borderRadius: 10,
+                            background: '#0a0e1a',
+                            border: '1px solid #ef444466',
+                            fontSize: 14,
+                            color: '#fca5a5',
+                          }}
+                        >
+                          <div>
+                            {(Array.isArray(message.failure.attempted_providers) &&
+                            message.failure.attempted_providers.length > 0
+                              ? 'Search failed: '
+                              : 'Tool failed: ') +
+                              String(message.failure.reason || 'unknown error')}
+                          </div>
+                          {Array.isArray(message.failure.attempted_providers) &&
+                          message.failure.attempted_providers.length > 0 ? (
+                            <div style={{ marginTop: 4 }}>
+                              Attempted: {message.failure.attempted_providers.join(' → ')}
+                            </div>
+                          ) : null}
+                          {message.failure.code ? (
+                            <div style={{ marginTop: 4 }}>Code: {String(message.failure.code)}</div>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </>
                   ) : (
                     <pre
                       style={{

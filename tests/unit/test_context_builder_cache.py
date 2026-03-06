@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 
 from backend.cache.key_policy import make_cache_key
 from backend.cache.metrics import get_metrics
@@ -162,7 +163,10 @@ def test_context_builder_fail_safe_when_cache_unavailable_still_builds_context()
 
 def test_context_builder_cache_disabled_via_env_still_builds_context(monkeypatch) -> None:
     _reset_metrics()
-    monkeypatch.setenv("CACHE_ENABLED", "false")
+    monkeypatch.setattr(
+        "backend.cache.settings.Settings",
+        lambda: SimpleNamespace(CACHE_ENABLED=False, REDIS_URL="redis://typed:6379/0"),
+    )
     try:
         cache = RedisCacheClient(
             url="redis://irrelevant:6379/0",

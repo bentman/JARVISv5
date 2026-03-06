@@ -22,6 +22,7 @@ export async function createOrContinueTask({ user_input, task_id }) {
     task_id: data.task_id,
     final_state: data.final_state,
     llm_output: data.llm_output,
+    failure: data.failure,
   }
 }
 

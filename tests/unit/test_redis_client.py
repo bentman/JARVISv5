@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import Any
+from types import SimpleNamespace
 
 from backend.cache.redis_client import RedisCacheClient, create_default_redis_client
 
@@ -109,8 +110,10 @@ def test_health_check_returns_stable_shape_for_disabled_unavailable_connected() 
 
 
 def test_create_default_redis_client_reads_environment(monkeypatch) -> None:
-    monkeypatch.setenv("REDIS_URL", "redis://127.0.0.1:1/0")
-    monkeypatch.setenv("CACHE_ENABLED", "false")
+    monkeypatch.setattr(
+        "backend.cache.settings.Settings",
+        lambda: SimpleNamespace(CACHE_ENABLED=False, REDIS_URL="redis://typed:6379/9"),
+    )
     monkeypatch.setenv("CACHE_DEFAULT_TTL", "99")
 
     client = create_default_redis_client()

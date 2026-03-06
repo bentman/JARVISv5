@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 from pydantic import BaseModel
 
@@ -218,7 +219,10 @@ def test_enable_caching_false_bypasses_cache_even_with_client(tmp_path: Path) ->
 
 def test_cache_disabled_via_env_bypasses_cache_without_breaking_execution(monkeypatch, tmp_path: Path) -> None:
     get_metrics().reset()
-    monkeypatch.setenv("CACHE_ENABLED", "off")
+    monkeypatch.setattr(
+        "backend.cache.settings.Settings",
+        lambda: SimpleNamespace(CACHE_ENABLED=False, REDIS_URL="redis://typed:6379/0"),
+    )
     root = tmp_path / "root"
     root.mkdir()
     registry, sandbox = _build_registry_and_sandbox(root)

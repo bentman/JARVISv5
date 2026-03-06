@@ -15,6 +15,127 @@
 
 ## Entries
 
+- 2026-03-05 22:10
+  - Summary: Completed Milestone 11 / Sub-Task T11.2.4 by adding frontend user-facing search/tool failure explanation rendering from projected `/task` failure metadata.
+  - Scope: `frontend/src/api/taskClient.js`, `frontend/src/App.jsx`.
+  - Key behaviors:
+    - Updated `createOrContinueTask(...)` in `frontend/src/api/taskClient.js` to additively return `failure: data.failure`.
+    - Updated `frontend/src/App.jsx` to store `failure` on assistant messages and conditionally render inline failure details beneath assistant content when `message.failure` exists.
+    - Rendering behavior:
+      - `Search failed: <reason>` when `attempted_providers` is present (displayed as `p1 → p2 → ...`).
+      - `Tool failed: <reason>` otherwise.
+      - Optional `Code: <code>` when present.
+    - Success-path behavior unchanged.
+  - Evidence:
+    - `npm --prefix frontend run build`
+      - PASS excerpt: `✓ 195 modules transformed.`
+      - PASS excerpt: `✓ built in 664ms`
+
+- 2026-03-05 22:01
+  - Summary: Completed Milestone 11 / Sub-Task T11.2.3 frontend UI handling by updating cache indicator mapping in the header to align with corrected `/health/detailed` cache semantics.
+  - Scope: `frontend/src/App.jsx`.
+  - Key behaviors:
+    - `cache` block missing → `unknown`.
+    - `enabled === false` → `disabled`.
+    - `enabled === true && connected === true` → `enabled / connected`.
+    - `enabled === true && connected === false` → `enabled / disconnected`.
+    - Header structure, polling cadence, API calls, and `Diagnostics unavailable` behavior unchanged.
+  - Evidence:
+    - `npm --prefix frontend run build`
+      - PASS excerpt: `✓ 195 modules transformed.`
+      - PASS excerpt: `✓ built in 649ms`
+
+- 2026-03-05 21:50
+  - Summary: Completed Milestone 11 / Sub-Task T11.2.3 by unifying cache enablement source-of-truth so runtime cache settings derive from typed `Settings` rather than a separate env parser.
+  - Scope: `backend/config/settings.py`, `backend/cache/settings.py`, `tests/unit/test_cache_settings.py`, `tests/unit/test_api_health_detailed.py`, `tests/unit/test_context_builder_cache.py`, `tests/unit/test_tool_executor_cache.py`, `tests/unit/test_redis_client.py`.
+  - Key behaviors:
+    - Added typed `REDIS_URL` to `backend/config/settings.py`.
+    - Rewired `backend/cache/settings.py::load_cache_settings()` to use `Settings()` for `cache_enabled` and `redis_url`.
+    - Removed duplicated env parsing for cache enablement.
+    - Updated affected unit tests to patch the typed Settings path and added disabled-by-config semantics coverage for `/health/detailed`.
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit/test_cache_settings.py tests/unit/test_api_health_detailed.py tests/unit/test_context_builder_cache.py tests/unit/test_tool_executor_cache.py tests/unit/test_redis_client.py -q`
+      - PASS excerpt: `21 passed in 8.51s`
+    - `.\backend\.venv\Scripts\python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `PASS WITH SKIPS: unit: 245 tests, 1 skipped`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS report: `reports\backend_validation_report_20260305_214725.txt`
+
+- 2026-03-05 21:15
+  - Summary: Completed Milestone 11 / Sub-Task T11.2.2 by improving header model indicator readability in frontend rendering while preserving existing behavior.
+  - Scope: `frontend/src/App.jsx`.
+  - Key behaviors:
+    - Updated Model indicator rendering to use CSS ellipsis for long values (no string slicing).
+    - Added `title={modelIndicator}` so the full value remains accessible on hover.
+    - No changes to polling cadence, data sources, or other UI behavior.
+  - Evidence:
+    - `npm --prefix frontend run build`
+      - PASS excerpt: `✓ 195 modules transformed.`
+      - PASS excerpt: `✓ built in 689ms`
+
+- 2026-03-05 20:52
+  - Summary: Completed Milestone 11 / Sub-Task T11.2.1 by upgrading assistant markdown/code rendering with `react-markdown` while preserving existing chat flow and non-assistant rendering behavior.
+  - Scope: `frontend/package.json`, `frontend/src/App.jsx`.
+  - Key behaviors:
+    - Added `react-markdown` dependency in `frontend/package.json`.
+    - Updated `frontend/src/App.jsx` to render all assistant messages via `ReactMarkdown`, replacing manual triple-backtick splitting.
+    - Added custom `components.code` handling for fenced code blocks (styled `pre/code`, language class preserved) and inline code styling.
+    - Non-assistant rendering and send/receive flow unchanged.
+  - Evidence:
+    - `npm --prefix frontend run build`
+      - PASS excerpt: `✓ 195 modules transformed.`
+      - PASS excerpt: `✓ built in 649ms`
+
+- 2026-03-05 20:42
+  - Summary: Completed Milestone 11 / Sub-Task T11.1.3 by projecting structured search/tool failure details through task response while preserving existing success payload behavior.
+  - Scope: `backend/tools/search_tools.py`, `backend/api/schemas.py`, `backend/api/main.py`, `tests/unit/test_search_tools.py`.
+  - Key behaviors:
+    - Propagated `attempted_providers: list[str]` from provider ladder results into `backend/tools/search_tools.py` search tool result payloads (success + failure paths).
+    - Added additive task response models in `backend/api/schemas.py`:
+      - `TaskFailureMetadata { reason, attempted_providers, code }`
+      - `TaskResponse { task_id, final_state, llm_output, failure? }`
+    - Updated `POST /task` in `backend/api/main.py` to use `response_model=TaskResponse` and to optionally project `failure` from structured tool result when `tool_ok` is false.
+    - Extended `tests/unit/test_search_tools.py` to assert `attempted_providers` exists and includes expected provider id.
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit/test_search_tools.py -q`
+      - PASS excerpt: `6 passed in 0.42s`
+    - `.\backend\.venv\Scripts\python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `PASS WITH SKIPS: unit: 246 tests, 1 skipped`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS report: `reports\backend_validation_report_20260305_203749.txt`
+
+- 2026-03-05 20:28
+  - Summary: Completed Milestone 11 / Sub-Task T11.1.2 by persisting workflow execution order in task state and adding focused persistence unit coverage.
+  - Scope: `backend/controller/controller_service.py`, `tests/unit/test_controller_workflow_persistence.py`.
+  - Key behaviors:
+    - Persisted `workflow_execution_order` into task state alongside `workflow_graph` in `backend/controller/controller_service.py`.
+    - Added focused unit test `tests/unit/test_controller_workflow_persistence.py` asserting persisted task state includes `workflow_graph` and non-empty `workflow_execution_order`.
+    - `/workflow/{task_id}` endpoint logic unchanged.
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit/test_api_workflow_telemetry.py -q`
+      - PASS excerpt: `4 passed in 9.52s`
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit/test_controller_workflow_persistence.py -q`
+      - PASS excerpt: `1 passed in 0.61s`
+    - `.\backend\.venv\Scripts\python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `PASS WITH SKIPS: unit: 246 tests, 1 skipped`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS report: `reports\backend_validation_report_20260305_202536.txt`
+
+- 2026-03-05 19:04
+  - Summary: Completed Milestone 11 / Sub-Task T11.1.1 by wiring monthly budget projection into `GET /budget` with typed settings-sourced limits and deterministic monthly API validation.
+  - Scope: `backend/config/settings.py`, `backend/api/main.py`, `tests/unit/test_api_budget.py`.
+  - Key behaviors:
+    - Added typed budget limit fields in `backend/config/settings.py`: `DAILY_BUDGET_USD`, `MONTHLY_BUDGET_USD`.
+    - Updated `GET /budget` in `backend/api/main.py` to source limits from typed `Settings`, preserve daily projection, and populate `BudgetResponse.monthly` using existing rolling-30-day helper `SearchBudgetLedger.get_monthly_summary(...)` mapped to `BudgetPeriod`.
+    - Updated `tests/unit/test_api_budget.py` to validate populated monthly payload using deterministic definition-site patching of date key and spent values, without stubbing the monthly helper.
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit/test_api_budget.py -q`
+      - PASS excerpt: `3 passed in 0.60s`
+    - `.\backend\.venv\Scripts\python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `PASS WITH SKIPS: unit: 245 tests, 1 skipped`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+      - PASS report: `reports\backend_validation_report_20260305_190244.txt`
+
 - 2026-03-05 05:49
   - Summary: Completed Milestone 10 / Task 10.6 by wiring fixed-seed generation control across settings, API/controller threading, and inference completion calls; fixed-seed drift variance integration test now executes and passes.
   - Scope: `backend/config/settings.py`, `backend/api/main.py`, `backend/controller/controller_service.py`, `backend/workflow/nodes/llm_worker_node.py`, `backend/models/local_inference.py`, `tests/unit/test_config.py`, `tests/unit/test_nodes.py`, `tests/unit/test_local_inference.py`, `tests/integration/test_drift_rate_measurement.py`.

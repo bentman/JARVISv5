@@ -157,6 +157,46 @@ def test_health_detailed_degraded_when_cache_disconnected(monkeypatch) -> None:
     assert body["cache"]["connected"] is False
 
 
+def test_health_detailed_ok_when_cache_disabled_by_config(monkeypatch) -> None:
+    _reset_detailed_health_cache(monkeypatch)
+
+    class _DetectedType:
+        value = "CPU_ONLY"
+
+    monkeypatch.setattr(
+        "backend.models.hardware_profiler.HardwareService.get_system_info",
+        lambda self: {"cpu_cores": 4, "total_ram_gb": 16.0, "gpu_info": []},
+    )
+    monkeypatch.setattr(
+        "backend.models.hardware_profiler.HardwareService.detect_hardware_type",
+        lambda self: _DetectedType(),
+    )
+    monkeypatch.setattr(
+        "backend.models.hardware_profiler.HardwareService.get_hardware_profile",
+        lambda self: "light",
+    )
+    monkeypatch.setattr(
+        "backend.models.model_registry.ModelRegistry.select_model",
+        lambda self, profile, hardware, role: {"id": "test-mini"},
+    )
+
+    class _FakeCacheClient:
+        def health_check(self):
+            return {"enabled": False, "connected": False, "message": "Caching disabled"}
+
+    monkeypatch.setattr(
+        "backend.cache.redis_client.create_default_redis_client",
+        lambda: _FakeCacheClient(),
+    )
+
+    response = client.get("/health/detailed")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["cache"]["enabled"] is False
+    assert body["cache"]["connected"] is False
+
+
 def test_health_detailed_unavailable_returns_500(monkeypatch) -> None:
     _reset_detailed_health_cache(monkeypatch)
 

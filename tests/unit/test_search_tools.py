@@ -317,6 +317,10 @@ def test_search_web_preferred_provider_failure_is_deterministic_without_fallback
     assert ok is False
     assert result["code"] == "provider_unavailable"
     assert result["reason"] == "unauthorized"
+    assert "attempted_providers" in result
+    assert isinstance(result["attempted_providers"], list)
+    assert all(isinstance(name, str) for name in result["attempted_providers"])
+    assert "tavily" in result["attempted_providers"]
     assert result["preferred_provider"] == "tavily"
     assert "provider" not in result
     assert "items" not in result

@@ -155,6 +155,7 @@ def build_search_tool_dispatch_map(
                 return False, {
                     "code": "provider_unavailable",
                     "reason": reason,
+                    "attempted_providers": [str(name) for name in ladder_result.attempted_providers],
                     "preferred_provider": request.preferred_provider,
                     "policy": decision,
                 }
@@ -163,6 +164,7 @@ def build_search_tool_dispatch_map(
             return False, {
                 "code": ladder_result.code,
                 "reason": ladder_result.reason,
+                "attempted_providers": [str(name) for name in ladder_result.attempted_providers],
                 "policy": decision,
             }
 
@@ -170,6 +172,7 @@ def build_search_tool_dispatch_map(
             "code": "ok",
             "items": [item.model_dump() for item in ladder_result.response.items],
             "provider": ladder_result.selected_provider,
+            "attempted_providers": [str(name) for name in ladder_result.attempted_providers],
             "policy": decision,
         }
 

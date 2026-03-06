@@ -250,6 +250,7 @@ class ControllerService:
                 task_state = self.memory.get_task_state(resolved_task_id)
                 if isinstance(task_state, dict):
                     task_state["workflow_graph"] = graph.as_dict()
+                    task_state["workflow_execution_order"] = list(execution_order)
                     self.memory.put_task_state(resolved_task_id, task_state)
 
                 profile = self.hardware.get_hardware_profile()

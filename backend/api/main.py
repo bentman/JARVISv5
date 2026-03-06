@@ -1,4 +1,3 @@
-import os
 import json
 import time
 from pathlib import Path
@@ -15,6 +14,8 @@ from backend.api.schemas import (
     HardwareHealth,
     ModelHealth,
     SettingsResponse,
+    TaskFailureMetadata,
+    TaskResponse,
     WorkflowNodeEvent,
     WorkflowTelemetryResponse,
 )
@@ -206,12 +207,16 @@ def get_settings() -> SettingsResponse:
 @app.get("/budget", response_model=BudgetResponse)
 def get_budget() -> BudgetResponse:
     try:
-        daily_limit_usd = float(os.getenv("DAILY_BUDGET_USD", "0.0"))
-        config = search_budget.SearchBudgetConfig(daily_limit_usd=daily_limit_usd)
+        settings = Settings()
+        config = search_budget.SearchBudgetConfig(daily_limit_usd=float(settings.DAILY_BUDGET_USD))
         ledger = search_budget.SearchBudgetLedger()
         date_key = ledger.today_key()
         spent_usd = ledger.get_spent(date_key)
         remaining_usd = ledger.remaining_budget_usd(date_key, config.daily_limit_usd)
+        monthly_summary = ledger.get_monthly_summary(
+            monthly_limit_usd=float(settings.MONTHLY_BUDGET_USD),
+            end_date_key=date_key,
+        )
     except Exception as exc:
         raise HTTPException(status_code=500, detail="budget_unavailable") from exc
 
@@ -221,12 +226,16 @@ def get_budget() -> BudgetResponse:
             spent_usd=float(spent_usd),
             remaining_usd=float(remaining_usd),
         ),
-        monthly=None,
+        monthly=BudgetPeriod(
+            limit_usd=float(monthly_summary["limit_usd"]),
+            spent_usd=float(monthly_summary["spent_usd"]),
+            remaining_usd=float(monthly_summary["remaining_usd"]),
+        ),
     )
 
 
-@app.post("/task")
-def create_task(request: TaskRequest) -> dict[str, str]:
+@app.post("/task", response_model=TaskResponse)
+def create_task(request: TaskRequest) -> TaskResponse:
     settings = Settings()
     memory = _build_memory_manager(settings)
 
@@ -239,12 +248,25 @@ def create_task(request: TaskRequest) -> dict[str, str]:
     )
     result = service.run(user_input=request.user_input, task_id=request.task_id)
     context = result.get("context", {})
+    tool_result = context.get("tool_result") if isinstance(context, dict) else None
+    tool_ok = bool(context.get("tool_ok", True)) if isinstance(context, dict) else True
 
-    return {
-        "task_id": str(result.get("task_id", "")),
-        "final_state": str(result.get("final_state", "")),
-        "llm_output": str(context.get("llm_output", "")),
-    }
+    failure: TaskFailureMetadata | None = None
+    if not tool_ok and isinstance(tool_result, dict):
+        attempted_raw = tool_result.get("attempted_providers", [])
+        attempted = attempted_raw if isinstance(attempted_raw, list) else []
+        failure = TaskFailureMetadata(
+            reason=str(tool_result.get("reason")) if tool_result.get("reason") is not None else None,
+            attempted_providers=[str(name) for name in attempted],
+            code=str(tool_result.get("code")) if tool_result.get("code") is not None else None,
+        )
+
+    return TaskResponse(
+        task_id=str(result.get("task_id", "")),
+        final_state=str(result.get("final_state", "")),
+        llm_output=str(context.get("llm_output", "")),
+        failure=failure,
+    )
 
 
 @app.get("/task/{task_id}")

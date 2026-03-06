@@ -37,6 +37,19 @@ class WorkflowTelemetryResponse(BaseModel):
     node_events: list[WorkflowNodeEvent] = Field(default_factory=list)
 
 
+class TaskFailureMetadata(BaseModel):
+    reason: str | None = None
+    attempted_providers: list[str] = Field(default_factory=list)
+    code: str | None = None
+
+
+class TaskResponse(BaseModel):
+    task_id: str
+    final_state: str
+    llm_output: str
+    failure: TaskFailureMetadata | None = None
+
+
 class SettingsResponse(BaseModel):
     """v1 schema for settings responses, aligned to current Settings model."""
 
