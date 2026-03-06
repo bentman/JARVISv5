@@ -15,7 +15,7 @@
   - Location: `Relative File Path(s)`
   - Validation: Method &/or `Relative Script Path(s)`
   - Notes: 
-    - Optional (1 line max).
+    - Optional (3 lines max).
 
 ## States
 - Planned: intent only, not implemented
