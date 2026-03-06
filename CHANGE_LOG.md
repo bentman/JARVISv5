@@ -15,6 +15,41 @@
 
 ## Entries
 
+- 2026-03-06 08:38
+  - Summary: Completed Milestone 11 / Sub-Task T11.4.3 by adding additive multipart task upload support (`POST /task/upload`) for text/PDF-first context ingestion while preserving existing JSON `POST /task` behavior.
+  - Scope: `backend/api/main.py`, `backend/tools/file_tools.py`, `backend/workflow/nodes/context_builder_node.py`, `frontend/src/api/taskClient.js`, `frontend/src/App.jsx`, `tests/unit/test_api_file_upload.py`.
+  - Key behaviors:
+    - Added `POST /task/upload` multipart path with deterministic request parsing and fail-closed handling.
+    - Added bounded extraction for in-scope upload types only: `.txt`, `.md`, `.pdf`.
+    - Added deterministic unsupported-file handling (`415`, `unsupported_file_type`) and extraction-failure handling (`422`, `file_extraction_failed`).
+    - Added attachment metadata projection including roadmap-aligned fields: `filename`, `mime_type`, `extracted_text_length` (plus minimal additive fields).
+    - Added frontend composer file picker and upload submit path while preserving existing JSON/streaming submit behavior when no file is selected.
+    - Added focused backend upload tests for txt/md success, unsupported extension rejection, and JSON backward compatibility.
+  - Evidence:
+    - `e:\WORK\CODE\GitHub\bentman\Repositories\JARVISv5\backend\.venv\Scripts\python -m pytest tests/unit/test_api_file_upload.py -q`
+      - PASS excerpt: `4 passed in 27.45s`
+
+- 2026-03-06 08:12
+  - Summary: Completed Milestone 11 / Sub-Task T11.4.2 by adding compact tool result previews in chat with additive `tool_preview` projection in SSE `done` payload and frontend rendering support for baseline `search` and `read` tool outputs.
+  - Scope: `backend/api/main.py`, `frontend/src/api/taskClient.js`, `frontend/src/App.jsx`.
+  - Key behaviors:
+    - Added additive `tool_preview` projection on streaming `POST /task/stream` terminal `done` payload.
+    - Added compact preview rendering path for `search` and `read` tool names only.
+    - Enforced bounded preview display (up to 3 items with overflow line) and graceful degradation when metadata is partial/missing.
+    - Preserved existing assistant markdown rendering and existing failure rendering behavior.
+  - Evidence:
+    - `npm --prefix frontend run build`
+      - PASS excerpt: `✓ built in 653ms`
+
+- 2026-03-06 07:29
+  - Summary: Completed Milestone 11 / Sub-Task T11.4.1 by adding additive SSE task transport (`POST /task/stream`) with deterministic first-pass `chunk` → `done` emission, frontend progressive chat rendering support, and focused streaming contract tests.
+  - Scope: `backend/api/main.py`, `backend/workflow/nodes/llm_worker_node.py`, `frontend/src/api/taskClient.js`, `frontend/src/App.jsx`, `tests/unit/test_api_streaming.py`.
+  - Evidence:
+    - `./backend/.venv/Scripts/python.exe -m pytest tests/unit/test_api_streaming.py -q`
+      - PASS excerpt: `3 passed in 26.44s`
+    - `npm --prefix frontend run build`
+      - PASS excerpt: `✓ built in 667ms`
+
 - 2026-03-06 07:03
   - Summary: Completed Milestone 11 / Sub-Task T11.3.3 by adding budget management basics for `daily_limit_usd` and `monthly_limit_usd`, including backend write path and settings panel budget edit/save flow with immediate apply behavior (no restart required).
   - Scope: `backend/api/main.py`, `backend/search/budget.py`, `frontend/src/components/SettingsPanel.jsx`, `frontend/src/api/taskClient.js`, `tests/unit/test_api_budget.py`.

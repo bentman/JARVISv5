@@ -31,6 +31,7 @@ class LLMWorkerNode(BaseNode):
 
         if not model_path:
             context["llm_output"] = ""
+            context["llm_stream_chunks"] = []
             context["llm_error"] = "llm_model_path_missing"
             return context
 
@@ -41,6 +42,7 @@ class LLMWorkerNode(BaseNode):
         except Exception as exc:  # pragma: no cover - depends on runtime image
             context["llm_imported"] = False
             context["llm_output"] = ""
+            context["llm_stream_chunks"] = []
             context["llm_error"] = f"llama_cpp_import_error: {exc}"
             return context
 
@@ -63,8 +65,10 @@ class LLMWorkerNode(BaseNode):
             context["llm_raw_output"] = text
 
             context["llm_output"] = _normalize_llm_output(text)
+            context["llm_stream_chunks"] = _build_deterministic_stream_chunks(context["llm_output"])
         except Exception as exc:
             context["llm_output"] = ""
+            context["llm_stream_chunks"] = []
             context["llm_error"] = f"llm_generation_error: {exc}"
 
         return context
@@ -152,3 +156,12 @@ def _normalize_llm_output(raw_text: str) -> str:
                 changed = True
 
     return text.strip()
+
+
+def _build_deterministic_stream_chunks(text: str) -> list[str]:
+    normalized = str(text or "")
+    if not normalized:
+        return []
+    # First-pass streaming transport remains deterministic by emitting
+    # a single complete chunk before terminal done.
+    return [normalized]

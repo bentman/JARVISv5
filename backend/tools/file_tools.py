@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from pathlib import Path
 
 from pydantic import BaseModel, Field
 
@@ -127,3 +128,77 @@ def register_core_file_tools(registry: ToolRegistry, sandbox: Sandbox) -> None:
             input_model=SearchFilesInput,
         )
     )
+
+
+_UPLOAD_ALLOWED_EXTENSIONS: tuple[str, ...] = (".txt", ".md", ".pdf")
+
+
+def extract_upload_text(
+    *,
+    filename: str,
+    mime_type: str | None,
+    raw_bytes: bytes,
+    max_chars: int = 4000,
+) -> tuple[bool, dict[str, Any]]:
+    safe_filename = str(filename or "").strip()
+    extension = Path(safe_filename).suffix.lower()
+    effective_mime_type = str(mime_type or "application/octet-stream")
+
+    if extension not in _UPLOAD_ALLOWED_EXTENSIONS:
+        return False, {
+            "code": "unsupported_file_type",
+            "allowed_extensions": list(_UPLOAD_ALLOWED_EXTENSIONS),
+            "filename": safe_filename,
+            "mime_type": effective_mime_type,
+        }
+
+    if extension in {".txt", ".md"}:
+        text = raw_bytes.decode("utf-8", errors="replace")
+    else:
+        ok, payload = _extract_pdf_text(raw_bytes)
+        if not ok:
+            return False, {
+                "code": "file_extraction_failed",
+                "filename": safe_filename,
+                "mime_type": effective_mime_type,
+                "reason": str(payload.get("reason", "pdf_extraction_failed")),
+            }
+        text = str(payload.get("text", ""))
+
+    text = text.strip()
+    if not text:
+        return False, {
+            "code": "file_extraction_failed",
+            "filename": safe_filename,
+            "mime_type": effective_mime_type,
+            "reason": "empty_extracted_text",
+        }
+
+    bounded = text[:max_chars]
+    truncated = len(text) > len(bounded)
+
+    return True, {
+        "filename": safe_filename,
+        "mime_type": effective_mime_type,
+        "text": bounded,
+        "extracted_text_length": len(bounded),
+        "truncated": truncated,
+    }
+
+
+def _extract_pdf_text(raw_bytes: bytes) -> tuple[bool, dict[str, Any]]:
+    try:
+        from pypdf import PdfReader  # type: ignore
+        from io import BytesIO
+
+        reader = PdfReader(BytesIO(raw_bytes))
+        parts: list[str] = []
+        for page in reader.pages:
+            page_text = page.extract_text() or ""
+            parts.append(str(page_text))
+        text = "\n".join(parts).strip()
+        if not text:
+            return False, {"reason": "empty_pdf_text"}
+        return True, {"text": text}
+    except Exception as exc:
+        return False, {"reason": f"pdf_extraction_error: {exc}"}

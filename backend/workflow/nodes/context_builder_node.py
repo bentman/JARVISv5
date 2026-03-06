@@ -95,6 +95,11 @@ class ContextBuilderNode(BaseNode):
                     pass
 
         try:
+            messages = self._inject_attachment_context(messages, context)
+        except Exception:
+            pass
+
+        try:
             messages = self._inject_retrieved_context(messages, context, task_id, turn)
         except Exception:
             pass
@@ -102,6 +107,52 @@ class ContextBuilderNode(BaseNode):
         context["messages"] = messages
         context["cache_hit"] = cache_hit
         return context
+
+    def _inject_attachment_context(
+        self,
+        messages: list[dict[str, Any]],
+        context: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        user_input = str(context.get("user_input", ""))
+        begin_marker = "[ATTACHMENT_CONTEXT_BEGIN]"
+        end_marker = "[ATTACHMENT_CONTEXT_END]"
+        begin_index = user_input.find(begin_marker)
+        end_index = user_input.find(end_marker)
+        if begin_index < 0 or end_index <= begin_index:
+            return messages
+
+        attachment_block = user_input[begin_index + len(begin_marker) : end_index].strip()
+        if not attachment_block:
+            return messages
+
+        attachment_lines = [line for line in attachment_block.splitlines() if line.strip()]
+        if not attachment_lines:
+            return messages
+
+        filename = "attachment"
+        if attachment_lines[0].startswith("filename="):
+            filename = attachment_lines[0].split("=", 1)[1].strip() or "attachment"
+            attachment_lines = attachment_lines[1:]
+
+        attachment_text = "\n".join(attachment_lines).strip()
+        if not attachment_text:
+            return messages
+        if len(attachment_text) > 1200:
+            attachment_text = f"{attachment_text[:1200]}..."
+
+        attachment_message = {
+            "role": "system",
+            "content": f"Attachment Context ({filename}):\n{attachment_text}",
+        }
+
+        output = list(messages)
+        insert_at = 0
+        for idx, message in enumerate(output):
+            if str(message.get("role", "")) == "system":
+                insert_at = idx + 1
+                break
+        output.insert(insert_at, attachment_message)
+        return output
 
     def _inject_retrieved_context(
         self,

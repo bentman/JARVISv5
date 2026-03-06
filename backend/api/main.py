@@ -1,9 +1,13 @@
 import json
 import time
+from email.parser import BytesParser
+from email.policy import default as email_default_policy
 from pathlib import Path
+from typing import Any
 
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from backend.api.schemas import (
@@ -32,6 +36,7 @@ from backend.memory.memory_manager import MemoryManager
 from backend.models import hardware_profiler
 from backend.models import model_registry
 from backend.search import budget as search_budget
+from backend.tools.file_tools import extract_upload_text
 
 
 app = FastAPI(title="JARVISv5 Backend")
@@ -70,6 +75,98 @@ class TaskRequest(BaseModel):
 class BudgetUpdateRequest(BaseModel):
     daily_limit_usd: float | None = Field(default=None, ge=0.0)
     monthly_limit_usd: float | None = Field(default=None, ge=0.0)
+
+
+def _format_sse_event(event: str, data: dict[str, Any]) -> str:
+    payload = json.dumps(data, separators=(",", ":"))
+    return f"event: {event}\ndata: {payload}\n\n"
+
+
+def _build_tool_preview_payload(tool_result: Any) -> dict[str, Any] | None:
+    if not isinstance(tool_result, dict):
+        return None
+
+    attempted_raw = tool_result.get("attempted_providers", [])
+    attempted = attempted_raw if isinstance(attempted_raw, list) else []
+
+    items_raw = tool_result.get("items", [])
+    items = items_raw if isinstance(items_raw, list) else []
+
+    tool_name = tool_result.get("tool_name")
+    code = tool_result.get("code")
+    reason = tool_result.get("reason")
+
+    return {
+        "tool_name": str(tool_name) if tool_name is not None else None,
+        "code": str(code) if code is not None else None,
+        "reason": str(reason) if reason is not None else None,
+        "attempted_providers": [str(name) for name in attempted],
+        "items": items,
+    }
+
+
+def _compose_user_input_with_attachment(*, user_input: str, filename: str, attachment_text: str) -> str:
+    return (
+        f"{user_input}\n\n"
+        "[ATTACHMENT_CONTEXT_BEGIN]\n"
+        f"filename={filename}\n"
+        f"{attachment_text}\n"
+        "[ATTACHMENT_CONTEXT_END]"
+    )
+
+
+def _parse_multipart_task_upload(
+    *,
+    content_type: str,
+    body: bytes,
+) -> tuple[bool, dict[str, Any]]:
+    if not str(content_type).lower().startswith("multipart/form-data"):
+        return False, {"code": "invalid_content_type", "reason": "multipart_form_data_required"}
+
+    pseudo_message = (
+        f"Content-Type: {content_type}\r\n"
+        "MIME-Version: 1.0\r\n"
+        "\r\n"
+    ).encode("utf-8") + body
+
+    try:
+        message = BytesParser(policy=email_default_policy).parsebytes(pseudo_message)
+    except Exception as exc:
+        return False, {"code": "invalid_multipart_payload", "reason": str(exc)}
+
+    if not message.is_multipart():
+        return False, {"code": "invalid_multipart_payload", "reason": "not_multipart"}
+
+    fields: dict[str, str] = {}
+    upload_file: dict[str, Any] | None = None
+
+    for part in message.iter_parts():
+        disposition = str(part.get("Content-Disposition", ""))
+        if "form-data" not in disposition.lower():
+            continue
+        field_name = part.get_param("name", header="content-disposition")
+        if not field_name:
+            continue
+
+        filename = part.get_param("filename", header="content-disposition")
+        payload_raw: Any = part.get_payload(decode=True)
+        payload = payload_raw if isinstance(payload_raw, bytes) else b""
+
+        if filename and upload_file is None:
+            upload_file = {
+                "filename": str(filename),
+                "mime_type": str(part.get_content_type() or "application/octet-stream"),
+                "content": payload,
+            }
+            continue
+
+        fields[str(field_name)] = payload.decode("utf-8", errors="replace")
+
+    return True, {
+        "user_input": str(fields.get("user_input", "")),
+        "task_id": str(fields.get("task_id")) if fields.get("task_id") else None,
+        "file": upload_file,
+    }
 
 
 def _build_memory_manager(settings: Settings) -> MemoryManager:
@@ -377,6 +474,167 @@ def create_task(request: TaskRequest) -> TaskResponse:
     )
 
 
+@app.post("/task/upload")
+async def create_task_upload(request: Request) -> dict[str, Any]:
+    content_type = str(request.headers.get("content-type", ""))
+    body = await request.body()
+    ok_payload, parsed = _parse_multipart_task_upload(content_type=content_type, body=body)
+    if not ok_payload:
+        raise HTTPException(status_code=400, detail=parsed)
+
+    user_input = str(parsed.get("user_input", ""))
+    task_id_raw = parsed.get("task_id")
+    task_id = str(task_id_raw) if task_id_raw is not None else None
+    uploaded_file = parsed.get("file") if isinstance(parsed, dict) else None
+    if not user_input.strip():
+        raise HTTPException(status_code=422, detail={"code": "missing_user_input"})
+
+    settings = Settings()
+    memory = _build_memory_manager(settings)
+
+    if task_id is not None and memory.get_task_state(task_id) is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    effective_user_input = str(user_input)
+    attachment_payload: dict[str, Any] | None = None
+
+    if isinstance(uploaded_file, dict):
+        raw_bytes = uploaded_file.get("content", b"")
+        if not isinstance(raw_bytes, bytes):
+            raw_bytes = b""
+        ok, extracted = extract_upload_text(
+            filename=str(uploaded_file.get("filename", "")),
+            mime_type=str(uploaded_file.get("mime_type", "application/octet-stream")),
+            raw_bytes=raw_bytes,
+        )
+        if not ok:
+            code = str(extracted.get("code", "file_extraction_failed"))
+            if code == "unsupported_file_type":
+                raise HTTPException(status_code=415, detail=extracted)
+            raise HTTPException(status_code=422, detail=extracted)
+
+        effective_user_input = _compose_user_input_with_attachment(
+            user_input=str(user_input),
+            filename=str(extracted.get("filename", "attachment")),
+            attachment_text=str(extracted.get("text", "")),
+        )
+        extracted_text_length_raw = extracted.get("extracted_text_length", 0)
+        extracted_text_length = (
+            int(extracted_text_length_raw)
+            if isinstance(extracted_text_length_raw, (int, float, str))
+            else 0
+        )
+        truncated_raw = extracted.get("truncated", False)
+        truncated = bool(truncated_raw) if isinstance(truncated_raw, (bool, int)) else False
+        attachment_payload = {
+            "filename": str(extracted.get("filename", "")),
+            "mime_type": str(extracted.get("mime_type", "application/octet-stream")),
+            "extracted_text_length": extracted_text_length,
+            "size_bytes": int(len(raw_bytes)),
+            "truncated": truncated,
+        }
+
+    service = ControllerService(
+        memory_manager=memory,
+        generation_seed=settings.GENERATION_SEED,
+    )
+    result = service.run(user_input=effective_user_input, task_id=task_id)
+    context = result.get("context", {})
+    tool_result = context.get("tool_result") if isinstance(context, dict) else None
+    tool_ok = bool(context.get("tool_ok", True)) if isinstance(context, dict) else True
+
+    failure_data: dict[str, Any] | None = None
+    if not tool_ok and isinstance(tool_result, dict):
+        attempted_raw = tool_result.get("attempted_providers", [])
+        attempted = attempted_raw if isinstance(attempted_raw, list) else []
+        failure_data = {
+            "reason": str(tool_result.get("reason")) if tool_result.get("reason") is not None else None,
+            "attempted_providers": [str(name) for name in attempted],
+            "code": str(tool_result.get("code")) if tool_result.get("code") is not None else None,
+        }
+
+    return {
+        "task_id": str(result.get("task_id", "")),
+        "final_state": str(result.get("final_state", "")),
+        "llm_output": str(context.get("llm_output", "")) if isinstance(context, dict) else "",
+        "failure": failure_data,
+        "attachment": attachment_payload,
+    }
+
+
+@app.post("/task/stream")
+def create_task_stream(request: TaskRequest) -> StreamingResponse:
+    settings = Settings()
+    memory = _build_memory_manager(settings)
+
+    if request.task_id is not None and memory.get_task_state(request.task_id) is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    service = ControllerService(
+        memory_manager=memory,
+        generation_seed=settings.GENERATION_SEED,
+    )
+
+    def _event_stream() -> Any:
+        try:
+            result = service.run(user_input=request.user_input, task_id=request.task_id)
+            context = result.get("context", {})
+            tool_result = context.get("tool_result") if isinstance(context, dict) else None
+            tool_ok = bool(context.get("tool_ok", True)) if isinstance(context, dict) else True
+            tool_preview = _build_tool_preview_payload(tool_result)
+
+            failure_data: dict[str, Any] | None = None
+            if not tool_ok and isinstance(tool_result, dict):
+                attempted_raw = tool_result.get("attempted_providers", [])
+                attempted = attempted_raw if isinstance(attempted_raw, list) else []
+                failure_data = {
+                    "reason": (
+                        str(tool_result.get("reason"))
+                        if tool_result.get("reason") is not None
+                        else None
+                    ),
+                    "attempted_providers": [str(name) for name in attempted],
+                    "code": (
+                        str(tool_result.get("code"))
+                        if tool_result.get("code") is not None
+                        else None
+                    ),
+                }
+
+            stream_chunks = context.get("llm_stream_chunks", []) if isinstance(context, dict) else []
+            if not isinstance(stream_chunks, list):
+                stream_chunks = []
+            if not stream_chunks:
+                fallback_chunk = str(context.get("llm_output", "")) if isinstance(context, dict) else ""
+                if fallback_chunk:
+                    stream_chunks = [fallback_chunk]
+
+            for chunk in stream_chunks:
+                yield _format_sse_event("chunk", {"chunk": str(chunk)})
+
+            yield _format_sse_event(
+                "done",
+                {
+                    "task_id": str(result.get("task_id", "")),
+                    "final_state": str(result.get("final_state", "")),
+                    "llm_output": str(context.get("llm_output", "")) if isinstance(context, dict) else "",
+                    "failure": failure_data,
+                    "tool_preview": tool_preview,
+                },
+            )
+        except Exception as exc:
+            yield _format_sse_event("error", {"error": str(exc)})
+
+    return StreamingResponse(
+        _event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
+    )
+
+
 @app.get("/task/{task_id}")
 def get_task(task_id: str) -> dict:
     settings = Settings()
@@ -430,6 +688,19 @@ def get_workflow_telemetry(task_id: str) -> WorkflowTelemetryResponse:
         if not isinstance(payload, dict):
             continue
 
+        elapsed_ns_raw = payload.get("elapsed_ns")
+        elapsed_ns = (
+            int(elapsed_ns_raw)
+            if isinstance(elapsed_ns_raw, (int, float, str))
+            else None
+        )
+        start_offset_ns_raw = payload.get("start_offset_ns")
+        start_offset_ns = (
+            int(start_offset_ns_raw)
+            if isinstance(start_offset_ns_raw, (int, float, str))
+            else None
+        )
+
         node_events.append(
             WorkflowNodeEvent(
                 node_id=str(payload.get("node_id", "")),
@@ -438,12 +709,8 @@ def get_workflow_telemetry(task_id: str) -> WorkflowTelemetryResponse:
                 event_type=str(payload.get("event_type", "")),
                 success=bool(payload.get("success", False)),
                 task_id=str(payload.get("task_id")) if payload.get("task_id") is not None else None,
-                elapsed_ns=int(payload.get("elapsed_ns")) if payload.get("elapsed_ns") is not None else None,
-                start_offset_ns=(
-                    int(payload.get("start_offset_ns"))
-                    if payload.get("start_offset_ns") is not None
-                    else None
-                ),
+                elapsed_ns=elapsed_ns,
+                start_offset_ns=start_offset_ns,
                 error=str(payload.get("error")) if payload.get("error") is not None else None,
             )
         )

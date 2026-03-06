@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { createOrContinueTask, getDetailedHealth, getHealth } from './api/taskClient'
+import {
+  createOrContinueTaskUpload,
+  createOrContinueTaskStream,
+  getDetailedHealth,
+  getHealth,
+} from './api/taskClient'
 import SettingsPanel from './components/SettingsPanel'
 import WorkflowVisualizer from './components/WorkflowVisualizer'
 
@@ -71,6 +76,101 @@ function renderAssistantContent(content) {
   )
 }
 
+function truncatePreviewText(value, maxLength = 120) {
+  const text = String(value ?? '')
+  if (text.length <= maxLength) {
+    return text
+  }
+  return `${text.slice(0, maxLength - 1)}…`
+}
+
+function normalizePreviewItems(items) {
+  if (!Array.isArray(items)) {
+    return []
+  }
+  return items.slice(0, 3)
+}
+
+function renderToolPreview(toolPreview) {
+  if (!toolPreview || typeof toolPreview !== 'object') {
+    return null
+  }
+
+  const toolName = String(toolPreview.tool_name || '').toLowerCase()
+  if (toolName !== 'search' && toolName !== 'read') {
+    return null
+  }
+
+  const code = toolPreview.code != null ? String(toolPreview.code) : null
+  const reason = toolPreview.reason != null ? String(toolPreview.reason) : null
+  const attemptedProviders = Array.isArray(toolPreview.attempted_providers)
+    ? toolPreview.attempted_providers.map((value) => String(value))
+    : []
+
+  const allItems = Array.isArray(toolPreview.items) ? toolPreview.items : []
+  const boundedItems = normalizePreviewItems(allItems)
+  const overflowCount = Math.max(0, allItems.length - boundedItems.length)
+
+  const hasMetadata = Boolean(code || reason || attemptedProviders.length > 0)
+  const hasItems = boundedItems.length > 0
+
+  if (!hasMetadata && !hasItems) {
+    return null
+  }
+
+  return (
+    <div
+      style={{
+        marginTop: 10,
+        padding: '8px 10px',
+        borderRadius: 10,
+        background: '#0a0e1a',
+        border: '1px solid #00d4ff55',
+        fontSize: 14,
+        color: '#b8deeb',
+      }}
+    >
+      <div style={{ fontWeight: 600, color: '#00d4ff' }}>
+        {toolName === 'search' ? 'Search preview' : 'Read preview'}
+      </div>
+
+      {code ? <div style={{ marginTop: 4 }}>Code: {truncatePreviewText(code, 80)}</div> : null}
+      {reason ? <div style={{ marginTop: 4 }}>Reason: {truncatePreviewText(reason, 120)}</div> : null}
+      {attemptedProviders.length > 0 ? (
+        <div style={{ marginTop: 4 }}>
+          Attempted: {truncatePreviewText(attemptedProviders.join(' → '), 120)}
+        </div>
+      ) : null}
+
+      {hasItems ? (
+        <div style={{ marginTop: 6 }}>
+          {boundedItems.map((item, idx) => {
+            const itemObject = item && typeof item === 'object' ? item : {}
+            const titleCandidate =
+              itemObject.title ?? itemObject.url ?? itemObject.source ?? itemObject.path ?? item
+            const detailCandidate =
+              itemObject.snippet ?? itemObject.text ?? itemObject.content ?? itemObject.reason
+
+            return (
+              <div key={`preview-item-${idx}`} style={{ marginTop: idx === 0 ? 0 : 4 }}>
+                <div>{`${idx + 1}. ${truncatePreviewText(titleCandidate, 120)}`}</div>
+                {detailCandidate != null ? (
+                  <div style={{ opacity: 0.85, fontSize: 13 }}>
+                    {truncatePreviewText(detailCandidate, 120)}
+                  </div>
+                ) : null}
+              </div>
+            )
+          })}
+          {overflowCount > 0 ? (
+            <div style={{ marginTop: 4, opacity: 0.85 }}>+{overflowCount} more</div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 function App() {
   const [messages, setMessages] = useState([])
   const [taskId, setTaskId] = useState(null)
@@ -81,7 +181,9 @@ function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [input, setInput] = useState('')
+  const [selectedFile, setSelectedFile] = useState(null)
   const inputRef = useRef(null)
+  const fileInputRef = useRef(null)
   const messagesEndRef = useRef(null)
   const shortTaskId = taskId ? taskId.replace(/^task-/, '').slice(-8) : ''
 
@@ -156,38 +258,133 @@ function App() {
       return
     }
 
+    const streamMessageId = `stream-${Date.now()}`
     setMessages((prev) => [...prev, { role: 'user', content: userInput }])
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: streamMessageId,
+        role: 'assistant',
+        content: '',
+        failure: null,
+        tool_preview: null,
+        streaming: true,
+      },
+    ])
     setIsLoading(true)
 
     try {
-      const response = await createOrContinueTask({
-        user_input: userInput,
-        task_id: taskId || undefined,
-      })
+      if (selectedFile) {
+        const payload = await createOrContinueTaskUpload({
+          user_input: userInput,
+          task_id: taskId || undefined,
+          file: selectedFile,
+        })
+        const nextTaskId = payload?.task_id ? String(payload.task_id) : taskId
+        const nextFinalState = payload?.final_state ? String(payload.final_state) : finalState
+        const nextOutput = payload?.llm_output != null ? String(payload.llm_output) : null
 
-      const assistantContent = String(response.llm_output || 'No response text received.')
+        setTaskId(nextTaskId || null)
+        setFinalState(nextFinalState || null)
+        setMessages((prev) =>
+          prev.map((message) => {
+            if (message.id !== streamMessageId) {
+              return message
+            }
+            return {
+              ...message,
+              content:
+                nextOutput !== null
+                  ? nextOutput
+                  : String(message.content || 'No response text received.'),
+              failure: payload?.failure ?? null,
+              attachment: payload?.attachment ?? null,
+              streaming: false,
+            }
+          })
+        )
+      } else {
+        await createOrContinueTaskStream({
+          user_input: userInput,
+          task_id: taskId || undefined,
+          onChunk: (chunk) => {
+            setMessages((prev) =>
+              prev.map((message) =>
+                message.id === streamMessageId
+                  ? { ...message, content: `${String(message.content || '')}${String(chunk || '')}` }
+                  : message
+              )
+            )
+          },
+          onDone: (payload) => {
+            const nextTaskId = payload?.task_id ? String(payload.task_id) : taskId
+            const nextFinalState = payload?.final_state ? String(payload.final_state) : finalState
+            const nextOutput = payload?.llm_output != null ? String(payload.llm_output) : null
 
-      setTaskId(response.task_id)
-      setFinalState(response.final_state)
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: assistantContent,
-          failure: response.failure ?? null,
-        },
-      ])
+            setTaskId(nextTaskId || null)
+            setFinalState(nextFinalState || null)
+            setMessages((prev) =>
+              prev.map((message) => {
+                if (message.id !== streamMessageId) {
+                  return message
+                }
+                return {
+                  ...message,
+                  content:
+                    nextOutput !== null
+                      ? nextOutput
+                      : String(message.content || 'No response text received.'),
+                  failure: payload?.failure ?? null,
+                  tool_preview: payload?.tool_preview ?? null,
+                  attachment: null,
+                  streaming: false,
+                }
+              })
+            )
+          },
+          onError: (errorMessage) => {
+            setMessages((prev) =>
+              prev.map((message) =>
+                message.id === streamMessageId
+                  ? {
+                      ...message,
+                      role: 'error',
+                      content: String(errorMessage || 'stream_error'),
+                      failure: null,
+                      streaming: false,
+                    }
+                  : message
+              )
+            )
+          },
+        })
+      }
     } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'error',
-          content: err instanceof Error ? err.message : 'Request failed',
-        },
-      ])
+      const errorMessage = err instanceof Error ? err.message : 'Request failed'
+      setMessages((prev) => {
+        const hasStreamingMessage = prev.some((message) => message.id === streamMessageId)
+        if (!hasStreamingMessage) {
+          return [...prev, { role: 'error', content: errorMessage }]
+        }
+        return prev.map((message) =>
+          message.id === streamMessageId
+            ? {
+                ...message,
+                role: 'error',
+                content: errorMessage,
+                failure: null,
+                streaming: false,
+              }
+            : message
+        )
+      })
     } finally {
       setIsLoading(false)
       setInput('')
+      setSelectedFile(null)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
       inputRef.current?.focus()
     }
   }
@@ -197,6 +394,10 @@ function App() {
     setTaskId(null)
     setFinalState(null)
     setInput('')
+    setSelectedFile(null)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
     inputRef.current?.focus()
   }
 
@@ -381,6 +582,22 @@ function App() {
                           ) : null}
                         </div>
                       ) : null}
+                      {renderToolPreview(message.tool_preview)}
+                      {message.attachment ? (
+                        <div
+                          style={{
+                            marginTop: 10,
+                            padding: '8px 10px',
+                            borderRadius: 10,
+                            background: '#0a0e1a',
+                            border: '1px solid #00d4ff55',
+                            fontSize: 14,
+                            color: '#b8deeb',
+                          }}
+                        >
+                          Attachment used: {String(message.attachment.filename || 'unknown')} ({String(message.attachment.mime_type || 'application/octet-stream')}), extracted chars: {Number(message.attachment.extracted_text_length || 0)}
+                        </div>
+                      ) : null}
                     </>
                   ) : (
                     <pre
@@ -414,6 +631,20 @@ function App() {
         }}
       >
         <input
+          ref={fileInputRef}
+          type="file"
+          accept=".txt,.md,.pdf"
+          disabled={isLoading}
+          onChange={(event) => {
+            const next = event.target.files && event.target.files[0] ? event.target.files[0] : null
+            setSelectedFile(next)
+          }}
+          style={{
+            maxWidth: 220,
+            color: '#e5f6ff',
+          }}
+        />
+        <input
           ref={inputRef}
           type="text"
           value={input}
@@ -446,7 +677,7 @@ function App() {
             cursor: isLoading || input.trim().length === 0 ? 'not-allowed' : 'pointer',
           }}
         >
-          {isLoading ? 'Sending...' : 'Send'}
+          {isLoading ? 'Sending...' : selectedFile ? 'Send with file' : 'Send'}
         </button>
       </div>
     </div>
