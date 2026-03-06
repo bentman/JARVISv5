@@ -103,6 +103,82 @@ def test_controller_service_run_uses_dag_executor_path(monkeypatch) -> None:
         assert task_state.get("workflow_graph", {}).get("entry") == "router"
 
 
+def test_controller_service_run_planned_mode_aggregates_subtask_outputs() -> None:
+    class StubPlanningLLMModelRegistry(StubModelRegistry):
+        def select_model(self, profile: str, hardware: str, role: str) -> dict | None:
+            return {"id": "stub-model", "path": "models/stub.gguf"}
+
+        def ensure_model_present(self, model: dict) -> str:
+            _ = model
+            return "models/stub.gguf"
+
+    class StubPlanningLLMWorker:
+        def execute(self, context: dict) -> dict:
+            user_input = str(context.get("user_input", ""))
+            context["llm_output"] = f"answer::{user_input}"
+            context["llm_stream_chunks"] = [context["llm_output"]]
+            return context
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=StubPlanningLLMModelRegistry(),
+        )
+        service.registry = StubPlanningLLMModelRegistry()
+        service_llm_worker_original = service.run
+
+        from backend.workflow.nodes.llm_worker_node import LLMWorkerNode
+
+        original_execute = LLMWorkerNode.execute
+        LLMWorkerNode.execute = StubPlanningLLMWorker().execute  # type: ignore[method-assign]
+        try:
+            result = service.run(
+                user_input=(
+                    "This is a long prompt designed to trigger planning and produce multiple segments; "
+                    "collect requirements; then draft approach; next provide verification."
+                )
+            )
+        finally:
+            LLMWorkerNode.execute = original_execute  # type: ignore[method-assign]
+            _ = service_llm_worker_original
+
+        assert result["final_state"] in {"ARCHIVE", "FAILED"}
+        context = result["context"]
+        assert context.get("planning_mode") == "planned"
+        assert context.get("planning_subtasks") == [
+            "This is a long prompt designed to trigger planning and produce multiple segments",
+            "collect requirements",
+            "draft approach",
+        ]
+        assert context.get("planning_aggregated_parts") == 3
+        llm_output = str(context.get("llm_output", ""))
+        assert "[Part 1]" in llm_output
+        assert "answer::This is a long prompt designed to trigger planning and produce multiple segments" in llm_output
+        assert "[Part 2]" in llm_output
+        assert "answer::collect requirements" in llm_output
+        assert "[Part 3]" in llm_output
+        assert "answer::draft approach" in llm_output
+
+
+def test_controller_service_run_linear_mode_preserved_for_short_prompt() -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=StubModelRegistry(),
+        )
+
+        result = service.run(user_input="short prompt")
+
+        assert result["final_state"] in {"ARCHIVE", "FAILED"}
+        context = result["context"]
+        assert context.get("planning_mode") == "linear"
+        assert context.get("planning_subtasks") == ["short prompt"]
+        assert context.get("planning_max_subtasks") == 3
+        assert "planning_aggregated_parts" not in context
+
+
 def test_controller_service_run_records_dag_node_trace_events() -> None:
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
         service = ControllerService(

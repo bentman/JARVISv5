@@ -15,6 +15,19 @@
 
 ## Entries
 
+- 2026-03-06 09:03
+  - Summary: Completed Milestone 11 / Sub-Task T11.5.1 by adding a constrained multi-turn planning MVP with deterministic bounded decomposition, capped fan-out, and controller-side planned aggregation while preserving linear flow fallback.
+  - Scope: `backend/workflow/plan_compiler.py`, `backend/controller/controller_service.py`, `tests/unit/test_plan_compiler.py`, `tests/unit/test_controller_service_integration.py`.
+  - Key behaviors:
+    - Added deterministic constrained plan shape with explicit mode (`linear`/`planned`), ordered subtask list, and max-subtask cap.
+    - Added bounded decomposition trigger for complex prompts with deterministic ordering and hard fan-out cap (`MAX_SUBTASKS=3`).
+    - Added controller planned execution loop for ordered subtask execution and deterministic aggregated final output (`[Part N]` sections).
+    - Preserved existing linear execution path when planning trigger conditions are not met.
+    - Added focused unit/integration coverage for planner trigger/order/cap and planned aggregation + linear fallback behavior.
+  - Evidence:
+    - `e:\WORK\CODE\GitHub\bentman\Repositories\JARVISv5\backend\.venv\Scripts\python -m pytest tests/unit/test_plan_compiler.py tests/unit/test_controller_service_integration.py -q`
+      - PASS excerpt: `14 passed in 2.33s`
+
 - 2026-03-06 08:38
   - Summary: Completed Milestone 11 / Sub-Task T11.4.3 by adding additive multipart task upload support (`POST /task/upload`) for text/PDF-first context ingestion while preserving existing JSON `POST /task` behavior.
   - Scope: `backend/api/main.py`, `backend/tools/file_tools.py`, `backend/workflow/nodes/context_builder_node.py`, `frontend/src/api/taskClient.js`, `frontend/src/App.jsx`, `tests/unit/test_api_file_upload.py`.

@@ -8,7 +8,7 @@ from backend.models.hardware_profiler import HardwareService
 from backend.models.model_registry import ModelRegistry
 from backend.workflow import ContextBuilderNode, LLMWorkerNode, RouterNode, ToolCallNode, ValidatorNode
 from backend.workflow.dag_executor import DAGExecutor, WorkflowEdge, WorkflowGraph
-from backend.workflow.plan_compiler import compile_plan_to_workflow_graph
+from backend.workflow.plan_compiler import build_constrained_plan, compile_plan_to_workflow_graph
 
 from .fsm import ControllerState, DeterministicFSM
 
@@ -276,6 +276,24 @@ class ControllerService:
                         context["llm_output"] = _no_model_fallback_message(profile, hardware_type, role)
                         context["llm_error"] = "local_model_missing"
                         context["skip_llm"] = True
+
+                constrained_plan = build_constrained_plan(user_input)
+                plan_mode = str(constrained_plan.get("mode", "linear"))
+                plan_subtasks_raw = constrained_plan.get("subtasks", [])
+                plan_subtasks = (
+                    [str(item) for item in plan_subtasks_raw if str(item).strip()]
+                    if isinstance(plan_subtasks_raw, list)
+                    else []
+                )
+                max_subtasks_raw = constrained_plan.get("max_subtasks", 0)
+                max_subtasks = (
+                    int(max_subtasks_raw)
+                    if isinstance(max_subtasks_raw, (int, float, str))
+                    else 0
+                )
+                context["planning_mode"] = plan_mode
+                context["planning_subtasks"] = plan_subtasks
+                context["planning_max_subtasks"] = max_subtasks
             except Exception as exc:
                 return self._fail(fsm, resolved_task_id, context, f"router_node_error: {exc}")
 
@@ -283,50 +301,82 @@ class ControllerService:
             self.memory.update_task_status(resolved_task_id, ControllerState.EXECUTE.value)
             self._log_state(resolved_task_id, ControllerState.EXECUTE, "running")
             try:
-                for node_id in execution_order:
-                    if node_id not in phase_to_nodes[ControllerState.EXECUTE]:
-                        continue
-                    if node_id == "llm_worker" and bool(context.get("skip_llm", False)):
-                        continue
-                    node_type = node_registry[node_id].__class__.__name__
-                    node_started_ns = time.perf_counter_ns()
-                    node_start_offset_ns = max(0, node_started_ns - task_started_ns)
-                    self._log_dag_node_event(
-                        task_id=resolved_task_id,
-                        node_id=node_id,
-                        node_type=node_type,
-                        controller_state=ControllerState.EXECUTE,
-                        event_type="node_start",
-                        success=False,
-                        start_offset_ns=node_start_offset_ns,
-                    )
-                    try:
-                        context = node_registry[node_id].execute(context)
-                    except Exception as exc:
-                        node_error_elapsed_ns = max(0, time.perf_counter_ns() - node_started_ns)
+                planning_mode = str(context.get("planning_mode", "linear"))
+                planning_subtasks_raw = context.get("planning_subtasks", [])
+                planning_subtasks = (
+                    [str(item) for item in planning_subtasks_raw if str(item).strip()]
+                    if isinstance(planning_subtasks_raw, list)
+                    else []
+                )
+
+                execution_inputs: list[str]
+                if planning_mode == "planned" and planning_subtasks:
+                    execution_inputs = planning_subtasks
+                else:
+                    execution_inputs = [str(context.get("user_input", ""))]
+
+                aggregated_parts: list[str] = []
+                for index, execution_input in enumerate(execution_inputs, start=1):
+                    if planning_mode == "planned":
+                        context["user_input"] = execution_input
+                        context["llm_output"] = ""
+                        context.pop("llm_stream_chunks", None)
+
+                    for node_id in execution_order:
+                        if node_id not in phase_to_nodes[ControllerState.EXECUTE]:
+                            continue
+                        if node_id == "llm_worker" and bool(context.get("skip_llm", False)):
+                            continue
+                        node_type = node_registry[node_id].__class__.__name__
+                        node_started_ns = time.perf_counter_ns()
+                        node_start_offset_ns = max(0, node_started_ns - task_started_ns)
                         self._log_dag_node_event(
                             task_id=resolved_task_id,
                             node_id=node_id,
                             node_type=node_type,
                             controller_state=ControllerState.EXECUTE,
-                            event_type="node_error",
+                            event_type="node_start",
                             success=False,
-                            error=str(exc),
-                            elapsed_ns=node_error_elapsed_ns,
                             start_offset_ns=node_start_offset_ns,
                         )
-                        raise
-                    node_elapsed_ns = max(0, time.perf_counter_ns() - node_started_ns)
-                    self._log_dag_node_event(
-                        task_id=resolved_task_id,
-                        node_id=node_id,
-                        node_type=node_type,
-                        controller_state=ControllerState.EXECUTE,
-                        event_type="node_end",
-                        success=True,
-                        elapsed_ns=node_elapsed_ns,
-                        start_offset_ns=node_start_offset_ns,
-                    )
+                        try:
+                            context = node_registry[node_id].execute(context)
+                        except Exception as exc:
+                            node_error_elapsed_ns = max(0, time.perf_counter_ns() - node_started_ns)
+                            self._log_dag_node_event(
+                                task_id=resolved_task_id,
+                                node_id=node_id,
+                                node_type=node_type,
+                                controller_state=ControllerState.EXECUTE,
+                                event_type="node_error",
+                                success=False,
+                                error=str(exc),
+                                elapsed_ns=node_error_elapsed_ns,
+                                start_offset_ns=node_start_offset_ns,
+                            )
+                            raise
+                        node_elapsed_ns = max(0, time.perf_counter_ns() - node_started_ns)
+                        self._log_dag_node_event(
+                            task_id=resolved_task_id,
+                            node_id=node_id,
+                            node_type=node_type,
+                            controller_state=ControllerState.EXECUTE,
+                            event_type="node_end",
+                            success=True,
+                            elapsed_ns=node_elapsed_ns,
+                            start_offset_ns=node_start_offset_ns,
+                        )
+
+                    if planning_mode == "planned":
+                        subtask_output = str(context.get("llm_output", "")).strip()
+                        if subtask_output:
+                            aggregated_parts.append(f"[Part {index}]\n{subtask_output}")
+
+                if planning_mode == "planned":
+                    context["user_input"] = user_input
+                    if aggregated_parts:
+                        context["llm_output"] = "\n\n".join(aggregated_parts)
+                        context["planning_aggregated_parts"] = len(aggregated_parts)
             except Exception as exc:
                 return self._fail(fsm, resolved_task_id, context, f"execute_node_error: {exc}")
 
