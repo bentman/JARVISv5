@@ -15,6 +15,49 @@
 
 ## Entries
 
+- 2026-03-07 07:14
+  - Summary: Completed T12.5 frontend structure refactor by extracting chat state/handlers into `state/useChatState.js`, extracting theme/style constants into `styles/theme.js`, extracting render/preview helpers into `utils/renderHelpers.jsx`, and reducing `App.jsx` to a thin composition shell.
+  - Scope: `frontend/src/App.jsx`, `frontend/src/state/useChatState.js`, `frontend/src/styles/theme.js`, `frontend/src/utils/renderHelpers.jsx`.
+  - Evidence:
+    - `npm --prefix frontend run build`
+      - PASS excerpt: `✓ built in 690ms`
+    - `find /c /v "" < frontend\src\App.jsx`
+      - PASS excerpt: `App.jsx` line count `131`
+
+- 2026-03-07 07:03
+  - Summary: Completed T12.3 by adding additive `GET /memory/search` with semantic and episodic result projection, explicit empty-query validation, and deterministic zero-results behavior.
+  - Scope: `backend/api/main.py`, `backend/api/schemas.py`, `tests/unit/test_api_memory_search.py`.
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit/ -q`
+      - PASS excerpt: `272 passed, 1 skipped in 40.89s`
+
+- 2026-03-07 06:51
+  - Summary: Completed T12.2 by adding retrieval-context token budget enforcement during context-message assembly with deterministic first-fit prefix trimming while preserving retrieval/ranking behavior.
+  - Scope: `backend/workflow/nodes/context_builder_node.py`, `tests/unit/test_context_builder_retrieval.py`.
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit/ -q`
+      - PASS excerpt: `269 passed, 1 skipped in 41.11s`
+
+- 2026-03-07 06:27
+  - Summary: Completed T12.1 by wiring `context["messages"]` into LLM prompt construction when present, while preserving single-turn fallback and existing seed/stop/normalization/stream-chunk behavior.
+  - Scope: `backend/workflow/nodes/llm_worker_node.py`, `tests/unit/test_nodes.py`.
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit/ -q`
+      - PASS excerpt: `266 passed, 1 skipped in 41.13s`
+
+- 2026-03-07 06:07
+  - Summary: Completed T12.4 repo layout cleanup by adding retrieval placeholder tracking, updating data ignore allowlist for retrieval placeholder, removing legacy `backend/Dockerfile.v4`, and re-validating compose and reference state.
+  - Scope: `data/retrieval/.gitkeep`, `.gitignore`, `backend/Dockerfile.v4`.
+  - Evidence:
+    - `if exist data\retrieval\.gitkeep (echo retrieval_gitkeep_PRESENT) else (echo retrieval_gitkeep_MISSING)`
+      - PASS excerpt: `retrieval_gitkeep_PRESENT`
+    - `if exist backend\Dockerfile.v4 (echo backend_Dockerfile_v4_STILL_PRESENT) else (echo backend_Dockerfile_v4_REMOVED)`
+      - PASS excerpt: `backend_Dockerfile_v4_REMOVED`
+    - `docker compose config >NUL && echo docker_compose_config_PASS || echo docker_compose_config_FAIL`
+      - PASS excerpt: `docker_compose_config_PASS`
+    - `git grep -n "Dockerfile.v4"`
+      - PASS excerpt: matches present only in `roadmap-20260306.md` documentation references.
+
 - 2026-03-06 09:03
   - Summary: Completed Milestone 11 / Sub-Task T11.5.1 by adding a constrained multi-turn planning MVP with deterministic bounded decomposition, capped fan-out, and controller-side planned aggregation while preserving linear flow fallback.
   - Scope: `backend/workflow/plan_compiler.py`, `backend/controller/controller_service.py`, `tests/unit/test_plan_compiler.py`, `tests/unit/test_controller_service_integration.py`.

@@ -56,6 +56,19 @@ class TaskResponse(BaseModel):
     failure: TaskFailureMetadata | None = None
 
 
+class MemorySearchItem(BaseModel):
+    source: str
+    content: str
+    score: float | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class MemorySearchResponse(BaseModel):
+    query: str
+    semantic_results: list[MemorySearchItem] = Field(default_factory=list)
+    episodic_results: list[MemorySearchItem] = Field(default_factory=list)
+
+
 class SettingsResponse(BaseModel):
     """v1 schema for settings responses, aligned to current Settings model."""
 

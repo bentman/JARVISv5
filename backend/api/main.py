@@ -16,6 +16,8 @@ from backend.api.schemas import (
     CacheHealth,
     DetailedHealthResponse,
     HardwareHealth,
+    MemorySearchItem,
+    MemorySearchResponse,
     ModelHealth,
     SettingsResponse,
     SettingsUpdateRequest,
@@ -643,6 +645,73 @@ def get_task(task_id: str) -> dict:
     if task_state is None:
         raise HTTPException(status_code=404, detail="Task not found")
     return task_state
+
+
+@app.get("/memory/search", response_model=MemorySearchResponse)
+def memory_search(q: str, limit: int = 5) -> MemorySearchResponse:
+    query = str(q).strip()
+    if not query:
+        raise HTTPException(status_code=422, detail="query_required")
+
+    try:
+        settings = Settings()
+        memory = _build_memory_manager(settings)
+
+        semantic_raw = memory.semantic.search_text(query, top_k=int(limit))
+        episodic_raw = memory.episodic.search_decisions(query=query, limit=int(limit))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="memory_search_unavailable") from exc
+
+    semantic_results: list[MemorySearchItem] = []
+    for row in semantic_raw:
+        if not isinstance(row, dict):
+            continue
+        text = str(row.get("text", ""))
+        metadata_raw = row.get("metadata", {})
+        metadata = dict(metadata_raw) if isinstance(metadata_raw, dict) else {}
+
+        if "vector_id" in row:
+            metadata["vector_id"] = row.get("vector_id")
+        if "distance" in row:
+            metadata["distance"] = row.get("distance")
+
+        score_raw = row.get("similarity_score")
+        score = float(score_raw) if isinstance(score_raw, (int, float)) else None
+
+        semantic_results.append(
+            MemorySearchItem(
+                source="semantic",
+                content=text,
+                score=score,
+                metadata=metadata,
+            )
+        )
+
+    episodic_results: list[MemorySearchItem] = []
+    for row in episodic_raw:
+        if not isinstance(row, dict):
+            continue
+        metadata = {
+            "id": row.get("id"),
+            "timestamp": row.get("timestamp"),
+            "task_id": row.get("task_id"),
+            "action_type": row.get("action_type"),
+            "status": row.get("status"),
+        }
+        episodic_results.append(
+            MemorySearchItem(
+                source="episodic",
+                content=str(row.get("content", "")),
+                score=None,
+                metadata=metadata,
+            )
+        )
+
+    return MemorySearchResponse(
+        query=query,
+        semantic_results=semantic_results,
+        episodic_results=episodic_results,
+    )
 
 
 @app.get("/workflow/{task_id}", response_model=WorkflowTelemetryResponse)

@@ -25,6 +25,16 @@
 
 ## Inventory
 
+- Capability: Milestone 12 — Repository Structure + Context/Memory + Frontend Modularization (T12.1–T12.5)
+  - 2026-03-07 07:18
+  - State: Verified
+  - Location: `.gitignore`, `data/retrieval/.gitkeep`, `backend/workflow/nodes/llm_worker_node.py`, `backend/workflow/nodes/context_builder_node.py`, `backend/api/main.py`, `backend/api/schemas.py`, `tests/unit/test_nodes.py`, `tests/unit/test_context_builder_retrieval.py`, `tests/unit/test_api_memory_search.py`, `frontend/src/App.jsx`, `frontend/src/state/useChatState.js`, `frontend/src/styles/theme.js`, `frontend/src/utils/renderHelpers.jsx`
+  - Validation: `.\backend\.venv\Scripts\python.exe -m pytest tests/unit/ -q`; `npm --prefix frontend run build`; `docker compose config`
+  - Notes:
+    - Housekeeping: T12.4
+    - Backend: T12.1/T12.2/T12.3
+    - Frontend: T12.5.
+
 - Capability: Milestone 11 — Usability + Execution Depth (T11.1–T11.5)
   - 2026-03-06 09:03
   - State: Verified

@@ -85,6 +85,8 @@ Thumbs.db
 data/*
 !data/models.yaml.example
 !data/.gitkeep
+!data/retrieval/
+!data/retrieval/.gitkeep
 data/models.yaml
 data/*.db
 data/*.db-journal

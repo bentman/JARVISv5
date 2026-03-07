@@ -152,3 +152,138 @@ def test_context_builder_retrieval_injection_is_deterministic() -> None:
     second = node.execute(dict(base_context))
 
     assert first["messages"][0] == second["messages"][0]
+
+
+def test_context_builder_retrieval_budget_keeps_ordered_prefix_only() -> None:
+    config = RetrievalConfig(max_results=3)
+    retrieved = [
+        _make_result(
+            source=SourceType.SEMANTIC,
+            content="A" * 80,
+            relevance=0.9,
+            recency=0.5,
+            config=config,
+        ),
+        _make_result(
+            source=SourceType.EPISODIC,
+            content="B" * 80,
+            relevance=0.8,
+            recency=0.6,
+            config=config,
+        ),
+        _make_result(
+            source=SourceType.WORKING_STATE,
+            content="C" * 80,
+            relevance=0.7,
+            recency=0.7,
+            config=config,
+        ),
+    ]
+
+    node = ContextBuilderNode(
+        retriever=_RetrieverStub(retrieved),
+        retrieval_config=config,
+        retrieval_message_max_chars=80,
+        retrieval_token_budget=50,
+    )
+    context = {
+        "memory_manager": _MemoryManagerStub(
+            {
+                "task_id": "task-budget",
+                "messages": [
+                    {"role": "system", "content": "base-system"},
+                    {"role": "user", "content": "hello"},
+                ],
+            }
+        ),
+        "task_id": "task-budget",
+        "turn": 1,
+        "user_input": "hello",
+    }
+
+    result = node.execute(context)
+    injected = result["messages"][1]
+    assert injected["role"] == "system"
+
+    lines = str(injected["content"]).splitlines()
+    assert lines[0] == "Retrieved Context:"
+    assert len(lines) == 2
+    assert lines[1].startswith("- [semantic] score=")
+    assert "A" * 80 in lines[1]
+
+
+def test_context_builder_retrieval_budget_skips_injection_when_first_chunk_oversized() -> None:
+    config = RetrievalConfig(max_results=1)
+    retrieved = [
+        _make_result(
+            source=SourceType.SEMANTIC,
+            content="X" * 80,
+            relevance=0.9,
+            recency=0.5,
+            config=config,
+        )
+    ]
+
+    node = ContextBuilderNode(
+        retriever=_RetrieverStub(retrieved),
+        retrieval_config=config,
+        retrieval_message_max_chars=80,
+        retrieval_token_budget=4,
+    )
+    context = {
+        "memory_manager": _MemoryManagerStub(
+            {
+                "task_id": "task-oversized",
+                "messages": [{"role": "user", "content": "unchanged"}],
+            }
+        ),
+        "task_id": "task-oversized",
+        "turn": 1,
+        "user_input": "query",
+    }
+
+    result = node.execute(context)
+    assert result["messages"] == [{"role": "user", "content": "unchanged"}]
+
+
+def test_context_builder_retrieval_budget_trimming_is_deterministic() -> None:
+    config = RetrievalConfig(max_results=3)
+    retrieved = [
+        _make_result(
+            source=SourceType.SEMANTIC,
+            content="A" * 80,
+            relevance=0.9,
+            recency=0.5,
+            config=config,
+        ),
+        _make_result(
+            source=SourceType.EPISODIC,
+            content="B" * 80,
+            relevance=0.8,
+            recency=0.6,
+            config=config,
+        ),
+    ]
+
+    node = ContextBuilderNode(
+        retriever=_RetrieverStub(retrieved),
+        retrieval_config=config,
+        retrieval_message_max_chars=80,
+        retrieval_token_budget=50,
+    )
+    base_context = {
+        "memory_manager": _MemoryManagerStub(
+            {
+                "task_id": "task-det",
+                "messages": [{"role": "user", "content": "hi"}],
+            }
+        ),
+        "task_id": "task-det",
+        "turn": 2,
+        "user_input": "hi",
+    }
+
+    first = node.execute(dict(base_context))
+    second = node.execute(dict(base_context))
+
+    assert first["messages"] == second["messages"]

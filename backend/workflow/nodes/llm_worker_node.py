@@ -17,7 +17,28 @@ class LLMWorkerNode(BaseNode):
             "Return only the assistant answer text.",
             "Do not add prefaces, explanations, or follow-up prompts unless explicitly requested.",
         ]
-        prompt_lines.append(f"User: {user_input}")
+
+        normalized_messages: list[dict[str, str]] = []
+        messages_raw = context.get("messages")
+        if isinstance(messages_raw, list):
+            for message in messages_raw:
+                if not isinstance(message, dict):
+                    continue
+                role = str(message.get("role", "")).strip().lower()
+                content = str(message.get("content", "")).strip()
+                if not content:
+                    continue
+                if role not in {"system", "user", "assistant"}:
+                    continue
+                normalized_messages.append({"role": role, "content": content})
+
+        if normalized_messages:
+            for message in normalized_messages:
+                role_label = message["role"].capitalize()
+                prompt_lines.append(f"{role_label}: {message['content']}")
+        else:
+            prompt_lines.append(f"User: {user_input}")
+
         prompt_lines.append("Assistant:")
         prompt = "\n".join(prompt_lines)
 

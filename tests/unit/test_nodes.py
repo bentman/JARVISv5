@@ -190,6 +190,101 @@ def test_llm_worker_node_omits_seed_when_absent(monkeypatch) -> None:
     assert "seed" not in captured
 
 
+def test_llm_worker_uses_context_messages_when_present(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class _StubLlama:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def create_completion(self, **kwargs):
+            captured.update(kwargs)
+            return {"choices": [{"text": "message path ok"}]}
+
+    monkeypatch.setitem(sys.modules, "llama_cpp", types.SimpleNamespace(Llama=_StubLlama))
+
+    node = LLMWorkerNode()
+    result = node.execute(
+        {
+            "user_input": "fallback input",
+            "llm_model_path": TEST_MODEL_PATH,
+            "messages": [
+                {"role": "system", "content": "system context"},
+                {"role": "user", "content": "first question"},
+                {"role": "assistant", "content": "first answer"},
+                {"role": "user", "content": "second question"},
+            ],
+        }
+    )
+
+    prompt = str(captured.get("prompt", ""))
+    assert "System: system context" in prompt
+    assert "User: first question" in prompt
+    assert "Assistant: first answer" in prompt
+    assert "User: second question" in prompt
+    assert prompt.rstrip().endswith("Assistant:")
+    assert "User: fallback input" not in prompt
+    assert result["llm_output"] == "message path ok"
+
+
+def test_llm_worker_falls_back_to_single_turn_when_messages_absent(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class _StubLlama:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def create_completion(self, **kwargs):
+            captured.update(kwargs)
+            return {"choices": [{"text": "fallback ok"}]}
+
+    monkeypatch.setitem(sys.modules, "llama_cpp", types.SimpleNamespace(Llama=_StubLlama))
+
+    node = LLMWorkerNode()
+    result = node.execute(
+        {
+            "user_input": "single-turn input",
+            "llm_model_path": TEST_MODEL_PATH,
+        }
+    )
+
+    prompt = str(captured.get("prompt", ""))
+    assert "User: single-turn input" in prompt
+    assert prompt.rstrip().endswith("Assistant:")
+    assert result["llm_output"] == "fallback ok"
+
+
+def test_llm_worker_preserves_seed_stop_and_normalization_with_messages(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class _StubLlama:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def create_completion(self, **kwargs):
+            captured.update(kwargs)
+            return {"choices": [{"text": "<|assistant|> OK\nUser: continue"}]}
+
+    monkeypatch.setitem(sys.modules, "llama_cpp", types.SimpleNamespace(Llama=_StubLlama))
+
+    node = LLMWorkerNode()
+    result = node.execute(
+        {
+            "user_input": "ignored because messages present",
+            "llm_model_path": TEST_MODEL_PATH,
+            "generation_seed": 123,
+            "messages": [
+                {"role": "system", "content": "seeded system context"},
+                {"role": "user", "content": "seeded user query"},
+            ],
+        }
+    )
+
+    assert captured.get("seed") == 123
+    assert captured.get("stop") == list(_STOP_SEQUENCES)
+    assert result["llm_output"] == "OK"
+
+
 def test_validator_node_marks_context_valid_for_non_empty_output() -> None:
     node = ValidatorNode()
     result = node.execute({"llm_output": "some output"})

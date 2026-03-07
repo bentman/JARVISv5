@@ -18,6 +18,7 @@ class ContextBuilderNode(BaseNode):
         retriever: Any | None = None,
         retrieval_config: RetrievalConfig | None = None,
         retrieval_message_max_chars: int = 500,
+        retrieval_token_budget: int = 600,
     ) -> None:
         self.cache = cache_client
         self.metrics = get_metrics()
@@ -27,6 +28,7 @@ class ContextBuilderNode(BaseNode):
         self.retriever = retriever
         self.retrieval_config = retrieval_config
         self.retrieval_message_max_chars = max(1, int(retrieval_message_max_chars))
+        self.retrieval_token_budget = max(1, int(retrieval_token_budget))
 
     def execute(self, context: dict[str, Any]) -> dict[str, Any]:
         memory_manager = context.get("memory_manager")
@@ -180,13 +182,20 @@ class ContextBuilderNode(BaseNode):
             return messages
 
         lines = ["Retrieved Context:"]
+        used_tokens = _approx_token_count(lines[0])
         for result in results:
             content = str(result.content)
             if len(content) > self.retrieval_message_max_chars:
                 content = f"{content[: self.retrieval_message_max_chars]}..."
-            lines.append(
-                f"- [{result.source.value}] score={float(result.final_score):.3f} {content}"
-            )
+            line = f"- [{result.source.value}] score={float(result.final_score):.3f} {content}"
+            line_tokens = _approx_token_count(line)
+            if used_tokens + line_tokens > self.retrieval_token_budget:
+                break
+            lines.append(line)
+            used_tokens += line_tokens
+
+        if len(lines) == 1:
+            return messages
 
         retrieval_message = {"role": "system", "content": "\n".join(lines)}
 
@@ -199,3 +208,11 @@ class ContextBuilderNode(BaseNode):
 
         output.insert(insert_at, retrieval_message)
         return output
+
+
+def _approx_token_count(text: str) -> int:
+    value = str(text or "")
+    if not value:
+        return 0
+    # Deterministic approximation: ~4 chars per token.
+    return max(1, (len(value) + 3) // 4)
