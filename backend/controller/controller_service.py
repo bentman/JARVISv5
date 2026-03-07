@@ -240,6 +240,21 @@ class ControllerService:
                     start_offset_ns=node_start_offset_ns,
                 )
 
+                if (
+                    str(context.get("intent", "")) == "research"
+                    and not isinstance(context.get("tool_call"), dict)
+                ):
+                    context["tool_call"] = {
+                        "tool_name": "search_web",
+                        "payload": {
+                            "query": str(context.get("user_input", "")),
+                            "top_k": 5,
+                        },
+                        "external_call": True,
+                        "allow_external": True,
+                        "sandbox_roots": ["/app"],
+                    }
+
                 graph = compile_plan_to_workflow_graph(str(context.get("intent", "")))
                 if isinstance(context.get("tool_call"), dict):
                     graph = _with_tool_call_node(graph)

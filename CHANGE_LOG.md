@@ -15,6 +15,27 @@
 
 ## Entries
 
+- 2026-03-07 08:57
+  - Summary: Completed T13.4 by adding a header-accessible frontend Memory Search panel with query/results flow, source/snippet/timestamp rendering, and minimal result-to-chat reference insertion while keeping panel open/close behavior isolated from chat state.
+  - Scope: `frontend/src/components/MemoryPanel.jsx`, `frontend/src/api/taskClient.js`, `frontend/src/App.jsx`.
+  - Evidence:
+    - `npm --prefix frontend run build`
+      - PASS excerpt: `✓ built in 709ms`
+
+- 2026-03-07 08:47
+  - Summary: Completed T13.3 by replacing shallow presence-only validation with deterministic quality-depth gates, emitting explicit validation artifacts (`validation_errors`, `validation_status`, `is_valid`), and preserving controller fail-closed behavior on validation failure.
+  - Scope: `backend/workflow/nodes/validator_node.py`, `tests/unit/test_nodes.py`, `tests/unit/test_controller_service_integration.py`.
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit/ -q`
+      - PASS excerpt: `283 passed, 1 skipped in 51.34s`
+
+- 2026-03-07 07:57
+  - Summary: Completed T13.2 by adding deterministic `research` intent routing with explicit keyword rules, preserving `code` precedence and `chat` fallback, and routing research requests through existing tool-call execution via controller-side auto-injection.
+  - Scope: `backend/workflow/nodes/router_node.py`, `backend/controller/controller_service.py`, `tests/unit/test_nodes.py`, `tests/unit/test_controller_service_integration.py`.
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit/ -q`
+      - PASS excerpt: `278 passed, 1 skipped in 72.57s (0:01:12)`
+
 - 2026-03-07 07:14
   - Summary: Completed T12.5 frontend structure refactor by extracting chat state/handlers into `state/useChatState.js`, extracting theme/style constants into `styles/theme.js`, extracting render/preview helpers into `utils/renderHelpers.jsx`, and reducing `App.jsx` to a thin composition shell.
   - Scope: `frontend/src/App.jsx`, `frontend/src/state/useChatState.js`, `frontend/src/styles/theme.js`, `frontend/src/utils/renderHelpers.jsx`.

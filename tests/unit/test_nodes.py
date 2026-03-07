@@ -50,6 +50,33 @@ def test_router_node_sets_chat_intent() -> None:
     assert result["intent"] == "chat"
 
 
+def test_router_node_sets_research_intent() -> None:
+    node = RouterNode()
+    context = {"user_input": "Please research this topic and find sources"}
+
+    result = node.execute(context)
+    assert result["intent"] == "research"
+
+
+def test_router_node_keeps_code_precedence_over_research() -> None:
+    node = RouterNode()
+    context = {"user_input": "write code and research alternatives"}
+
+    result = node.execute(context)
+    assert result["intent"] == "code"
+
+
+def test_router_node_is_deterministic_for_same_input() -> None:
+    node = RouterNode()
+    context_a = {"user_input": "find sources about llama.cpp"}
+    context_b = {"user_input": "find sources about llama.cpp"}
+
+    result_a = node.execute(context_a)
+    result_b = node.execute(context_b)
+    assert result_a["intent"] == "research"
+    assert result_b["intent"] == "research"
+
+
 def test_context_builder_node_adds_working_state() -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
         memory = build_memory(tmp_dir)
@@ -285,11 +312,13 @@ def test_llm_worker_preserves_seed_stop_and_normalization_with_messages(monkeypa
     assert result["llm_output"] == "OK"
 
 
-def test_validator_node_marks_context_valid_for_non_empty_output() -> None:
+def test_validator_node_marks_context_valid_for_substantive_output() -> None:
     node = ValidatorNode()
-    result = node.execute({"llm_output": "some output"})
+    result = node.execute({"llm_output": "This is valid output."})
 
     assert result["is_valid"] is True
+    assert result["validation_status"] == "passed"
+    assert result["validation_errors"] == []
 
 
 def test_validator_node_marks_context_invalid_for_empty_output() -> None:
@@ -297,6 +326,51 @@ def test_validator_node_marks_context_invalid_for_empty_output() -> None:
     result = node.execute({"llm_output": ""})
 
     assert result["is_valid"] is False
+    assert result["validation_status"] == "failed"
+    assert result["validation_errors"] == ["empty_output"]
+
+
+def test_validator_node_marks_context_invalid_for_too_short_output() -> None:
+    node = ValidatorNode()
+    result = node.execute({"llm_output": "short"})
+
+    assert result["is_valid"] is False
+    assert result["validation_status"] == "failed"
+    assert result["validation_errors"] == ["too_short"]
+
+
+def test_validator_node_marks_context_invalid_for_model_error_output() -> None:
+    node = ValidatorNode()
+    result = node.execute({"llm_output": "Local model missing. Please configure it."})
+
+    assert result["is_valid"] is False
+    assert result["validation_status"] == "failed"
+    assert result["validation_errors"] == ["model_error_output"]
+
+
+def test_validator_node_marks_context_invalid_for_explicit_llm_error() -> None:
+    node = ValidatorNode()
+    result = node.execute({"llm_output": "This is valid output.", "llm_error": "llama_cpp_import_error"})
+
+    assert result["is_valid"] is False
+    assert result["validation_status"] == "failed"
+    assert result["validation_errors"] == ["explicit_llm_error"]
+
+
+def test_validator_node_is_deterministic_for_same_input() -> None:
+    node = ValidatorNode()
+    context_a = {"llm_output": "short"}
+    context_b = {"llm_output": "short"}
+
+    result_a = node.execute(context_a)
+    result_b = node.execute(context_b)
+
+    assert result_a["is_valid"] is False
+    assert result_b["is_valid"] is False
+    assert result_a["validation_status"] == "failed"
+    assert result_b["validation_status"] == "failed"
+    assert result_a["validation_errors"] == ["too_short"]
+    assert result_b["validation_errors"] == ["too_short"]
 
 
 def test_normalize_llm_output_removes_assistant_prefix_token() -> None:

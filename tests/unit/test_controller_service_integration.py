@@ -179,6 +179,27 @@ def test_controller_service_run_linear_mode_preserved_for_short_prompt() -> None
         assert "planning_aggregated_parts" not in context
 
 
+def test_controller_service_fail_closed_on_validator_quality_failure() -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=StubModelRegistry(),
+        )
+
+        result = service.run(user_input="hello")
+
+        assert result["final_state"] == "FAILED"
+        context = result["context"]
+        assert context.get("is_valid") is False
+        assert context.get("validation_status") == "failed"
+        assert context.get("validation_errors") == [
+            "model_error_output",
+            "explicit_llm_error",
+        ]
+        assert result.get("error") == "validation_failed"
+
+
 def test_controller_service_run_records_dag_node_trace_events() -> None:
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
         service = ControllerService(
@@ -274,6 +295,81 @@ def test_controller_service_run_executes_tool_call_node_and_records_trace() -> N
             row["node_id"] == "tool_call" and row["event_type"] == "node_end"
             for row in parsed
         )
+
+
+def test_controller_service_auto_injects_research_tool_call_path() -> None:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=StubModelRegistry(),
+        )
+
+        result = service.run(user_input="research latest python packaging guidance")
+
+        assert result["final_state"] in {"ARCHIVE", "FAILED"}
+        context = result["context"]
+        assert context.get("intent") == "research"
+        assert context.get("tool_name") == "search_web"
+        assert context["workflow_execution_order"] == [
+            "router",
+            "context_builder",
+            "tool_call",
+            "llm_worker",
+            "validator",
+        ]
+
+
+def test_controller_service_does_not_inject_tool_call_for_chat_intent() -> None:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=StubModelRegistry(),
+        )
+
+        result = service.run(user_input="hello there")
+
+        assert result["final_state"] in {"ARCHIVE", "FAILED"}
+        context = result["context"]
+        assert context.get("intent") == "chat"
+        assert context["workflow_execution_order"] == [
+            "router",
+            "context_builder",
+            "llm_worker",
+            "validator",
+        ]
+        assert "tool_name" not in context
+
+
+def test_controller_service_research_does_not_overwrite_explicit_tool_call() -> None:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+        root = Path(tmp_dir) / "tool-root"
+        root.mkdir(parents=True, exist_ok=True)
+        (root / "alpha.txt").write_text("alpha", encoding="utf-8")
+
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=StubModelRegistry(),
+        )
+
+        result = service.run(
+            user_input="research local files",
+            tool_call={
+                "tool_name": "list_directory",
+                "payload": {"path": str(root)},
+                "allow_write_safe": False,
+                "sandbox_roots": [str(root)],
+            },
+        )
+
+        assert result["final_state"] in {"ARCHIVE", "FAILED"}
+        context = result["context"]
+        assert context.get("intent") == "research"
+        assert context.get("tool_name") == "list_directory"
+        assert context.get("tool_ok") is True
+        assert context.get("tool_result", {}).get("entries") == ["alpha.txt"]
 
 
 def test_controller_service_run_tool_call_write_safe_denied_by_default() -> None:

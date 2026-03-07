@@ -25,6 +25,14 @@
 
 ## Inventory
 
+- Capability: Milestone 13 — Research Intent Routing, Memory API Completion, Validator Depth, and Memory Search Panel (T13.1–T13.4)
+  - 2026-03-07 09:01
+  - State: Verified
+  - Location: `backend/api/main.py`, `backend/api/schemas.py`, `tests/unit/test_api_memory_search.py`, `backend/workflow/nodes/router_node.py`, `backend/controller/controller_service.py`, `backend/workflow/nodes/validator_node.py`, `tests/unit/test_nodes.py`, `tests/unit/test_controller_service_integration.py`, `frontend/src/components/MemoryPanel.jsx`, `frontend/src/api/taskClient.js`, `frontend/src/App.jsx`
+  - Validation: `.\backend\.venv\Scripts\python.exe -m pytest tests/unit/ -q`; `npm --prefix frontend run build`
+  - Notes:
+    - Backend: T13.1/T13.2/T13.3; Frontend: T13.4.
+
 - Capability: Milestone 12 — Repository Structure + Context/Memory + Frontend Modularization (T12.1–T12.5)
   - 2026-03-07 07:18
   - State: Verified

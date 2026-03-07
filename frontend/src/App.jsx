@@ -1,10 +1,14 @@
+import { useState } from 'react'
 import useChatState from './state/useChatState'
 import { appStyles, colors, getSendButtonStyle } from './styles/theme'
 import { renderChatMessage } from './utils/renderHelpers'
 import SettingsPanel from './components/SettingsPanel'
 import WorkflowVisualizer from './components/WorkflowVisualizer'
+import MemoryPanel from './components/MemoryPanel'
 
 function App() {
+  const [isMemoryOpen, setIsMemoryOpen] = useState(false)
+
   const {
     messages,
     taskId,
@@ -78,11 +82,28 @@ function App() {
               </>
             ) : null}
           </div>
+          <button type="button" onClick={() => setIsMemoryOpen(true)} style={appStyles.headerButton}>Memory</button>
           <button type="button" onClick={() => setIsSettingsOpen(true)} style={appStyles.headerButton}>Settings</button>
           <button type="button" onClick={handleNewChat} style={appStyles.headerButton}>New Chat</button>
         </div>
         <div />
       </div>
+
+      <MemoryPanel
+        isOpen={isMemoryOpen}
+        onClose={() => setIsMemoryOpen(false)}
+        onReferenceResult={({ source, snippet }) => {
+          const reference = `[memory:${source}] ${snippet}`.trim()
+          setInput((previous) => {
+            const current = String(previous || '')
+            if (!current.trim()) {
+              return reference
+            }
+            return `${current}\n${reference}`
+          })
+          inputRef.current?.focus()
+        }}
+      />
 
       <SettingsPanel isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
 

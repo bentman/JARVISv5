@@ -258,3 +258,15 @@ export async function getWorkflow(taskId) {
 
   return response.json()
 }
+
+export async function searchMemory(query, limit = 10) {
+  const response = await fetch(
+    `${API_BASE_URL}/memory/search?q=${encodeURIComponent(query)}&limit=${encodeURIComponent(String(limit))}`
+  )
+
+  if (!response.ok) {
+    throw new Error(`GET /memory/search failed: ${response.status}`)
+  }
+
+  return response.json()
+}
