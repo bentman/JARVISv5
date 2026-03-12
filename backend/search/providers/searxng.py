@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import os
-
 import httpx
 
+from backend.config.settings import Settings
 from backend.search.providers.base import (
     ProviderParseResult,
     ProviderRequest,
@@ -15,13 +14,18 @@ from backend.search.providers.base import (
 
 class SearXNGProvider(SearchProviderBase):
     name = "searxng"
+    is_external = False
+    is_paid = False
+
+    def __init__(self, base_url: str | None = None) -> None:
+        settings = Settings()
+        self._base_url = base_url if base_url is not None else str(settings.SEARCH_SEARXNG_URL)
 
     def execute_request(self, request: ProviderRequest) -> ProviderParseResult:
-        base_url = os.getenv("SEARCH_SEARXNG_URL", "http://searxng:8080/search")
         try:
             with httpx.Client(timeout=httpx.Timeout(5.0, connect=2.0)) as client:
                 response = client.get(
-                    base_url,
+                    self._base_url,
                     params={"q": request.query, "format": "json"},
                 )
         except httpx.ConnectError:

@@ -14,6 +14,8 @@ from backend.search.providers.base import (
 
 class DuckDuckGoProvider(SearchProviderBase):
     name = "duckduckgo"
+    is_external = True
+    is_paid = False
 
     def execute_request(self, request: ProviderRequest) -> ProviderParseResult:
         try:

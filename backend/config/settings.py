@@ -18,7 +18,10 @@ class Settings(BaseSettings):
     REDACT_PII_QUERIES: bool = True
     REDACT_PII_RESULTS: bool = False
     ALLOW_EXTERNAL_SEARCH: bool = False
+    ALLOW_PAID_SEARCH: bool = False
     DEFAULT_SEARCH_PROVIDER: str = "duckduckgo"
+    SEARCH_SEARXNG_URL: str = "http://searxng:8080/search"
+    TAVILY_API_KEY: str = ""
     CACHE_ENABLED: bool = False
     REDIS_URL: str = "redis://localhost:6379/0"
     DAILY_BUDGET_USD: float = 0.0
@@ -82,7 +85,10 @@ class SafeConfigProjection(TypedDict):
     redact_pii_queries: bool
     redact_pii_results: bool
     allow_external_search: bool
+    allow_paid_search: bool
     default_search_provider: str
+    searxng_url: str
+    tavily_key_configured: bool
     cache_enabled: bool
 
 
@@ -98,7 +104,10 @@ def get_safe_config_projection(settings: Settings) -> SafeConfigProjection:
         "redact_pii_queries": settings.REDACT_PII_QUERIES,
         "redact_pii_results": settings.REDACT_PII_RESULTS,
         "allow_external_search": settings.ALLOW_EXTERNAL_SEARCH,
+        "allow_paid_search": settings.ALLOW_PAID_SEARCH,
         "default_search_provider": settings.DEFAULT_SEARCH_PROVIDER,
+        "searxng_url": settings.SEARCH_SEARXNG_URL,
+        "tavily_key_configured": bool(str(settings.TAVILY_API_KEY).strip()),
         "cache_enabled": settings.CACHE_ENABLED,
     }
 

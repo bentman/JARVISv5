@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import importlib
-import os
+from typing import Any
 
+from backend.config.settings import Settings
 from backend.search.providers.base import (
     ProviderParseResult,
     ProviderRequest,
@@ -14,9 +15,17 @@ from backend.search.providers.base import (
 
 class TavilyProvider(SearchProviderBase):
     name = "tavily"
+    is_external = True
+    is_paid = True
+
+    def __init__(self, api_key: str | None = None) -> None:
+        self._api_key = api_key
 
     def execute_request(self, request: ProviderRequest) -> ProviderParseResult:
-        api_key = os.getenv("TAVILY_API_KEY", "").strip()
+        api_key = (self._api_key or "").strip()
+        if not api_key:
+            init_kwargs: dict[str, Any] = {"_env_file": None}
+            api_key = str(Settings(**init_kwargs).TAVILY_API_KEY).strip()
         if not api_key:
             return ProviderParseResult(ok=False, code="provider_unavailable", reason="unauthorized")
 

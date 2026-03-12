@@ -298,6 +298,18 @@ def test_controller_service_run_executes_tool_call_node_and_records_trace() -> N
 
 
 def test_controller_service_auto_injects_research_tool_call_path() -> None:
+    from backend.workflow.nodes.search_web_node import SearchWebNode
+
+    original_execute = SearchWebNode.execute
+
+    def _stub_execute(self, context: dict):
+        context["search_results"] = []
+        context["search_provider"] = None
+        context["search_ok"] = True
+        context["search_error"] = None
+        return context
+
+    SearchWebNode.execute = _stub_execute  # type: ignore[method-assign]
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
         service = ControllerService(
             memory_manager=build_memory(tmp_dir),
@@ -305,19 +317,61 @@ def test_controller_service_auto_injects_research_tool_call_path() -> None:
             model_registry=StubModelRegistry(),
         )
 
-        result = service.run(user_input="research latest python packaging guidance")
+        try:
+            result = service.run(user_input="research latest python packaging guidance")
+        finally:
+            SearchWebNode.execute = original_execute  # type: ignore[method-assign]
 
         assert result["final_state"] in {"ARCHIVE", "FAILED"}
         context = result["context"]
         assert context.get("intent") == "research"
-        assert context.get("tool_name") == "search_web"
         assert context["workflow_execution_order"] == [
             "router",
             "context_builder",
-            "tool_call",
+            "search_web",
             "llm_worker",
             "validator",
         ]
+        assert "tool_name" not in context
+        assert context.get("search_ok") is True
+
+
+def test_controller_research_routes_to_search_web_node() -> None:
+    from backend.workflow.nodes.search_web_node import SearchWebNode
+
+    original_execute = SearchWebNode.execute
+
+    def _stub_execute(self, context: dict):
+        context["search_results"] = []
+        context["search_provider"] = None
+        context["search_ok"] = True
+        context["search_error"] = None
+        return context
+
+    SearchWebNode.execute = _stub_execute  # type: ignore[method-assign]
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=StubModelRegistry(),
+        )
+
+        try:
+            result = service.run(user_input="research latest python packaging guidance")
+        finally:
+            SearchWebNode.execute = original_execute  # type: ignore[method-assign]
+
+        assert result["final_state"] in {"ARCHIVE", "FAILED"}
+        context = result["context"]
+        assert context.get("intent") == "research"
+        assert context["workflow_execution_order"] == [
+            "router",
+            "context_builder",
+            "search_web",
+            "llm_worker",
+            "validator",
+        ]
+        assert "tool_name" not in context
 
 
 def test_controller_service_does_not_inject_tool_call_for_chat_intent() -> None:
@@ -339,6 +393,53 @@ def test_controller_service_does_not_inject_tool_call_for_chat_intent() -> None:
             "llm_worker",
             "validator",
         ]
+        assert "search_web" not in context["workflow_execution_order"]
+        assert "tool_name" not in context
+
+
+def test_controller_chat_does_not_include_search_web_node() -> None:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=StubModelRegistry(),
+        )
+
+        result = service.run(user_input="hello there")
+
+        assert result["final_state"] in {"ARCHIVE", "FAILED"}
+        context = result["context"]
+        assert context.get("intent") == "chat"
+        assert context["workflow_execution_order"] == [
+            "router",
+            "context_builder",
+            "llm_worker",
+            "validator",
+        ]
+        assert "search_web" not in context["workflow_execution_order"]
+        assert "tool_name" not in context
+
+
+def test_controller_service_preserves_code_intent_graph_without_search_web() -> None:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=StubModelRegistry(),
+        )
+
+        result = service.run(user_input="test code")
+
+        assert result["final_state"] in {"ARCHIVE", "FAILED"}
+        context = result["context"]
+        assert context.get("intent") == "code"
+        assert context["workflow_execution_order"] == [
+            "router",
+            "context_builder",
+            "llm_worker",
+            "validator",
+        ]
+        assert "search_web" not in context["workflow_execution_order"]
         assert "tool_name" not in context
 
 
@@ -370,6 +471,84 @@ def test_controller_service_research_does_not_overwrite_explicit_tool_call() -> 
         assert context.get("tool_name") == "list_directory"
         assert context.get("tool_ok") is True
         assert context.get("tool_result", {}).get("entries") == ["alpha.txt"]
+        assert context["workflow_execution_order"] == [
+            "router",
+            "context_builder",
+            "tool_call",
+            "llm_worker",
+            "validator",
+        ]
+        assert "search_web" not in context["workflow_execution_order"]
+
+
+def test_controller_explicit_tool_call_still_uses_tool_call_node() -> None:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+        root = Path(tmp_dir) / "tool-root"
+        root.mkdir(parents=True, exist_ok=True)
+        (root / "alpha.txt").write_text("alpha", encoding="utf-8")
+
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=StubModelRegistry(),
+        )
+
+        result = service.run(
+            user_input="research local files",
+            tool_call={
+                "tool_name": "list_directory",
+                "payload": {"path": str(root)},
+                "allow_write_safe": False,
+                "sandbox_roots": [str(root)],
+            },
+        )
+
+        assert result["final_state"] in {"ARCHIVE", "FAILED"}
+        context = result["context"]
+        assert context.get("intent") == "research"
+        assert context.get("tool_name") == "list_directory"
+        assert context.get("tool_ok") is True
+        assert context.get("tool_result", {}).get("entries") == ["alpha.txt"]
+        assert context["workflow_execution_order"] == [
+            "router",
+            "context_builder",
+            "tool_call",
+            "llm_worker",
+            "validator",
+        ]
+        assert "search_web" not in context["workflow_execution_order"]
+
+
+def test_controller_service_research_same_input_same_graph_deterministic() -> None:
+    from backend.workflow.nodes.search_web_node import SearchWebNode
+
+    original_execute = SearchWebNode.execute
+
+    def _stub_execute(self, context: dict):
+        context["search_results"] = []
+        context["search_provider"] = None
+        context["search_ok"] = True
+        context["search_error"] = None
+        return context
+
+    SearchWebNode.execute = _stub_execute  # type: ignore[method-assign]
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=StubModelRegistry(),
+        )
+
+        try:
+            result_a = service.run(user_input="research deterministic graph")
+            result_b = service.run(user_input="research deterministic graph")
+        finally:
+            SearchWebNode.execute = original_execute  # type: ignore[method-assign]
+
+        context_a = result_a["context"]
+        context_b = result_b["context"]
+        assert context_a["workflow_execution_order"] == context_b["workflow_execution_order"]
+        assert context_a["workflow_graph"] == context_b["workflow_graph"]
 
 
 def test_controller_service_run_tool_call_write_safe_denied_by_default() -> None:

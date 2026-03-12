@@ -65,6 +65,14 @@ def _monotonic_now() -> float:
     return time.monotonic()
 
 
+def _load_settings_for_settings_routes() -> Settings:
+    try:
+        return Settings(**{"_env_file": str(_SETTINGS_ENV_PATH)})
+    except TypeError:
+        # Allows unit tests that monkeypatch Settings with no-kwargs callables.
+        return Settings()
+
+
 class TaskRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
     task_id: str | None = None
@@ -294,7 +302,7 @@ def detailed_health() -> DetailedHealthResponse:
 @app.get("/settings", response_model=SettingsResponse)
 def get_settings() -> SettingsResponse:
     try:
-        settings = Settings()
+        settings = _load_settings_for_settings_routes()
     except Exception as exc:
         raise HTTPException(status_code=500, detail="settings_unavailable") from exc
 
@@ -310,7 +318,10 @@ def get_settings() -> SettingsResponse:
         redact_pii_queries=projection["redact_pii_queries"],
         redact_pii_results=projection["redact_pii_results"],
         allow_external_search=projection["allow_external_search"],
+        allow_paid_search=projection["allow_paid_search"],
         default_search_provider=projection["default_search_provider"],
+        searxng_url=projection["searxng_url"],
+        tavily_key_configured=projection["tavily_key_configured"],
         cache_enabled=projection["cache_enabled"],
     )
 
@@ -324,7 +335,7 @@ def update_settings(request: SettingsUpdateRequest, response: Response) -> Setti
     try:
         persist_settings_updates(updates=updates, env_path=_SETTINGS_ENV_PATH)
         semantics = settings_update_restart_semantics(set(updates.keys()))
-        settings = Settings()
+        settings = _load_settings_for_settings_routes()
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Exception as exc:
@@ -364,7 +375,10 @@ def update_settings(request: SettingsUpdateRequest, response: Response) -> Setti
         redact_pii_queries=projection["redact_pii_queries"],
         redact_pii_results=projection["redact_pii_results"],
         allow_external_search=projection["allow_external_search"],
+        allow_paid_search=projection["allow_paid_search"],
         default_search_provider=projection["default_search_provider"],
+        searxng_url=projection["searxng_url"],
+        tavily_key_configured=projection["tavily_key_configured"],
         cache_enabled=projection["cache_enabled"],
     )
 

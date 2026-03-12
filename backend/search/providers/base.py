@@ -44,6 +44,8 @@ class LadderSearchResult(BaseModel):
 
 class SearchProviderBase(ABC):
     name: str
+    is_external: bool = False
+    is_paid: bool = False
 
     def build_request(self, query: str, *, top_k: int) -> ProviderRequest:
         return ProviderRequest(query=query, top_k=top_k)

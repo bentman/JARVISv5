@@ -84,3 +84,18 @@ def test_provider_empty_payload_fails_deterministically() -> None:
     assert parsed.ok is False
     assert parsed.code == "empty_results"
     assert parsed.reason == "no results"
+
+
+def test_provider_tier_metadata_classification() -> None:
+    searxng = SearXNGProvider()
+    ddg = DuckDuckGoProvider()
+    tavily = TavilyProvider()
+
+    assert searxng.is_external is False
+    assert searxng.is_paid is False
+
+    assert ddg.is_external is True
+    assert ddg.is_paid is False
+
+    assert tavily.is_external is True
+    assert tavily.is_paid is True

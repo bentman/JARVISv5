@@ -28,7 +28,10 @@ def test_settings_endpoint_returns_schema_aligned_keys(monkeypatch) -> None:
         REDACT_PII_QUERIES = True
         REDACT_PII_RESULTS = False
         ALLOW_EXTERNAL_SEARCH = False
+        ALLOW_PAID_SEARCH = False
         DEFAULT_SEARCH_PROVIDER = "duckduckgo"
+        SEARCH_SEARXNG_URL = "http://searxng:8080/search"
+        TAVILY_API_KEY = ""
         CACHE_ENABLED = False
 
     monkeypatch.setattr("backend.api.main.Settings", lambda: _DefaultSettings)
@@ -49,14 +52,20 @@ def test_settings_endpoint_returns_schema_aligned_keys(monkeypatch) -> None:
             "redact_pii_queries",
             "redact_pii_results",
             "allow_external_search",
+            "allow_paid_search",
             "default_search_provider",
+            "searxng_url",
+            "tavily_key_configured",
             "cache_enabled",
         ]
     ).issubset(body.keys())
     assert body["redact_pii_queries"] is True
     assert body["redact_pii_results"] is False
     assert body["allow_external_search"] is False
+    assert body["allow_paid_search"] is False
     assert body["default_search_provider"] == "duckduckgo"
+    assert body["searxng_url"] == "http://searxng:8080/search"
+    assert body["tavily_key_configured"] is False
     assert body["cache_enabled"] is False
 
 
@@ -68,7 +77,10 @@ def test_settings_endpoint_respects_env_overrides(monkeypatch) -> None:
     monkeypatch.setenv("REDACT_PII_QUERIES", "false")
     monkeypatch.setenv("REDACT_PII_RESULTS", "true")
     monkeypatch.setenv("ALLOW_EXTERNAL_SEARCH", "true")
+    monkeypatch.setenv("ALLOW_PAID_SEARCH", "true")
     monkeypatch.setenv("DEFAULT_SEARCH_PROVIDER", "tavily")
+    monkeypatch.setenv("SEARCH_SEARXNG_URL", "http://localhost:18080/search")
+    monkeypatch.setenv("TAVILY_API_KEY", "demo-key")
     monkeypatch.setenv("CACHE_ENABLED", "true")
 
     class _EnvSettings:
@@ -82,7 +94,10 @@ def test_settings_endpoint_respects_env_overrides(monkeypatch) -> None:
         REDACT_PII_QUERIES = os.environ["REDACT_PII_QUERIES"].strip().lower() in {"1", "true", "yes", "on"}
         REDACT_PII_RESULTS = os.environ["REDACT_PII_RESULTS"].strip().lower() in {"1", "true", "yes", "on"}
         ALLOW_EXTERNAL_SEARCH = os.environ["ALLOW_EXTERNAL_SEARCH"].strip().lower() in {"1", "true", "yes", "on"}
+        ALLOW_PAID_SEARCH = os.environ["ALLOW_PAID_SEARCH"].strip().lower() in {"1", "true", "yes", "on"}
         DEFAULT_SEARCH_PROVIDER = os.environ["DEFAULT_SEARCH_PROVIDER"]
+        SEARCH_SEARXNG_URL = os.environ["SEARCH_SEARXNG_URL"]
+        TAVILY_API_KEY = os.environ["TAVILY_API_KEY"]
         CACHE_ENABLED = os.environ["CACHE_ENABLED"].strip().lower() in {"1", "true", "yes", "on"}
 
     monkeypatch.setattr("backend.api.main.Settings", lambda: _EnvSettings)
@@ -98,7 +113,10 @@ def test_settings_endpoint_respects_env_overrides(monkeypatch) -> None:
     assert body["redact_pii_queries"] is False
     assert body["redact_pii_results"] is True
     assert body["allow_external_search"] is True
+    assert body["allow_paid_search"] is True
     assert body["default_search_provider"] == "tavily"
+    assert body["searxng_url"] == "http://localhost:18080/search"
+    assert body["tavily_key_configured"] is True
     assert body["cache_enabled"] is True
 
 
@@ -114,9 +132,39 @@ def test_settings_endpoint_invalid_debug_returns_500(monkeypatch) -> None:
     assert body.get("detail") == "settings_unavailable"
 
 
+def test_settings_get_explicit_search_projection_fields(monkeypatch) -> None:
+    class _Settings:
+        APP_NAME = "JARVISv5"
+        DEBUG = True
+        HARDWARE_PROFILE = "Medium"
+        LOG_LEVEL = "INFO"
+        MODEL_PATH = "models/"
+        DATA_PATH = "data/"
+        BACKEND_PORT = 8000
+        REDACT_PII_QUERIES = True
+        REDACT_PII_RESULTS = False
+        ALLOW_EXTERNAL_SEARCH = True
+        ALLOW_PAID_SEARCH = True
+        DEFAULT_SEARCH_PROVIDER = "tavily"
+        SEARCH_SEARXNG_URL = "http://localhost:18080/search"
+        TAVILY_API_KEY = "configured-key"
+        CACHE_ENABLED = False
+
+    monkeypatch.setattr("backend.api.main.Settings", lambda: _Settings)
+
+    response = client.get("/settings")
+    assert response.status_code == 200
+
+    body = response.json()
+    assert body["allow_paid_search"] is True
+    assert body["searxng_url"] == "http://localhost:18080/search"
+    assert body["tavily_key_configured"] is True
+
+
 def test_settings_write_endpoint_updates_projection_and_returns_restart_headers_for_hardware_profile(
     monkeypatch, tmp_path: Path
 ) -> None:
+    monkeypatch.delenv("TAVILY_API_KEY", raising=False)
     env_path = tmp_path / ".env"
     _write_env(
         env_path,
@@ -132,7 +180,10 @@ def test_settings_write_endpoint_updates_projection_and_returns_restart_headers_
                 "REDACT_PII_QUERIES=true",
                 "REDACT_PII_RESULTS=false",
                 "ALLOW_EXTERNAL_SEARCH=false",
+                "ALLOW_PAID_SEARCH=false",
                 "DEFAULT_SEARCH_PROVIDER=duckduckgo",
+                "SEARCH_SEARXNG_URL=http://searxng:8080/search",
+                "TAVILY_API_KEY=",
                 "CACHE_ENABLED=false",
             ]
         )
@@ -156,7 +207,10 @@ def test_settings_write_endpoint_updates_projection_and_returns_restart_headers_
     assert body["hardware_profile"] == "heavy"
     assert body["log_level"] == "WARNING"
     assert body["allow_external_search"] is True
+    assert body["allow_paid_search"] is False
     assert body["default_search_provider"] == "tavily"
+    assert body["searxng_url"] == "http://searxng:8080/search"
+    assert body["tavily_key_configured"] is False
     assert body["cache_enabled"] is True
 
     assert response.headers.get("X-Settings-Restart-Required") == "true"
@@ -178,6 +232,7 @@ def test_settings_write_endpoint_updates_projection_and_returns_restart_headers_
 def test_settings_write_endpoint_rejects_invalid_value_without_partial_write(
     monkeypatch, tmp_path: Path
 ) -> None:
+    monkeypatch.delenv("TAVILY_API_KEY", raising=False)
     env_path = tmp_path / ".env"
     original = "\n".join(
         [
@@ -186,7 +241,10 @@ def test_settings_write_endpoint_rejects_invalid_value_without_partial_write(
             "HARDWARE_PROFILE=medium",
             "LOG_LEVEL=INFO",
             "ALLOW_EXTERNAL_SEARCH=false",
+            "ALLOW_PAID_SEARCH=false",
             "DEFAULT_SEARCH_PROVIDER=duckduckgo",
+            "SEARCH_SEARXNG_URL=http://searxng:8080/search",
+            "TAVILY_API_KEY=",
             "CACHE_ENABLED=false",
         ]
     ) + "\n"

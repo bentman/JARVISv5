@@ -6,7 +6,7 @@ from uuid import uuid4
 from backend.memory.memory_manager import MemoryManager
 from backend.models.hardware_profiler import HardwareService
 from backend.models.model_registry import ModelRegistry
-from backend.workflow import ContextBuilderNode, LLMWorkerNode, RouterNode, ToolCallNode, ValidatorNode
+from backend.workflow import ContextBuilderNode, LLMWorkerNode, RouterNode, SearchWebNode, ToolCallNode, ValidatorNode
 from backend.workflow.dag_executor import DAGExecutor, WorkflowEdge, WorkflowGraph
 from backend.workflow.plan_compiler import build_constrained_plan, compile_plan_to_workflow_graph
 
@@ -124,6 +124,7 @@ class ControllerService:
 
         router_node = RouterNode()
         context_builder_node = ContextBuilderNode()
+        search_web_node = SearchWebNode()
         llm_worker_node = LLMWorkerNode()
         tool_call_node = ToolCallNode()
         validator_node = ValidatorNode()
@@ -131,13 +132,14 @@ class ControllerService:
         node_registry = {
             "router": router_node,
             "context_builder": context_builder_node,
+            "search_web": search_web_node,
             "tool_call": tool_call_node,
             "llm_worker": llm_worker_node,
             "validator": validator_node,
         }
         phase_to_nodes = {
             ControllerState.PLAN: {"router"},
-            ControllerState.EXECUTE: {"context_builder", "tool_call", "llm_worker"},
+            ControllerState.EXECUTE: {"context_builder", "search_web", "tool_call", "llm_worker"},
             ControllerState.VALIDATE: {"validator"},
         }
 
@@ -162,6 +164,34 @@ class ControllerService:
             if not inserted:
                 new_edges.append(WorkflowEdge("context_builder", "tool_call"))
                 new_edges.append(WorkflowEdge("tool_call", "llm_worker"))
+
+            return WorkflowGraph(
+                nodes=tuple(new_nodes),
+                edges=tuple(new_edges),
+                entry=graph.entry,
+            )
+
+        def _with_search_web_node(graph: WorkflowGraph) -> WorkflowGraph:
+            if "search_web" in graph.nodes:
+                return graph
+
+            new_nodes = list(graph.nodes)
+            if "search_web" not in new_nodes:
+                new_nodes.append("search_web")
+
+            new_edges: list[WorkflowEdge] = []
+            inserted = False
+            for edge in graph.edges:
+                if edge.from_node == "context_builder" and edge.to_node == "llm_worker":
+                    new_edges.append(WorkflowEdge("context_builder", "search_web"))
+                    new_edges.append(WorkflowEdge("search_web", "llm_worker"))
+                    inserted = True
+                else:
+                    new_edges.append(edge)
+
+            if not inserted:
+                new_edges.append(WorkflowEdge("context_builder", "search_web"))
+                new_edges.append(WorkflowEdge("search_web", "llm_worker"))
 
             return WorkflowGraph(
                 nodes=tuple(new_nodes),
@@ -240,24 +270,11 @@ class ControllerService:
                     start_offset_ns=node_start_offset_ns,
                 )
 
-                if (
-                    str(context.get("intent", "")) == "research"
-                    and not isinstance(context.get("tool_call"), dict)
-                ):
-                    context["tool_call"] = {
-                        "tool_name": "search_web",
-                        "payload": {
-                            "query": str(context.get("user_input", "")),
-                            "top_k": 5,
-                        },
-                        "external_call": True,
-                        "allow_external": True,
-                        "sandbox_roots": ["/app"],
-                    }
-
                 graph = compile_plan_to_workflow_graph(str(context.get("intent", "")))
                 if isinstance(context.get("tool_call"), dict):
                     graph = _with_tool_call_node(graph)
+                elif str(context.get("intent", "")) == "research":
+                    graph = _with_search_web_node(graph)
                 execution_order = dag_executor.resolve_execution_order(graph, node_registry)
                 context["workflow_graph"] = graph.as_dict()
                 context["workflow_execution_order"] = execution_order

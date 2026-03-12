@@ -15,6 +15,59 @@
 
 ## Entries
 
+- 2026-03-12 07:35
+  - Summary: Added a separate M14 acceptance-gap corrective test-only pass by adding additive controller integration acceptance tests for research/chat/explicit-tool-call routing and additive explicit `GET /settings` search projection assertions for `allow_paid_search`, `searxng_url`, and `tavily_key_configured`.
+  - Scope: `tests/unit/test_controller_service_integration.py`, `tests/unit/test_api_settings.py`.
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit/test_controller_service_integration.py -q`
+      - PASS excerpt: `19 passed in 3.60s`
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit/test_api_settings.py -q`
+      - PASS excerpt: `7 passed in 0.53s`
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit -q`
+      - PASS excerpt: `304 passed, 1 skipped in 39.89s`
+
+- 2026-03-12 06:58
+  - Summary: Completed T14.6 by adding additive M14 consolidation test coverage only, including explicit `SearchWebNode` policy-denied behavior assertions and explicit `code` intent graph-preservation assertions in controller integration tests.
+  - Scope: `tests/unit/test_search_web_node.py`, `tests/unit/test_controller_service_integration.py`.
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit -q`
+      - PASS excerpt: `300 passed, 1 skipped in 40.08s`
+
+- 2026-03-12 06:46
+  - Summary: Completed T14.5 by cleaning up controller research routing: removed research auto-injected `tool_call` runtime payload wiring, routed research intent through `SearchWebNode` graph insertion, and preserved explicit `tool_call` precedence plus existing chat/code paths.
+  - Scope: `backend/controller/controller_service.py`, `tests/unit/test_controller_service_integration.py`.
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit -q`
+      - PASS excerpt: `298 passed, 1 skipped in 39.51s`
+
+- 2026-03-12 06:36
+  - Summary: Completed T14.4 by adding a dedicated `SearchWebNode` with typed `Settings()` runtime controls, in-node provider ladder construction, and tier-policy-based allow/deny flow while preserving roadmap boundary (no ToolCallNode/search_tools routing).
+  - Scope: `backend/workflow/nodes/search_web_node.py`, `backend/workflow/__init__.py`, `tests/unit/test_search_web_node.py`.
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit/test_search_web_node.py tests/unit -q`
+      - PASS excerpt: `297 passed, 1 skipped in 63.28s (0:01:03)`
+
+- 2026-03-12 06:17
+  - Summary: Completed T14.3 by replacing binary external-search policy with deterministic three-path tier enforcement (`blocked` / `free` / `paid`), adding tier-aware policy request fields, and applying typed-settings fallback for paid controls while preserving existing policy call style compatibility.
+  - Scope: `backend/search/policy.py`, `tests/unit/test_search_policy.py`.
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit -q`
+      - PASS excerpt: `292 passed, 1 skipped in 50.64s`
+
+- 2026-03-12 06:01
+  - Summary: Completed T14.2 by wiring typed settings for search fields (`ALLOW_PAID_SEARCH`, `SEARCH_SEARXNG_URL`, `TAVILY_API_KEY`), adding safe `/settings` projection fields (`allow_paid_search`, `searxng_url`, `tavily_key_configured`), removing provider-local `os.getenv(...)` usage in SearXNG/Tavily providers, and syncing `.env.example`.
+  - Scope: `backend/config/settings.py`, `backend/api/main.py`, `backend/api/schemas.py`, `backend/search/providers/searxng.py`, `backend/search/providers/tavily.py`, `.env.example`, `tests/unit/test_api_settings.py`, `tests/unit/test_config.py`.
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit -q`
+      - PASS excerpt: `286 passed, 1 skipped in 47.90s`
+
+- 2026-03-12 05:34
+  - Summary: Completed T14.1 by adding additive provider tier metadata for search providers and explicit local/external + free/paid classification for SearXNG, DuckDuckGo, and Tavily, while preserving existing provider execution behavior and ladder order/fallback.
+  - Scope: `backend/search/providers/base.py`, `backend/search/providers/searxng.py`, `backend/search/providers/ddg.py`, `backend/search/providers/tavily.py`, `tests/unit/test_search_provider_contracts.py`.
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit -q`
+      - PASS excerpt: `284 passed, 1 skipped in 66.05s (0:01:06)`
+
 - 2026-03-07 08:57
   - Summary: Completed T13.4 by adding a header-accessible frontend Memory Search panel with query/results flow, source/snippet/timestamp rendering, and minimal result-to-chat reference insertion while keeping panel open/close behavior isolated from chat state.
   - Scope: `frontend/src/components/MemoryPanel.jsx`, `frontend/src/api/taskClient.js`, `frontend/src/App.jsx`.

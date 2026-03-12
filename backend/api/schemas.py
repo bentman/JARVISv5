@@ -84,7 +84,10 @@ class SettingsResponse(BaseModel):
     redact_pii_queries: bool | None = None
     redact_pii_results: bool | None = None
     allow_external_search: bool | None = None
+    allow_paid_search: bool | None = None
     default_search_provider: str | None = None
+    searxng_url: str | None = None
+    tavily_key_configured: bool | None = None
     cache_enabled: bool | None = None
 
 

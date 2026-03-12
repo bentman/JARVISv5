@@ -25,6 +25,14 @@
 
 ## Inventory
 
+- Capability: Milestone 14 — Search Provider Tiering, Typed Search Config Projection, Tier Policy Enforcement, SearchWebNode Graph Routing, and Consolidation Coverage (T14.1–T14.6)
+  - 2026-03-12 07:03
+  - State: Verified
+  - Location: `backend/search/providers/base.py`, `backend/search/providers/searxng.py`, `backend/search/providers/ddg.py`, `backend/search/providers/tavily.py`, `backend/config/settings.py`, `backend/api/main.py`, `backend/api/schemas.py`, `backend/search/policy.py`, `backend/workflow/nodes/search_web_node.py`, `backend/workflow/__init__.py`, `backend/controller/controller_service.py`, `tests/unit/test_search_provider_contracts.py`, `tests/unit/test_api_settings.py`, `tests/unit/test_config.py`, `tests/unit/test_search_policy.py`, `tests/unit/test_search_web_node.py`, `tests/unit/test_controller_service_integration.py`
+  - Validation: `.\backend\.venv\Scripts\python.exe -m pytest tests/unit -q`
+  - Notes:
+    - Backend: T14.1/T14.2/T14.3/T14.4/T14.5; Tests/Validation: T14.6.
+
 - Capability: Milestone 13 — Research Intent Routing, Memory API Completion, Validator Depth, and Memory Search Panel (T13.1–T13.4)
   - 2026-03-07 09:01
   - State: Verified
