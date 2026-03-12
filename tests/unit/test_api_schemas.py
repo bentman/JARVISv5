@@ -10,7 +10,9 @@ from backend.api.schemas import (
     WorkflowGraphEdge,
     WorkflowNodeEvent,
     WorkflowTelemetryResponse,
+    SettingsUpdateRequest,
 )
+import pytest
 
 
 def test_workflow_and_settings_schema_instantiation_and_dump() -> None:
@@ -45,6 +47,10 @@ def test_workflow_and_settings_schema_instantiation_and_dump() -> None:
         backend_port=8000,
         default_search_provider="duckduckgo",
         cache_enabled=True,
+        allow_model_escalation=True,
+        escalation_provider="openai",
+        escalation_budget_usd=2.5,
+        escalation_configured_providers=["anthropic", "openai"],
     )
 
     workflow_dump = workflow.model_dump()
@@ -59,6 +65,10 @@ def test_workflow_and_settings_schema_instantiation_and_dump() -> None:
     assert settings_dump["backend_port"] == 8000
     assert "hardware_profile" in settings_dump
     assert "cache_enabled" in settings_dump
+    assert settings_dump["allow_model_escalation"] is True
+    assert settings_dump["escalation_provider"] == "openai"
+    assert settings_dump["escalation_budget_usd"] == 2.5
+    assert settings_dump["escalation_configured_providers"] == ["anthropic", "openai"]
 
 
 def test_budget_and_detailed_health_schema_instantiation_and_dump() -> None:
@@ -87,3 +97,23 @@ def test_budget_and_detailed_health_schema_instantiation_and_dump() -> None:
     assert "hardware" in health_dump
     assert "model" in health_dump
     assert "cache" in health_dump
+
+
+def test_settings_update_request_accepts_valid_escalation_fields() -> None:
+    req = SettingsUpdateRequest(
+        allow_model_escalation=True,
+        escalation_provider=" OPENAI ",
+    )
+
+    assert req.allow_model_escalation is True
+    assert req.escalation_provider == "openai"
+
+
+def test_settings_update_request_rejects_escalation_budget_field() -> None:
+    with pytest.raises(ValueError):
+        SettingsUpdateRequest(escalation_budget_usd=3.0)
+
+
+def test_settings_update_request_rejects_invalid_escalation_provider() -> None:
+    with pytest.raises(ValueError):
+        SettingsUpdateRequest(escalation_provider="unsupported")

@@ -1,4 +1,11 @@
-from backend.config.settings import Settings
+import pytest
+
+from backend.config.settings import (
+    Settings,
+    get_safe_config_projection,
+    normalize_escalation_provider,
+    persist_settings_updates,
+)
 
 
 def test_settings_defaults_app_name() -> None:
@@ -38,3 +45,62 @@ def test_settings_search_field_overrides_from_init() -> None:
     assert settings.ALLOW_PAID_SEARCH is True
     assert settings.SEARCH_SEARXNG_URL == "http://localhost:18080/search"
     assert settings.TAVILY_API_KEY == "demo-key"
+
+
+def test_settings_escalation_field_defaults() -> None:
+    settings = Settings()
+    assert settings.ALLOW_MODEL_ESCALATION is False
+    assert settings.ESCALATION_PROVIDER == ""
+    assert settings.ESCALATION_BUDGET_USD == 0.0
+
+
+def test_settings_escalation_field_overrides_from_init() -> None:
+    settings = Settings(
+        ALLOW_MODEL_ESCALATION=True,
+        ESCALATION_PROVIDER="openai",
+        ESCALATION_BUDGET_USD=3.5,
+    )
+    assert settings.ALLOW_MODEL_ESCALATION is True
+    assert settings.ESCALATION_PROVIDER == "openai"
+    assert settings.ESCALATION_BUDGET_USD == 3.5
+
+
+def test_normalize_escalation_provider_accepts_supported_and_empty_values() -> None:
+    assert normalize_escalation_provider(" OPENAI ") == "openai"
+    assert normalize_escalation_provider("   ") == ""
+
+
+def test_normalize_escalation_provider_rejects_unsupported_value() -> None:
+    with pytest.raises(ValueError):
+        normalize_escalation_provider("unsupported")
+
+
+def test_safe_config_projection_includes_escalation_fields(monkeypatch) -> None:
+    class _Registry:
+        def get_configured_providers(self) -> list[str]:
+            return ["anthropic", "openai"]
+
+    monkeypatch.setattr("backend.config.settings.ApiKeyRegistry", lambda: _Registry())
+
+    settings = Settings(
+        ALLOW_MODEL_ESCALATION=True,
+        ESCALATION_PROVIDER="openai",
+        ESCALATION_BUDGET_USD=4.25,
+    )
+    projection = get_safe_config_projection(settings)
+
+    assert projection["allow_model_escalation"] is True
+    assert projection["escalation_provider"] == "openai"
+    assert projection["escalation_budget_usd"] == 4.25
+    assert projection["escalation_configured_providers"] == ["anthropic", "openai"]
+
+
+def test_persist_settings_updates_rejects_escalation_budget_write(tmp_path) -> None:
+    env_path = tmp_path / ".env"
+    env_path.write_text("ESCALATION_BUDGET_USD=0.0\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="unsupported editable setting: escalation_budget_usd"):
+        persist_settings_updates(
+            updates={"escalation_budget_usd": 3.0},
+            env_path=env_path,
+        )

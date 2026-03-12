@@ -3,14 +3,26 @@ import time
 from typing import Any
 from uuid import uuid4
 
+from backend.config.api_keys import ApiKeyRegistry
+from backend.config.settings import Settings
 from backend.memory.memory_manager import MemoryManager
+from backend.models.escalation_policy import (
+    EscalationPolicyRequest,
+    EscalationProviderBase,
+    EscalationTrigger,
+    decide_escalation,
+)
 from backend.models.hardware_profiler import HardwareService
 from backend.models.model_registry import ModelRegistry
+from backend.security.redactor import create_default_redactor
 from backend.workflow import ContextBuilderNode, LLMWorkerNode, RouterNode, SearchWebNode, ToolCallNode, ValidatorNode
 from backend.workflow.dag_executor import DAGExecutor, WorkflowEdge, WorkflowGraph
 from backend.workflow.plan_compiler import build_constrained_plan, compile_plan_to_workflow_graph
 
 from .fsm import ControllerState, DeterministicFSM
+
+
+_ESCALATION_PROVIDER_REGISTRY: dict[str, EscalationProviderBase] = {}
 
 
 class ControllerService:
@@ -121,6 +133,7 @@ class ControllerService:
         if tool_call is not None:
             context["tool_call"] = tool_call
         task_started_ns = time.perf_counter_ns()
+        settings = Settings()
 
         router_node = RouterNode()
         context_builder_node = ContextBuilderNode()
@@ -200,13 +213,83 @@ class ControllerService:
             )
 
         def _no_model_fallback_message(profile: str, hardware_type: str, role: str) -> str:
+            model_dir = str(settings.MODEL_PATH).strip()
+            model_dir = model_dir.rstrip("/\\") if model_dir else ""
+            model_dir_display = f"{model_dir}/" if model_dir else ""
+            example_model_path = f"{model_dir_display}test-mini.gguf" if model_dir_display else "test-mini.gguf"
             return (
-                "Local model missing. Please drop a GGUF into models/ and update the catalog. "
+                f"Local model missing. Please drop a GGUF into {model_dir_display or 'the configured model directory'} and update the catalog. "
                 "\n" 
                 f"Catalog: models/models.yaml\n" 
                 f"Requested role={role}, profile={profile}, hardware={hardware_type}\n" 
-                "Expected example path: models/test-mini.gguf"
+                f"Expected example path: {example_model_path}"
             )
+
+        def _handle_local_model_unavailable(
+            *,
+            trigger: EscalationTrigger,
+            profile: str,
+            hardware_type: str,
+            role: str,
+        ) -> None:
+            fallback_message = _no_model_fallback_message(profile, hardware_type, role)
+            provider = str(settings.ESCALATION_PROVIDER).strip().lower()
+            api_key_value = ApiKeyRegistry().get_api_key(provider)
+            provider_key_present = bool(str(api_key_value).strip())
+
+            policy_request = EscalationPolicyRequest(
+                trigger=trigger,
+                allow_escalation=bool(settings.ALLOW_MODEL_ESCALATION),
+                provider=provider,
+                budget_usd=float(settings.ESCALATION_BUDGET_USD),
+                estimated_cost_usd=0.0,
+            )
+            allow_escalation, decision = decide_escalation(policy_request)
+            context["escalation_decision"] = decision
+            context["escalation_code"] = str(decision.get("code", ""))
+            context["escalation_reason"] = str(decision.get("reason", ""))
+            context["escalation_provider_key_present"] = provider_key_present
+
+            if not allow_escalation:
+                context["escalation_status"] = "denied"
+                context["llm_output"] = fallback_message
+                context["llm_error"] = "local_model_missing"
+                context["skip_llm"] = True
+                return
+
+            redactor = create_default_redactor()
+            redaction_result = redactor.redact(str(context.get("user_input", "")), mode="strict")
+            redacted_prompt = str(redaction_result.redacted)
+            context["escalation_redaction_applied"] = True
+
+            provider_impl = _ESCALATION_PROVIDER_REGISTRY.get(provider)
+            if provider_impl is None:
+                context["escalation_status"] = "failed"
+                context["escalation_error"] = "escalation_provider_not_registered"
+                context["llm_output"] = fallback_message
+                context["llm_error"] = "local_model_missing"
+                context["skip_llm"] = True
+                return
+
+            max_tokens = len(redacted_prompt)
+            ok, provider_output, provider_error = provider_impl.execute(
+                prompt=redacted_prompt,
+                max_tokens=max_tokens,
+                seed=self.generation_seed,
+            )
+
+            if ok:
+                context["escalation_status"] = "escalated"
+                context["llm_output"] = str(provider_output)
+                context["skip_llm"] = False
+                context.pop("llm_error", None)
+                return
+
+            context["escalation_status"] = "failed"
+            context["escalation_error"] = str(provider_error or "escalation_provider_execution_failed")
+            context["llm_output"] = fallback_message
+            context["llm_error"] = "local_model_missing"
+            context["skip_llm"] = True
 
         try:
             if continuation:
@@ -296,18 +379,26 @@ class ControllerService:
                 if selected_model is None:
                     context["selected_model"] = None
                     context["llm_model_path"] = ""
-                    context["llm_output"] = _no_model_fallback_message(profile, hardware_type, role)
-                    context["llm_error"] = "local_model_missing"
-                    context["skip_llm"] = True
+                    _handle_local_model_unavailable(
+                        trigger=EscalationTrigger.LOCAL_MODEL_MISSING,
+                        profile=profile,
+                        hardware_type=hardware_type,
+                        role=role,
+                    )
                 else:
                     context["selected_model"] = selected_model
                     try:
                         model_path = self.registry.ensure_model_present(selected_model)
                         context["llm_model_path"] = model_path
+                        context["escalation_status"] = "not_attempted"
                     except RuntimeError:
-                        context["llm_output"] = _no_model_fallback_message(profile, hardware_type, role)
-                        context["llm_error"] = "local_model_missing"
-                        context["skip_llm"] = True
+                        context["llm_model_path"] = ""
+                        _handle_local_model_unavailable(
+                            trigger=EscalationTrigger.LOCAL_MODEL_PATH_ERROR,
+                            profile=profile,
+                            hardware_type=hardware_type,
+                            role=role,
+                        )
 
                 constrained_plan = build_constrained_plan(user_input)
                 plan_mode = str(constrained_plan.get("mode", "linear"))
@@ -357,7 +448,10 @@ class ControllerService:
                     for node_id in execution_order:
                         if node_id not in phase_to_nodes[ControllerState.EXECUTE]:
                             continue
-                        if node_id == "llm_worker" and bool(context.get("skip_llm", False)):
+                        if node_id == "llm_worker" and (
+                            bool(context.get("skip_llm", False))
+                            or str(context.get("escalation_status", "")) == "escalated"
+                        ):
                             continue
                         node_type = node_registry[node_id].__class__.__name__
                         node_started_ns = time.perf_counter_ns()

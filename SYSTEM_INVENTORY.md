@@ -25,6 +25,14 @@
 
 ## Inventory
 
+- Capability: Milestone 15 — Model Escalation Config/Policy/Controller/API/UI Surface and Acceptance Coverage (T15.1–T15.7)
+  - 2026-03-12 13:47
+  - State: Verified
+  - Location: `.env`, `.env.example`, `backend/config/api_keys.py`, `backend/config/settings.py`, `backend/models/escalation_policy.py`, `backend/models/__init__.py`, `backend/controller/controller_service.py`, `backend/api/main.py`, `backend/api/schemas.py`, `frontend/src/components/SettingsPanel.jsx`, `tests/unit/test_api_keys.py`, `tests/unit/test_escalation_policy.py`, `tests/unit/test_controller_service_integration.py`, `tests/unit/test_api_settings.py`
+  - Validation: `.\backend\.venv\Scripts\python.exe -m pytest tests/unit -q`; `npm --prefix frontend run build`
+  - Notes:
+    - Environment/Config: T15.1/T15.3; Backend: T15.2/T15.4/T15.5 (including corrective escalation settings API contract alignment); Frontend: T15.6 (including first-load dirty-state correction); Tests/Validation: T15.7.
+
 - Capability: Milestone 14 — Search Provider Tiering, Typed Search Config Projection, Tier Policy Enforcement, SearchWebNode Graph Routing, and Consolidation Coverage (T14.1–T14.6)
   - 2026-03-12 07:03
   - State: Verified

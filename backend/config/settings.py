@@ -6,6 +6,8 @@ from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic_settings.sources import PydanticBaseSettingsSource
 
+from backend.config.api_keys import ApiKeyRegistry, SUPPORTED_PROVIDERS
+
 
 class Settings(BaseSettings):
     APP_NAME: str = "JARVISv5"
@@ -24,6 +26,9 @@ class Settings(BaseSettings):
     TAVILY_API_KEY: str = ""
     CACHE_ENABLED: bool = False
     REDIS_URL: str = "redis://localhost:6379/0"
+    ALLOW_MODEL_ESCALATION: bool = False
+    ESCALATION_PROVIDER: str = ""
+    ESCALATION_BUDGET_USD: float = 0.0
     DAILY_BUDGET_USD: float = 0.0
     MONTHLY_BUDGET_USD: float = 0.0
     GENERATION_SEED: int | None = None
@@ -90,9 +95,14 @@ class SafeConfigProjection(TypedDict):
     searxng_url: str
     tavily_key_configured: bool
     cache_enabled: bool
+    allow_model_escalation: bool
+    escalation_provider: str
+    escalation_budget_usd: float
+    escalation_configured_providers: list[str]
 
 
 def get_safe_config_projection(settings: Settings) -> SafeConfigProjection:
+    api_keys = ApiKeyRegistry()
     return {
         "app_name": settings.APP_NAME,
         "debug": settings.DEBUG,
@@ -109,6 +119,10 @@ def get_safe_config_projection(settings: Settings) -> SafeConfigProjection:
         "searxng_url": settings.SEARCH_SEARXNG_URL,
         "tavily_key_configured": bool(str(settings.TAVILY_API_KEY).strip()),
         "cache_enabled": settings.CACHE_ENABLED,
+        "allow_model_escalation": settings.ALLOW_MODEL_ESCALATION,
+        "escalation_provider": normalize_escalation_provider(settings.ESCALATION_PROVIDER),
+        "escalation_budget_usd": float(settings.ESCALATION_BUDGET_USD),
+        "escalation_configured_providers": api_keys.get_configured_providers(),
     }
 
 
@@ -118,6 +132,8 @@ EDITABLE_SETTINGS_ENV_KEYS: dict[str, str] = {
     "allow_external_search": "ALLOW_EXTERNAL_SEARCH",
     "default_search_provider": "DEFAULT_SEARCH_PROVIDER",
     "cache_enabled": "CACHE_ENABLED",
+    "allow_model_escalation": "ALLOW_MODEL_ESCALATION",
+    "escalation_provider": "ESCALATION_PROVIDER",
 }
 
 ALLOWED_HARDWARE_PROFILES = {"light", "medium", "heavy", "test", "npu-optimized"}
@@ -149,6 +165,16 @@ def normalize_default_search_provider(value: str) -> str:
     return normalized
 
 
+def normalize_escalation_provider(value: str) -> str:
+    normalized = str(value).strip().lower()
+    if normalized == "":
+        return ""
+    if normalized not in SUPPORTED_PROVIDERS:
+        allowed = ", ".join(sorted(SUPPORTED_PROVIDERS))
+        raise ValueError(f"escalation_provider must be one of: {allowed}")
+    return normalized
+
+
 def serialize_editable_setting_value(field_name: str, value: object) -> str:
     if field_name not in EDITABLE_SETTINGS_ENV_KEYS:
         raise ValueError(f"unsupported editable setting: {field_name}")
@@ -159,7 +185,9 @@ def serialize_editable_setting_value(field_name: str, value: object) -> str:
         return normalize_log_level(str(value))
     if field_name == "default_search_provider":
         return normalize_default_search_provider(str(value))
-    if field_name in {"allow_external_search", "cache_enabled"}:
+    if field_name == "escalation_provider":
+        return normalize_escalation_provider(str(value))
+    if field_name in {"allow_external_search", "cache_enabled", "allow_model_escalation"}:
         return "true" if bool(value) else "false"
 
     raise ValueError(f"unsupported editable setting: {field_name}")

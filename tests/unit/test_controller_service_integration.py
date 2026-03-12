@@ -4,10 +4,12 @@ import tempfile
 from pathlib import Path
 
 import backend.security.audit_logger as audit_logger_module
+import backend.controller.controller_service as controller_service_module
 from backend.controller.controller_service import ControllerService
 from backend.security.audit_logger import SecurityAuditLogger
 from backend.workflow.dag_executor import DAGExecutor
 from backend.memory.memory_manager import MemoryManager
+from backend.models.escalation_policy import EscalationProviderBase
 from backend.models.hardware_profiler import HardwareService, HardwareType
 from backend.models.model_registry import ModelRegistry
 
@@ -45,6 +47,45 @@ class StubModelRegistry(ModelRegistry):
         return None
 
 
+class PresentModelRegistry(StubModelRegistry):
+    def select_model(self, profile: str, hardware: str, role: str) -> dict | None:
+        _ = profile
+        _ = hardware
+        _ = role
+        return {"id": "local-model", "path": "models/local.gguf"}
+
+    def ensure_model_present(self, model: dict) -> str:
+        _ = model
+        return "models/local.gguf"
+
+
+class MissingModelPathRegistry(StubModelRegistry):
+    def select_model(self, profile: str, hardware: str, role: str) -> dict | None:
+        _ = profile
+        _ = hardware
+        _ = role
+        return {"id": "local-model", "path": "models/missing.gguf"}
+
+    def ensure_model_present(self, model: dict) -> str:
+        _ = model
+        raise RuntimeError("missing local model file")
+
+
+class StubEscalationProvider(EscalationProviderBase):
+    def __init__(self, *, ok: bool, output: str, error: str = "") -> None:
+        self.name = "stub"
+        self.ok = ok
+        self.output = output
+        self.error = error
+        self.last_prompt = ""
+
+    def execute(self, prompt: str, max_tokens: int, seed: int | None) -> tuple[bool, str, str]:
+        _ = max_tokens
+        _ = seed
+        self.last_prompt = prompt
+        return self.ok, self.output, self.error
+
+
 def test_controller_service_run_executes_nodes_and_handles_llm_gracefully() -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
         service = ControllerService(
@@ -66,6 +107,194 @@ def test_controller_service_run_executes_nodes_and_handles_llm_gracefully() -> N
         assert "llm_output" in context
         assert isinstance(context["llm_output"], str)
         assert "Local model missing" in context["llm_output"]
+
+
+def test_controller_local_model_found_sets_escalation_not_attempted(monkeypatch) -> None:
+    class _Settings:
+        MODEL_PATH = "models/"
+        ALLOW_MODEL_ESCALATION = True
+        ESCALATION_PROVIDER = "stub"
+        ESCALATION_BUDGET_USD = 5.0
+
+    monkeypatch.setattr(controller_service_module, "Settings", lambda: _Settings)
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=PresentModelRegistry(),
+        )
+
+        result = service.run(user_input="hello")
+        context = result["context"]
+
+        assert context.get("escalation_status") == "not_attempted"
+        assert context.get("llm_model_path") == "models/local.gguf"
+
+
+def test_controller_escalation_denied_preserves_fallback(monkeypatch) -> None:
+    class _Settings:
+        MODEL_PATH = "models/"
+        ALLOW_MODEL_ESCALATION = False
+        ESCALATION_PROVIDER = "openai"
+        ESCALATION_BUDGET_USD = 10.0
+
+    monkeypatch.setattr(controller_service_module, "Settings", lambda: _Settings)
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=StubModelRegistry(),
+        )
+
+        result = service.run(user_input="code help")
+        context = result["context"]
+
+        assert context.get("escalation_status") == "denied"
+        assert context.get("escalation_code") == "permission_denied"
+        assert isinstance(context.get("escalation_reason"), str)
+        assert context.get("skip_llm") is True
+        assert "Local model missing" in str(context.get("llm_output", ""))
+
+
+def test_controller_escalation_denied_when_provider_empty(monkeypatch) -> None:
+    class _Settings:
+        MODEL_PATH = "models/"
+        ALLOW_MODEL_ESCALATION = True
+        ESCALATION_PROVIDER = ""
+        ESCALATION_BUDGET_USD = 10.0
+
+    monkeypatch.setattr(controller_service_module, "Settings", lambda: _Settings)
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=StubModelRegistry(),
+        )
+
+        result = service.run(user_input="code help")
+        context = result["context"]
+
+        assert context.get("escalation_status") == "denied"
+        assert context.get("escalation_code") == "provider_not_configured"
+        assert isinstance(context.get("escalation_reason"), str)
+        assert context.get("skip_llm") is True
+        assert "Local model missing" in str(context.get("llm_output", ""))
+
+
+def test_controller_escalation_denied_when_provider_key_missing(monkeypatch) -> None:
+    class _Settings:
+        MODEL_PATH = "models/"
+        ALLOW_MODEL_ESCALATION = True
+        ESCALATION_PROVIDER = "openai"
+        ESCALATION_BUDGET_USD = 10.0
+
+    monkeypatch.setattr(controller_service_module, "Settings", lambda: _Settings)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=StubModelRegistry(),
+        )
+
+        result = service.run(user_input="code help")
+        context = result["context"]
+
+        assert context.get("escalation_status") == "denied"
+        assert context.get("escalation_code") == "provider_key_missing"
+        assert isinstance(context.get("escalation_reason"), str)
+        assert context.get("skip_llm") is True
+        assert "Local model missing" in str(context.get("llm_output", ""))
+
+
+def test_controller_escalation_denied_when_budget_zero(monkeypatch) -> None:
+    class _Settings:
+        MODEL_PATH = "models/"
+        ALLOW_MODEL_ESCALATION = True
+        ESCALATION_PROVIDER = "openai"
+        ESCALATION_BUDGET_USD = 0.0
+
+    monkeypatch.setattr(controller_service_module, "Settings", lambda: _Settings)
+    monkeypatch.setenv("OPENAI_API_KEY", "test-openai-key")
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=StubModelRegistry(),
+        )
+
+        result = service.run(user_input="code help")
+        context = result["context"]
+
+        assert context.get("escalation_status") == "denied"
+        assert context.get("escalation_code") == "budget_not_allocated"
+        assert isinstance(context.get("escalation_reason"), str)
+        assert context.get("skip_llm") is True
+        assert "Local model missing" in str(context.get("llm_output", ""))
+
+
+def test_controller_escalation_allowed_uses_registry_provider_and_redacts_prompt(monkeypatch) -> None:
+    class _Settings:
+        MODEL_PATH = "models/"
+        ALLOW_MODEL_ESCALATION = True
+        ESCALATION_PROVIDER = "openai"
+        ESCALATION_BUDGET_USD = 10.0
+
+    monkeypatch.setattr(controller_service_module, "Settings", lambda: _Settings)
+    monkeypatch.setenv("OPENAI_API_KEY", "test-openai-key")
+
+    provider = StubEscalationProvider(ok=True, output="escalated-response")
+    monkeypatch.setitem(controller_service_module._ESCALATION_PROVIDER_REGISTRY, "openai", provider)
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=StubModelRegistry(),
+        )
+
+        result = service.run(user_input="contact me at test@example.com")
+        context = result["context"]
+
+        assert context.get("escalation_status") == "escalated"
+        assert context.get("escalation_redaction_applied") is True
+        assert context.get("llm_output") == "escalated-response"
+        assert context.get("skip_llm") is False
+        assert "test@example.com" not in provider.last_prompt
+        assert "[EMAIL_REDACTED]" in provider.last_prompt
+
+
+def test_controller_escalation_allowed_provider_failure_sets_failed(monkeypatch) -> None:
+    class _Settings:
+        MODEL_PATH = "models/"
+        ALLOW_MODEL_ESCALATION = True
+        ESCALATION_PROVIDER = "openai"
+        ESCALATION_BUDGET_USD = 10.0
+
+    monkeypatch.setattr(controller_service_module, "Settings", lambda: _Settings)
+    monkeypatch.setenv("OPENAI_API_KEY", "test-openai-key")
+
+    provider = StubEscalationProvider(ok=False, output="", error="provider failure")
+    monkeypatch.setitem(controller_service_module._ESCALATION_PROVIDER_REGISTRY, "openai", provider)
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=MissingModelPathRegistry(),
+        )
+
+        result = service.run(user_input="trigger missing path")
+        context = result["context"]
+
+        assert context.get("escalation_status") == "failed"
+        assert context.get("escalation_error") == "provider failure"
+        assert "Local model missing" in str(context.get("llm_output", ""))
 
 
 def test_controller_service_run_uses_dag_executor_path(monkeypatch) -> None:

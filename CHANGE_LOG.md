@@ -15,6 +15,96 @@
 
 ## Entries
 
+- 2026-03-12 13:35
+  - Summary: Completed T15.7 with additive test-only M15 acceptance coverage by adding controller escalation deny-path tests (empty provider, provider key missing, zero budget) and explicit `/settings` API-key non-leakage assertions.
+  - Scope: `tests/unit/test_controller_service_integration.py`, `tests/unit/test_api_settings.py`.
+  - Notes:
+    - Test-only scope; no production file changes.
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit/test_controller_service_integration.py tests/unit/test_api_settings.py -q`
+      - PASS excerpt: `36 passed in 4.83s`
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit -q`
+      - PASS excerpt: `337 passed, 1 skipped in 42.27s`
+
+- 2026-03-12 13:18
+  - Summary: Added a separate corrective frontend entry to fix the SettingsPanel first-load dirty-state root cause so the editable settings section initializes/rendered normally instead of entering a budget-only panel state.
+  - Scope: `frontend/src/components/SettingsPanel.jsx`.
+  - Notes:
+    - Corrected null/null equality semantics for both editable settings and budget draft comparisons, preserving existing save/cancel, dirty-state, restart-notice, escalation controls, and no backend changes.
+  - Evidence:
+    - `npm --prefix frontend run build`
+      - PASS excerpt: `vite v5.4.21 building for production...`
+      - PASS excerpt: `✓ 199 modules transformed.`
+      - PASS excerpt: `✓ built in 678ms`
+
+- 2026-03-12 12:26
+  - Summary: Completed T15.6 by adding escalation controls to `SettingsPanel.jsx`, sourcing escalation provider dropdown options from backend `escalation_configured_providers`, handling empty configured-provider state with disabled dropdown + helper text while preserving current draft value, and showing `escalation_budget_usd` as read-only.
+  - Scope: `frontend/src/components/SettingsPanel.jsx`.
+  - Notes:
+    - `frontend/src/api/taskClient.js` remained unchanged for this task.
+  - Evidence:
+    - `npm --prefix frontend run build`
+      - PASS excerpt: `✓ 199 modules transformed.`
+      - PASS excerpt: `✓ built in 984ms`
+
+- 2026-03-12 12:13
+  - Summary: Added a separate corrective backend escalation-settings contract pass that aligns roadmap behavior before frontend T15.6 work: safe `/settings` projection now includes `escalation_configured_providers`, `ESCALATION_BUDGET_USD` remains visible in `GET /settings` but is read-only via API, and `POST /settings` escalation writes are limited to `allow_model_escalation` and `escalation_provider`.
+  - Scope: `backend/config/settings.py`, `backend/api/schemas.py`, `backend/api/main.py`, `tests/unit/test_config.py`, `tests/unit/test_api_schemas.py`, `tests/unit/test_api_settings.py`.
+  - Notes:
+    - This corrective contract pass unblocked T15.6 frontend provider-selection implementation.
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit/test_config.py tests/unit/test_api_schemas.py tests/unit/test_api_settings.py -q`
+      - PASS excerpt: `26 passed in 0.64s`
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit -q`
+      - PASS excerpt: `333 passed, 1 skipped in 41.04s`
+
+- 2026-03-12 11:27
+  - Summary: Completed T15.5 by finishing the live `/settings` API escalation-field response surface so `GET /settings` and `POST /settings` return projection-backed `allow_model_escalation`, `escalation_provider`, and `escalation_budget_usd`, with focused settings API assertion updates and no schema/settings-model expansion in this task.
+  - Scope: `backend/api/main.py`, `tests/unit/test_api_settings.py`.
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit/test_api_settings.py -q`
+      - PASS excerpt: `8 passed in 0.55s`
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit -q`
+      - PASS excerpt: `330 passed, 1 skipped in 42.42s`
+
+- 2026-03-12 10:27
+  - Summary: Completed T15.4 by integrating controller escalation handling at local-model failure points with policy/settings decisioning, API-key-registry key-presence derivation, controller-local escalation provider registry dispatch, strict outbound prompt redaction before escalated provider execution, and additive escalation status/code/reason/error context fields while preserving non-escalation behavior outside local-model-failure paths.
+  - Scope: `backend/controller/controller_service.py`, `tests/unit/test_controller_service_integration.py`.
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit/test_controller_service_integration.py -q`
+      - PASS excerpt: `23 passed in 4.21s`
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit -q`
+      - PASS excerpt: `330 passed, 1 skipped in 42.58s`
+
+- 2026-03-12 10:13
+  - Summary: Completed T15.3 by adding escalation typed settings, escalation provider normalization/validation aligned to provider registry, escalation safe-projection/editable-settings wiring, escalation schema support for settings read/write, and `.env`/`.env.example` parity with focused config/schema/settings test coverage.
+  - Scope: `backend/config/settings.py`, `backend/api/schemas.py`, `.env`, `.env.example`, `tests/unit/test_config.py`, `tests/unit/test_api_schemas.py`, `tests/unit/test_api_settings.py`.
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit/test_config.py tests/unit/test_api_schemas.py tests/unit/test_api_settings.py -q`
+      - PASS excerpt: `23 passed in 0.59s`
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit -q`
+      - PASS excerpt: `326 passed, 1 skipped in 43.49s`
+
+- 2026-03-12 09:59
+  - Summary: Completed T15.2 by introducing the escalation policy module/public contract, centralizing escalation decision codes/paths/reasons, wiring configured-provider awareness through `ApiKeyRegistry`, and adding deterministic stub escalation provider plus focused escalation-policy tests.
+  - Scope: `backend/models/escalation_policy.py`, `backend/models/__init__.py`, `tests/unit/test_escalation_policy.py`.
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit/test_escalation_policy.py -q`
+      - PASS excerpt: `9 passed in 0.12s`
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit -q`
+      - PASS excerpt: `318 passed, 1 skipped in 42.42s`
+
+- 2026-03-12 09:41
+  - Summary: Completed T15.1 by adding `.env`/`.env.example` parity for cloud-model provider API keys, introducing a centralized read-only API key registry with canonical supported-provider set, and adding focused API-key unit coverage with full unit regression validation.
+  - Scope: `.env`, `.env.example`, `backend/config/api_keys.py`, `tests/unit/test_api_keys.py`.
+  - Notes:
+    - Preserved existing `TAVILY_API_KEY` entry and value in `.env` unchanged.
+  - Evidence:
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit/test_api_keys.py -q`
+      - PASS excerpt: `5 passed in 0.04s`
+    - `.\backend\.venv\Scripts\python.exe -m pytest tests/unit -q`
+      - PASS excerpt: `309 passed, 1 skipped in 60.89s (0:01:00)`
+
 - 2026-03-12 07:35
   - Summary: Added a separate M14 acceptance-gap corrective test-only pass by adding additive controller integration acceptance tests for research/chat/explicit-tool-call routing and additive explicit `GET /settings` search projection assertions for `allow_paid_search`, `searxng_url`, and `tavily_key_configured`.
   - Scope: `tests/unit/test_controller_service_integration.py`, `tests/unit/test_api_settings.py`.
@@ -142,7 +232,7 @@
     - Preserved existing linear execution path when planning trigger conditions are not met.
     - Added focused unit/integration coverage for planner trigger/order/cap and planned aggregation + linear fallback behavior.
   - Evidence:
-    - `e:\WORK\CODE\GitHub\bentman\Repositories\JARVISv5\backend\.venv\Scripts\python -m pytest tests/unit/test_plan_compiler.py tests/unit/test_controller_service_integration.py -q`
+    - `.\backend\.venv\Scripts\python -m pytest tests/unit/test_plan_compiler.py tests/unit/test_controller_service_integration.py -q`
       - PASS excerpt: `14 passed in 2.33s`
 
 - 2026-03-06 08:38
@@ -156,7 +246,7 @@
     - Added frontend composer file picker and upload submit path while preserving existing JSON/streaming submit behavior when no file is selected.
     - Added focused backend upload tests for txt/md success, unsupported extension rejection, and JSON backward compatibility.
   - Evidence:
-    - `e:\WORK\CODE\GitHub\bentman\Repositories\JARVISv5\backend\.venv\Scripts\python -m pytest tests/unit/test_api_file_upload.py -q`
+    - `.\backend\.venv\Scripts\python -m pytest tests/unit/test_api_file_upload.py -q`
       - PASS excerpt: `4 passed in 27.45s`
 
 - 2026-03-06 08:12

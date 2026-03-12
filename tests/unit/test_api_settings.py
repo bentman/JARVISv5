@@ -33,6 +33,9 @@ def test_settings_endpoint_returns_schema_aligned_keys(monkeypatch) -> None:
         SEARCH_SEARXNG_URL = "http://searxng:8080/search"
         TAVILY_API_KEY = ""
         CACHE_ENABLED = False
+        ALLOW_MODEL_ESCALATION = False
+        ESCALATION_PROVIDER = ""
+        ESCALATION_BUDGET_USD = 0.0
 
     monkeypatch.setattr("backend.api.main.Settings", lambda: _DefaultSettings)
 
@@ -57,6 +60,10 @@ def test_settings_endpoint_returns_schema_aligned_keys(monkeypatch) -> None:
             "searxng_url",
             "tavily_key_configured",
             "cache_enabled",
+            "allow_model_escalation",
+            "escalation_provider",
+            "escalation_budget_usd",
+            "escalation_configured_providers",
         ]
     ).issubset(body.keys())
     assert body["redact_pii_queries"] is True
@@ -67,6 +74,10 @@ def test_settings_endpoint_returns_schema_aligned_keys(monkeypatch) -> None:
     assert body["searxng_url"] == "http://searxng:8080/search"
     assert body["tavily_key_configured"] is False
     assert body["cache_enabled"] is False
+    assert body["allow_model_escalation"] is False
+    assert body["escalation_provider"] == ""
+    assert body["escalation_budget_usd"] == 0.0
+    assert isinstance(body["escalation_configured_providers"], list)
 
 
 def test_settings_endpoint_respects_env_overrides(monkeypatch) -> None:
@@ -82,6 +93,9 @@ def test_settings_endpoint_respects_env_overrides(monkeypatch) -> None:
     monkeypatch.setenv("SEARCH_SEARXNG_URL", "http://localhost:18080/search")
     monkeypatch.setenv("TAVILY_API_KEY", "demo-key")
     monkeypatch.setenv("CACHE_ENABLED", "true")
+    monkeypatch.setenv("ALLOW_MODEL_ESCALATION", "true")
+    monkeypatch.setenv("ESCALATION_PROVIDER", "openai")
+    monkeypatch.setenv("ESCALATION_BUDGET_USD", "3.25")
 
     class _EnvSettings:
         APP_NAME = os.environ["APP_NAME"]
@@ -99,6 +113,9 @@ def test_settings_endpoint_respects_env_overrides(monkeypatch) -> None:
         SEARCH_SEARXNG_URL = os.environ["SEARCH_SEARXNG_URL"]
         TAVILY_API_KEY = os.environ["TAVILY_API_KEY"]
         CACHE_ENABLED = os.environ["CACHE_ENABLED"].strip().lower() in {"1", "true", "yes", "on"}
+        ALLOW_MODEL_ESCALATION = os.environ["ALLOW_MODEL_ESCALATION"].strip().lower() in {"1", "true", "yes", "on"}
+        ESCALATION_PROVIDER = os.environ["ESCALATION_PROVIDER"]
+        ESCALATION_BUDGET_USD = float(os.environ["ESCALATION_BUDGET_USD"])
 
     monkeypatch.setattr("backend.api.main.Settings", lambda: _EnvSettings)
 
@@ -118,6 +135,10 @@ def test_settings_endpoint_respects_env_overrides(monkeypatch) -> None:
     assert body["searxng_url"] == "http://localhost:18080/search"
     assert body["tavily_key_configured"] is True
     assert body["cache_enabled"] is True
+    assert body["allow_model_escalation"] is True
+    assert body["escalation_provider"] == "openai"
+    assert body["escalation_budget_usd"] == 3.25
+    assert isinstance(body["escalation_configured_providers"], list)
 
 
 def test_settings_endpoint_invalid_debug_returns_500(monkeypatch) -> None:
@@ -149,6 +170,9 @@ def test_settings_get_explicit_search_projection_fields(monkeypatch) -> None:
         SEARCH_SEARXNG_URL = "http://localhost:18080/search"
         TAVILY_API_KEY = "configured-key"
         CACHE_ENABLED = False
+        ALLOW_MODEL_ESCALATION = True
+        ESCALATION_PROVIDER = "anthropic"
+        ESCALATION_BUDGET_USD = 7.0
 
     monkeypatch.setattr("backend.api.main.Settings", lambda: _Settings)
 
@@ -159,6 +183,55 @@ def test_settings_get_explicit_search_projection_fields(monkeypatch) -> None:
     assert body["allow_paid_search"] is True
     assert body["searxng_url"] == "http://localhost:18080/search"
     assert body["tavily_key_configured"] is True
+    assert body["allow_model_escalation"] is True
+    assert body["escalation_provider"] == "anthropic"
+    assert body["escalation_budget_usd"] == 7.0
+    assert isinstance(body["escalation_configured_providers"], list)
+
+
+def test_settings_get_does_not_expose_raw_api_key_fields_or_values(monkeypatch) -> None:
+    class _Settings:
+        APP_NAME = "JARVISv5"
+        DEBUG = True
+        HARDWARE_PROFILE = "Medium"
+        LOG_LEVEL = "INFO"
+        MODEL_PATH = "models/"
+        DATA_PATH = "data/"
+        BACKEND_PORT = 8000
+        REDACT_PII_QUERIES = True
+        REDACT_PII_RESULTS = False
+        ALLOW_EXTERNAL_SEARCH = True
+        ALLOW_PAID_SEARCH = True
+        DEFAULT_SEARCH_PROVIDER = "tavily"
+        SEARCH_SEARXNG_URL = "http://localhost:18080/search"
+        TAVILY_API_KEY = "tavily-secret"
+        CACHE_ENABLED = False
+        ALLOW_MODEL_ESCALATION = True
+        ESCALATION_PROVIDER = "openai"
+        ESCALATION_BUDGET_USD = 7.0
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "anthropic-secret")
+    monkeypatch.setenv("GEMINI_API_KEY", "gemini-secret")
+    monkeypatch.setenv("GROK_API_KEY", "grok-secret")
+    monkeypatch.setenv("OPENAI_API_KEY", "openai-secret")
+    monkeypatch.setattr("backend.api.main.Settings", lambda: _Settings)
+
+    response = client.get("/settings")
+    assert response.status_code == 200
+
+    body = response.json()
+    response_text = response.text
+
+    assert "anthropic_api_key" not in body
+    assert "gemini_api_key" not in body
+    assert "grok_api_key" not in body
+    assert "openai_api_key" not in body
+
+    assert "anthropic-secret" not in response_text
+    assert "gemini-secret" not in response_text
+    assert "grok-secret" not in response_text
+    assert "openai-secret" not in response_text
+    assert "tavily-secret" not in response_text
 
 
 def test_settings_write_endpoint_updates_projection_and_returns_restart_headers_for_hardware_profile(
@@ -185,6 +258,9 @@ def test_settings_write_endpoint_updates_projection_and_returns_restart_headers_
                 "SEARCH_SEARXNG_URL=http://searxng:8080/search",
                 "TAVILY_API_KEY=",
                 "CACHE_ENABLED=false",
+                "ALLOW_MODEL_ESCALATION=false",
+                "ESCALATION_PROVIDER=",
+                "ESCALATION_BUDGET_USD=0.0",
             ]
         )
         + "\n",
@@ -199,6 +275,8 @@ def test_settings_write_endpoint_updates_projection_and_returns_restart_headers_
             "allow_external_search": True,
             "default_search_provider": "tavily",
             "cache_enabled": True,
+            "allow_model_escalation": True,
+            "escalation_provider": "openai",
         },
     )
 
@@ -212,6 +290,15 @@ def test_settings_write_endpoint_updates_projection_and_returns_restart_headers_
     assert body["searxng_url"] == "http://searxng:8080/search"
     assert body["tavily_key_configured"] is False
     assert body["cache_enabled"] is True
+    assert body["allow_model_escalation"] is True
+    assert body["escalation_provider"] == "openai"
+    assert body["escalation_budget_usd"] == 0.0
+    assert isinstance(body["escalation_configured_providers"], list)
+
+    persisted = _read_env(env_path)
+    assert "ALLOW_MODEL_ESCALATION=true" in persisted
+    assert "ESCALATION_PROVIDER=openai" in persisted
+    assert "ESCALATION_BUDGET_USD=0.0" in persisted
 
     assert response.headers.get("X-Settings-Restart-Required") == "true"
     restart_fields_header = response.headers.get("X-Settings-Restart-Required-Fields", "")
@@ -226,6 +313,8 @@ def test_settings_write_endpoint_updates_projection_and_returns_restart_headers_
         "allow_external_search",
         "default_search_provider",
         "cache_enabled",
+        "allow_model_escalation",
+        "escalation_provider",
     }
 
 
@@ -246,6 +335,9 @@ def test_settings_write_endpoint_rejects_invalid_value_without_partial_write(
             "SEARCH_SEARXNG_URL=http://searxng:8080/search",
             "TAVILY_API_KEY=",
             "CACHE_ENABLED=false",
+            "ALLOW_MODEL_ESCALATION=false",
+            "ESCALATION_PROVIDER=",
+            "ESCALATION_BUDGET_USD=0.0",
         ]
     ) + "\n"
     _write_env(env_path, original)
@@ -256,6 +348,78 @@ def test_settings_write_endpoint_rejects_invalid_value_without_partial_write(
         json={
             "log_level": "INFO",
             "default_search_provider": "invalid-provider",
+        },
+    )
+
+    assert response.status_code == 422
+    assert _read_env(env_path) == original
+
+
+def test_settings_write_endpoint_rejects_invalid_escalation_provider_without_partial_write(
+    monkeypatch, tmp_path: Path
+) -> None:
+    monkeypatch.delenv("TAVILY_API_KEY", raising=False)
+    env_path = tmp_path / ".env"
+    original = "\n".join(
+        [
+            "APP_NAME=JARVISv5",
+            "DEBUG=true",
+            "HARDWARE_PROFILE=medium",
+            "LOG_LEVEL=INFO",
+            "ALLOW_EXTERNAL_SEARCH=false",
+            "ALLOW_PAID_SEARCH=false",
+            "DEFAULT_SEARCH_PROVIDER=duckduckgo",
+            "SEARCH_SEARXNG_URL=http://searxng:8080/search",
+            "TAVILY_API_KEY=",
+            "CACHE_ENABLED=false",
+            "ALLOW_MODEL_ESCALATION=false",
+            "ESCALATION_PROVIDER=",
+            "ESCALATION_BUDGET_USD=0.0",
+        ]
+    ) + "\n"
+    _write_env(env_path, original)
+    monkeypatch.setattr("backend.api.main._SETTINGS_ENV_PATH", env_path)
+
+    response = client.post(
+        "/settings",
+        json={
+            "escalation_provider": "not-supported",
+        },
+    )
+
+    assert response.status_code == 422
+    assert _read_env(env_path) == original
+
+
+def test_settings_write_endpoint_rejects_escalation_budget_update_without_partial_write(
+    monkeypatch, tmp_path: Path
+) -> None:
+    monkeypatch.delenv("TAVILY_API_KEY", raising=False)
+    env_path = tmp_path / ".env"
+    original = "\n".join(
+        [
+            "APP_NAME=JARVISv5",
+            "DEBUG=true",
+            "HARDWARE_PROFILE=medium",
+            "LOG_LEVEL=INFO",
+            "ALLOW_EXTERNAL_SEARCH=false",
+            "ALLOW_PAID_SEARCH=false",
+            "DEFAULT_SEARCH_PROVIDER=duckduckgo",
+            "SEARCH_SEARXNG_URL=http://searxng:8080/search",
+            "TAVILY_API_KEY=",
+            "CACHE_ENABLED=false",
+            "ALLOW_MODEL_ESCALATION=false",
+            "ESCALATION_PROVIDER=",
+            "ESCALATION_BUDGET_USD=0.0",
+        ]
+    ) + "\n"
+    _write_env(env_path, original)
+    monkeypatch.setattr("backend.api.main._SETTINGS_ENV_PATH", env_path)
+
+    response = client.post(
+        "/settings",
+        json={
+            "escalation_budget_usd": 1.75,
         },
     )
 

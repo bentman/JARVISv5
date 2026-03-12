@@ -28,6 +28,8 @@ const EDITABLE_FIELDS = [
   'allow_external_search',
   'default_search_provider',
   'cache_enabled',
+  'allow_model_escalation',
+  'escalation_provider',
 ]
 
 const HARDWARE_PROFILE_OPTIONS = ['light', 'medium', 'heavy', 'test', 'npu-optimized']
@@ -41,10 +43,16 @@ function pickEditableSettings(settings) {
     allow_external_search: Boolean(settings?.allow_external_search),
     default_search_provider: String(settings?.default_search_provider ?? 'duckduckgo'),
     cache_enabled: Boolean(settings?.cache_enabled),
+    allow_model_escalation: Boolean(settings?.allow_model_escalation),
+    escalation_provider: String(settings?.escalation_provider ?? ''),
   }
 }
 
 function editableSettingsEqual(a, b) {
+  if (!a && !b) {
+    return true
+  }
+
   if (!a || !b) {
     return false
   }
@@ -60,6 +68,10 @@ function pickBudgetLimits(budget) {
 }
 
 function budgetLimitsEqual(a, b) {
+  if (!a && !b) {
+    return true
+  }
+
   if (!a || !b) {
     return false
   }
@@ -321,6 +333,17 @@ function SettingsPanel({ isOpen, onClose }) {
   }
 
   const hasContent = Boolean(settings) || Boolean(budget)
+  const configuredEscalationProviders = Array.isArray(settings?.escalation_configured_providers)
+    ? settings.escalation_configured_providers
+        .filter((value) => typeof value === 'string')
+        .map((value) => value.trim())
+        .filter(Boolean)
+    : []
+  const configuredEscalationProviderSet = new Set(configuredEscalationProviders)
+  const hasConfiguredEscalationProviders = configuredEscalationProviders.length > 0
+  const draftEscalationProvider = String(draftEditableSettings?.escalation_provider ?? '')
+  const includeCurrentEscalationProviderOption =
+    draftEscalationProvider.length > 0 && !configuredEscalationProviderSet.has(draftEscalationProvider)
 
   return (
     <div
@@ -441,6 +464,52 @@ function SettingsPanel({ isOpen, onClose }) {
               />
               Cache Enabled
             </label>
+          </div>
+
+          <div style={{ marginBottom: 8 }}>
+            <label style={{ color: '#8fb6c2', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input
+                type="checkbox"
+                checked={Boolean(draftEditableSettings.allow_model_escalation)}
+                onChange={(event) => setDraftField('allow_model_escalation', event.target.checked)}
+                disabled={saving}
+              />
+              Allow Model Escalation
+            </label>
+          </div>
+
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ color: '#8fb6c2', marginBottom: 4 }}>Escalation Provider</div>
+            <select
+              value={draftEditableSettings.escalation_provider}
+              onChange={(event) => setDraftField('escalation_provider', event.target.value)}
+              disabled={
+                saving ||
+                !Boolean(draftEditableSettings.allow_model_escalation) ||
+                !hasConfiguredEscalationProviders
+              }
+              style={{ width: '100%', padding: '6px 8px', borderRadius: 6 }}
+            >
+              {includeCurrentEscalationProviderOption ? (
+                <option value={draftEscalationProvider}>{draftEscalationProvider}</option>
+              ) : null}
+              <option value="">(none)</option>
+              {configuredEscalationProviders.map((provider) => (
+                <option key={provider} value={provider}>
+                  {provider}
+                </option>
+              ))}
+            </select>
+            {!hasConfiguredEscalationProviders ? (
+              <div style={{ color: '#8fb6c2', marginTop: 4, fontSize: 12 }}>
+                No configured escalation providers available.
+              </div>
+            ) : null}
+          </div>
+
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ color: '#8fb6c2', marginBottom: 4 }}>Escalation Budget (USD)</div>
+            <div>{String(settings?.escalation_budget_usd ?? '0')}</div>
           </div>
 
           {isDirty ? <div style={{ color: '#f59e0b', marginBottom: 8 }}>Unsaved changes</div> : null}

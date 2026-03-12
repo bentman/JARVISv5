@@ -323,6 +323,10 @@ def get_settings() -> SettingsResponse:
         searxng_url=projection["searxng_url"],
         tavily_key_configured=projection["tavily_key_configured"],
         cache_enabled=projection["cache_enabled"],
+        allow_model_escalation=projection["allow_model_escalation"],
+        escalation_provider=projection["escalation_provider"],
+        escalation_budget_usd=projection["escalation_budget_usd"],
+        escalation_configured_providers=projection["escalation_configured_providers"],
     )
 
 
@@ -380,6 +384,10 @@ def update_settings(request: SettingsUpdateRequest, response: Response) -> Setti
         searxng_url=projection["searxng_url"],
         tavily_key_configured=projection["tavily_key_configured"],
         cache_enabled=projection["cache_enabled"],
+        allow_model_escalation=projection["allow_model_escalation"],
+        escalation_provider=projection["escalation_provider"],
+        escalation_budget_usd=projection["escalation_budget_usd"],
+        escalation_configured_providers=projection["escalation_configured_providers"],
     )
 
 

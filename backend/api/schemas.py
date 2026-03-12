@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from backend.config.settings import (
+    normalize_escalation_provider,
     normalize_default_search_provider,
     normalize_hardware_profile,
     normalize_log_level,
@@ -89,14 +90,22 @@ class SettingsResponse(BaseModel):
     searxng_url: str | None = None
     tavily_key_configured: bool | None = None
     cache_enabled: bool | None = None
+    allow_model_escalation: bool | None = None
+    escalation_provider: str | None = None
+    escalation_budget_usd: float | None = None
+    escalation_configured_providers: list[str] | None = None
 
 
 class SettingsUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     hardware_profile: str | None = None
     log_level: str | None = None
     allow_external_search: bool | None = None
     default_search_provider: str | None = None
     cache_enabled: bool | None = None
+    allow_model_escalation: bool | None = None
+    escalation_provider: str | None = None
 
     @field_validator("hardware_profile")
     @classmethod
@@ -118,6 +127,13 @@ class SettingsUpdateRequest(BaseModel):
         if value is None:
             return None
         return normalize_default_search_provider(value)
+
+    @field_validator("escalation_provider")
+    @classmethod
+    def validate_escalation_provider(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return normalize_escalation_provider(value)
 
 
 class BudgetPeriod(BaseModel):
