@@ -15,6 +15,57 @@
 
 ## Entries
 
+- 2026-03-13 15:10
+  - Summary: Completed T16.4 as a verification-only closeout for M16 escalation-provider/controller coverage with no additional implementation changes required.
+  - Scope: Verification-only task; no production or test file modifications required beyond existing T16 work.
+  - Notes:
+    - Confirmed focused provider/controller coverage and full unit regression pass without introducing new file changes for T16.4.
+  - Evidence:
+    - `e:\WORK\CODE\GitHub\bentman\Repositories\JARVISv5\backend\.venv\Scripts\python.exe -m pytest tests/unit/test_escalation_providers.py tests/unit/test_controller_service_integration.py -q`
+      - PASS excerpt: `37 passed in 5.47s`
+    - `e:\WORK\CODE\GitHub\bentman\Repositories\JARVISv5\backend\.venv\Scripts\python.exe -m pytest tests/unit -q`
+      - PASS excerpt: `348 passed, 1 skipped in 44.15s`
+
+- 2026-03-13 15:02
+  - Summary: Completed T16.3 by populating the controller escalation dispatch registry with real provider instances while preserving existing policy-gated escalation decision flow.
+  - Scope: `backend/controller/controller_service.py`, `tests/unit/test_controller_service_integration.py`.
+  - Notes:
+    - Added focused controller integration coverage asserting registry population and provider-base dispatch-table shape.
+  - Evidence:
+    - `e:\WORK\CODE\GitHub\bentman\Repositories\JARVISv5\backend\.venv\Scripts\python.exe -m pytest tests/unit/test_controller_service_integration.py -q`
+      - PASS excerpt: `27 passed in 5.50s`
+    - `e:\WORK\CODE\GitHub\bentman\Repositories\JARVISv5\backend\.venv\Scripts\python.exe -m pytest tests/unit -q`
+      - PASS excerpt: `348 passed, 1 skipped in 44.12s`
+
+- 2026-03-13 14:00
+  - Summary: Completed T16.2.a corrective pass by replacing deprecated Gemini SDK dependency (`google-generativeai`) with supported `google-genai`, updating `GeminiEscalationProvider` to supported SDK usage, and updating only Gemini-focused provider tests.
+  - Scope: `backend/requirements.txt`, `backend/models/providers/gemini_provider.py`, `tests/unit/test_escalation_providers.py`.
+  - Notes:
+    - Prior `google.generativeai` deprecation warning is gone in focused provider test execution.
+  - Evidence:
+    - `e:\WORK\CODE\GitHub\bentman\Repositories\JARVISv5\backend\.venv\Scripts\python.exe -m pytest tests/unit/test_escalation_providers.py -q`
+      - PASS excerpt: `10 passed in 0.81s`
+    - `e:\WORK\CODE\GitHub\bentman\Repositories\JARVISv5\backend\.venv\Scripts\python.exe -m pytest tests/unit -q`
+      - PASS excerpt: `347 passed, 1 skipped in 49.28s`
+
+- 2026-03-13 13:32
+  - Summary: Completed T16.2 by adding concrete escalation provider implementations for Anthropic, OpenAI, Gemini, and Grok using the existing escalation provider contract, with provider package exports and execute-time API key lookup through `ApiKeyRegistry`.
+  - Scope: `backend/models/providers/__init__.py`, `backend/models/providers/anthropic_provider.py`, `backend/models/providers/openai_provider.py`, `backend/models/providers/gemini_provider.py`, `backend/models/providers/grok_provider.py`, `tests/unit/test_escalation_providers.py`.
+  - Evidence:
+    - `e:\WORK\CODE\GitHub\bentman\Repositories\JARVISv5\backend\.venv\Scripts\python.exe -m pytest tests/unit/test_escalation_providers.py -q`
+      - PASS excerpt: `10 passed, 1 warning in 3.96s`
+    - `e:\WORK\CODE\GitHub\bentman\Repositories\JARVISv5\backend\.venv\Scripts\python.exe -m pytest tests/unit -q`
+      - PASS excerpt: `347 passed, 1 skipped, 1 warning in 61.92s`
+
+- 2026-03-12 19:38
+  - Summary: Completed T16.1 by adding provider SDK dependencies for Anthropic, Gemini, and Groq under the existing LLM/AI dependency section while preserving the existing OpenAI dependency line unchanged.
+  - Scope: `backend/requirements.txt`.
+  - Evidence:
+    - `backend/.venv/Scripts/pip install -r backend/requirements.txt`
+      - PASS excerpt: `Successfully installed anthropic-0.84.0 ... google-generativeai-0.8.6 ... groq-1.1.1`
+    - `backend/.venv/Scripts/python -c "import anthropic, google.generativeai, groq, openai; print('ok')"`
+      - PASS excerpt: `ok`
+
 - 2026-03-12 13:35
   - Summary: Completed T15.7 with additive test-only M15 acceptance coverage by adding controller escalation deny-path tests (empty provider, provider key missing, zero budget) and explicit `/settings` API-key non-leakage assertions.
   - Scope: `tests/unit/test_controller_service_integration.py`, `tests/unit/test_api_settings.py`.

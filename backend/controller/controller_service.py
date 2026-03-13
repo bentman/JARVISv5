@@ -12,6 +12,12 @@ from backend.models.escalation_policy import (
     EscalationTrigger,
     decide_escalation,
 )
+from backend.models.providers import (
+    AnthropicEscalationProvider,
+    GeminiEscalationProvider,
+    GrokEscalationProvider,
+    OpenAIEscalationProvider,
+)
 from backend.models.hardware_profiler import HardwareService
 from backend.models.model_registry import ModelRegistry
 from backend.security.redactor import create_default_redactor
@@ -22,7 +28,12 @@ from backend.workflow.plan_compiler import build_constrained_plan, compile_plan_
 from .fsm import ControllerState, DeterministicFSM
 
 
-_ESCALATION_PROVIDER_REGISTRY: dict[str, EscalationProviderBase] = {}
+_ESCALATION_PROVIDER_REGISTRY: dict[str, EscalationProviderBase] = {
+    "anthropic": AnthropicEscalationProvider(),
+    "openai": OpenAIEscalationProvider(),
+    "gemini": GeminiEscalationProvider(),
+    "grok": GrokEscalationProvider(),
+}
 
 
 class ControllerService:

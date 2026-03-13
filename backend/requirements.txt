@@ -9,6 +9,9 @@ starlette>=0.27.0
 # LLM / AI
 # ============================================================
 openai>=1.0.0
+anthropic>=0.49.0
+google-genai>=1.0.0
+groq>=0.22.0
 sentence-transformers>=2.2.2
 faiss-cpu>=1.7.0
 torch>=2.8.0

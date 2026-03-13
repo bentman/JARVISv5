@@ -86,6 +86,16 @@ class StubEscalationProvider(EscalationProviderBase):
         return self.ok, self.output, self.error
 
 
+def test_controller_escalation_registry_is_populated_with_real_providers() -> None:
+    registry = controller_service_module._ESCALATION_PROVIDER_REGISTRY
+
+    assert set(registry.keys()) == {"anthropic", "openai", "gemini", "grok"}
+    assert isinstance(registry["anthropic"], EscalationProviderBase)
+    assert isinstance(registry["openai"], EscalationProviderBase)
+    assert isinstance(registry["gemini"], EscalationProviderBase)
+    assert isinstance(registry["grok"], EscalationProviderBase)
+
+
 def test_controller_service_run_executes_nodes_and_handles_llm_gracefully() -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
         service = ControllerService(

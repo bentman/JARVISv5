@@ -25,6 +25,14 @@
 
 ## Inventory
 
+- Capability: Milestone 16 — Escalation Provider Execution Layer (T16.1–T16.4)
+  - 2026-03-13 15:15
+  - State: Verified
+  - Location: `backend/requirements.txt` (Dependencies: T16.1), `backend/models/providers/__init__.py`, `backend/models/providers/anthropic_provider.py`, `backend/models/providers/openai_provider.py`, `backend/models/providers/gemini_provider.py`, `backend/models/providers/grok_provider.py`, `backend/controller/controller_service.py` (Backend: T16.2/T16.2.a/T16.3), `tests/unit/test_escalation_providers.py`, `tests/unit/test_controller_service_integration.py` (Tests/Validation: T16.4)
+  - Validation: `e:\WORK\CODE\GitHub\bentman\Repositories\JARVISv5\backend\.venv\Scripts\python.exe -m pytest tests/unit -q`
+  - Notes:
+    - Dependencies, provider execution implementations (including Gemini SDK migration), controller registry population, and milestone coverage verification are present as observable repository artifacts.
+
 - Capability: Milestone 15 — Model Escalation Config/Policy/Controller/API/UI Surface and Acceptance Coverage (T15.1–T15.7)
   - 2026-03-12 13:47
   - State: Verified
