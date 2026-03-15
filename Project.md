@@ -1,169 +1,78 @@
-# Project.md: JARVISv5 (Mark5) — Current Reality & Product Charter
+# Project.md — JARVISv5 Product Charter (Current State)
 
-> **Current Reality**
-> This document is a living description of what the repository actually implements today. It is not a roadmap or feature wish list.
+## 1) Project Identity
 
----
+JARVISv5 is a **deterministic, local-first orchestration product** for agentic task execution.
 
-## 1. Current Reality (What Exists Today)
+Its active product identity is built around:
+- deterministic orchestration
+- local-first inference
+- optional search/tools
+- optional escalation to external model providers
+- settings/control-plane UI
+- traceable execution
 
-- A **Python FastAPI backend** running a deterministic controller FSM/DAG that orchestrates LLM execution, tool calls, and validation.
-- A **React/Vite frontend** (Settings panel + basic UI) talking to the backend via REST endpoints (`/task`, `/settings`, `/budget`, `/health`).
-- **Local-first inference** via a model catalog (`models/models.yaml`) and `llama-cpp-python` / GGUF models; missing models can optionally be fetched when `MODEL_FETCH=missing`.
-- A **settings/config plane** backed by `.env` and exposed via `/settings`, with a UI for editable settings and a restart-required indicator.
-- **Escalation to external providers** (OpenAI/Anthropic/Gemini/Grok, plus Ollama) when local inference is unavailable and policy allows.
-- A deterministic **memory system** with working-state JSON, episodic SQLite traces, and semantic recall via FAISS embeddings.
-- A **test/validation harness** (`scripts/validate_backend.py`) that runs unit/integration/agentic suites and supports Docker-based inference smoke tests.
-
----
-
-## 2. Core Identity (Grounded in the Codebase)
-
-### 2.1 Deterministic Orchestration
-- All task execution paths are driven by a **controller state machine** and a **workflow graph** (plan → execute → validate → commit → archive).
-- The system logs every decision and node event into an append-only episodic trace for replay.
-
-### 2.2 Local‑First Inference
-- Local models are selected from a YAML catalog and executed via `llama-cpp-python`.
-- Local model execution is the default; escalation is an explicit, opt-in path.
-
-### 2.3 Optional Search/Tools
-- Tool calls (including web search via SeaxNG/DuckDuckGo/Tavily) are implemented as pluggable nodes and gated by explicit settings.
-- External calls are deny-by-default and require `ALLOW_EXTERNAL_SEARCH=true`.
-
-### 2.4 Optional Escalation
-- Escalation is controlled by settings (`ALLOW_MODEL_ESCALATION`, `ESCALATION_PROVIDER`, `ESCALATION_BUDGET_USD`), with provider key presence checked at runtime.
-- Ollama escalation is configurable separately (`ALLOW_OLLAMA_ESCALATION`, `OLLAMA_MODEL`, `OLLAMA_BASE_URL`).
-
-### 2.5 Settings / Control‑Plane UI
-- Settings are editable via the frontend `SettingsPanel`, which writes updated values back to `.env` and reports whether a restart is required.
-- The backend exposes a safe projection of settings, and only a subset is editable through the API.
-
-### 2.6 Traceable Execution
-- Per-task decisions, node events, and tool call outcomes are persisted and can be replayed for deterministic debugging.
+This document describes the product **as implemented now**.
 
 ---
 
-## 3. What Is Deferred / Not Present (Clarifying Scope)
+## 2) Current Reality
 
-- The repository does **not** currently provide **encrypted-at-rest storage** for trace artifacts; this is not implemented.
-- There is **no active model checksum verification workflow** or enforced model integrity verification beyond selecting a local model path.
-- Voice (STT/TTS) features are not present in the current codebase; any mention in earlier docs is aspirational.
+JARVISv5 currently operates as:
 
----
+- A Python backend that executes tasks through deterministic controller/workflow paths.
+- A local-first model runtime using configured local model assets and routing policy.
+- Optional tool and search execution, gated by explicit settings.
+- Optional escalation to external providers when enabled and policy permits.
+- A frontend control-plane with settings management and operational visibility.
+- Traceable task execution with persisted events/artifacts for replay and debugging.
 
-## 4. Operational Reality
-
-### 4.1 Runtime Topology
-- Docker Compose defines a backend service (FastAPI), frontend (React/Vite), Redis (cache), and SeaxNG (search provider).
-- Backend runtime is driven by `.env` and expects local mounts for `models/` and `data/`.
-
-### 4.2 Validation Surface
-- `scripts/validate_backend.py` is the canonical validation harness; it runs pytest suites and also supports docker inference smoke tests.
-- Unit tests live under `tests/unit`, with integration and agentic suites in `tests/integration` and `tests/agentic`.
+In scope today is reliable orchestration behavior and controllable runtime policy, not speculative subsystem breadth.
 
 ---
 
-## 5. Key Repo Paths (Reality Snapshot)
+## 3) Core Product Pillars
 
-- **Controller / Workflow:** `backend/controller/controller_service.py`, `backend/workflow/`
-- **Settings/config:** `backend/config/settings.py`, `.env`, `.env.example`, `backend/api/main.py` (settings endpoints)
-- **Model catalog:** `models/models.yaml`, `backend/models/model_registry.py`
-- **Escalation providers:** `backend/models/providers/*` and `backend/config/api_keys.py`
-- **Frontend settings UI:** `frontend/src/components/SettingsPanel.jsx`, `frontend/src/api/taskClient.js`
-- **Validation harness:** `scripts/validate_backend.py`
+### 3.1 Deterministic Orchestration
+- Task handling follows explicit controller/workflow logic.
+- Execution paths are intended to be reproducible under equivalent inputs and settings.
 
----
+### 3.2 Local-First Inference
+- Local inference is the default operating model.
+- External model use is a conditional fallback, not the primary mode.
 
-## 6. Tone & Usage
+### 3.3 Optional Search and Tools
+- Search and tool access are policy-controlled capabilities.
+- External-facing operations are permissioned and configuration-dependent.
 
-This document is intended for product/architecture readers who want a **grounded view of what is implemented today**, where it is wired, and what can be relied on without guessing. It is **not** a roadmap, nor a list of proposed future capabilities.
+### 3.4 Optional Escalation
+- Escalation is configurable and budget/policy constrained.
+- Provider selection is explicit and controlled through settings.
 
-- User bubbles: Solid blue
-- Error bubbles: Deep red with red border
-- Icons: Lucide React (Bot/User/Wifi/Cpu) in circular avatars
+### 3.5 Settings / Control Plane
+- Product behavior is managed through configuration surfaces and settings APIs/UI.
+- Operators can tune runtime behavior without redefining core architecture.
 
-### 11.2 Interface Elements
-
-- **Chat Interface:** Message display with streaming responses and markdown support.
-- **Workflow Visualizer:** Live node status and execution graph.
-- **Voice Panel:** Microphone controls, wake word indicator, activation feedback.
-- **Settings Panel:** Hardware profiles, privacy controls, budget monitoring.
-- **Status Indicators:** Real-time system health, model routing, resource usage.
-
----
-
-## 12. 🛠️ Development Approach
-
-### 12.1 Prerequisites
-
-- Docker and Docker Compose
-- Python 3.11+
-- Node.js 18+
-- Modern browser (Chrome, Firefox, Edge)
-
-### 12.2 Quick Start
-
-Single-command deployment:
-```bash
-docker compose up
-```
-
-Access web interface at `http://localhost:3000`
-
-### 12.3 Project Organization
-
-- **Modular Services:** Independently deployable components.
-- **Clear Boundaries:** Strict separation between controller, agents, and tools.
-- **Configuration-Driven:** All behavior controlled via environment variables.
-- **Test-First:** Validation suite guards against regression.
+### 3.6 Traceable Execution
+- The system records execution-relevant events/artifacts for inspection and replay.
+- Traceability is a core product property for debugging and governance.
 
 ---
 
-## 13. 🗂️ Repository Structure
+## 4) Deferred Strategic Capabilities
 
-```text
-JARVISv5/
-├── backend/                              # Python backend service (control plane, memory, tools, model routing)
-│   ├── Dockerfile                        # Backend container image definition
-│   ├── api/                              # Backend API surface (chat/workflow/memory/voice/settings)
-│   ├── config/                           # Environment-driven configuration (hardware/privacy/budget)
-│   ├── controller/                       # Deterministic FSM/DAG orchestration and validation gates
-│   ├── memory/                           # Working state, episodic trace, semantic memory access
-│   ├── models/                           # Local-first model/provider abstraction and routing policy
-│   ├── security/                         # Redaction, permissions, and data protection controls
-│   ├── tools/                            # Tool registry and sandboxed execution
-│   ├── voice/                            # Optional STT/TTS/wake-word workflow path
-│   └── workflow/                         # Executable workflow nodes and runtime engine
-├── data/                                 # Local runtime artifacts and memory persistence
-│   ├── archives/                         # Archived task artifacts for replay/history
-│   ├── cache/                            # Cached context/query artifacts
-│   ├── episodic/                         # Immutable episodic trace storage
-│   ├── logs/                             # Structured runtime logs
-│   ├── retrieval/                        # <Need good description>
-│   ├── semantic/                         # Semantic memory index/metadata storage
-│   └── working_state/                    # Ephemeral task state JSON files
-├── frontend/                             # React web client (chat, status, settings, voice panel)
-│   ├── Dockerfile                        # Frontend container image definition
-│   └── src/                              # UI application source
-│       ├── api/                          # Client API bindings to backend services
-│       ├── components/                   # UI components (chat/workflow/voice/settings/status)
-│       ├── state/                        # Client-side state management
-│       ├── styles/                       # Theme, layout, and global styles
-│       └── utils/                        # Shared UI utility helpers
-├── models/                               # Local model assets and integrity metadata
-├── scripts/                              # Operational utilities and validation helpers
-│   └── validate_backend.py               # Authoritative backend regression harness
-├── tests/                                # Validation suite
-│   ├── agentic/                          # End-to-end workflow validation
-│   ├── integration/                      # Service interaction validation
-│   └── unit/                             # Component-level validation
-├── .env.example                          # Configuration template
-├── AGENTS.md                             # Agent workflow and repo operating rules
-├── CHANGE_LOG.md                         # Append-only record of completed work
-├── docker-compose.yml                    # Root service orchestration entrypoint
-├── LICENSE                               # Project license
-├── Project.md                            # Source-of-truth vision and architecture definition
-├── README.md                             # Setup, run, and usage instructions
-└── SYSTEM_INVENTORY.md                   # Capability ledger with verification state
-```
+The following are intentionally **deferred** and not part of active product scope in this charter:
+
+- **Voice experiences** (for example STT/TTS, wake-word UX, voice-first interaction models).
+- Broader speculative subsystem expansions that are not required for the current deterministic orchestration product identity.
+
+---
+
+## 5) Operational Principles and Quality Expectations
+
+- **Current-state truthfulness:** product documentation should describe implemented behavior, not aspirational architecture.
+- **Determinism-first:** prioritize reproducibility and explicit control over opaque autonomy.
+- **Local-first bias:** keep primary execution local, with optional external capabilities as policy-gated extensions.
+- **Configurability with guardrails:** settings should expose control without undermining safe, predictable execution.
+- **Traceability by default:** execution records must support diagnosis, review, and replay.
+- **Scope discipline:** avoid expanding commitments beyond active, observable product behavior.
