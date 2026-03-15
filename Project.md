@@ -1,243 +1,84 @@
-# Project.md: JARVISv5 (Mark5) — Local‑First Agent System
+# Project.md: JARVISv5 (Mark5) — Current Reality & Product Charter
 
-> **Vision Only**
-> This document describes the **target architecture and invariants** for JARVISv5. 
-> The structure below reflects intended organization and capabilities, **not completed implementation**. 
-> The presence of paths in the proposed tree indicates design intent only. This baseline is open to refinement as future agentic development progresses.
+> **Current Reality**
+> This document is a living description of what the repository actually implements today. It is not a roadmap or feature wish list.
 
 ---
 
-## 1. 🎯 Vision
+## 1. Current Reality (What Exists Today)
 
-JARVISv5 is a **daily‑use personal assistant** that is **local‑first by default** and **policy‑guided for escalation** when local resources are insufficient. It supports day‑to‑day work such as **search, research, writing, planning, and code assistance**, while remaining traceable, reproducible, and privacy‑aware.
-
-### Core Invariants
-
-1. **Local‑First Execution:** Tasks run locally unless policy permits escalation.
-2. **Deterministic Control:** A state machine / DAG controls execution, not the LLM.
-3. **Externalized Memory:** Working, episodic, and semantic artifacts are the source of truth.
-4. **Traceability:** Every action produces replayable artifacts.
-5. **Policy‑Bound Escalation:** Cloud usage is explicit, budgeted, and auditable.
+- A **Python FastAPI backend** running a deterministic controller FSM/DAG that orchestrates LLM execution, tool calls, and validation.
+- A **React/Vite frontend** (Settings panel + basic UI) talking to the backend via REST endpoints (`/task`, `/settings`, `/budget`, `/health`).
+- **Local-first inference** via a model catalog (`models/models.yaml`) and `llama-cpp-python` / GGUF models; missing models can optionally be fetched when `MODEL_FETCH=missing`.
+- A **settings/config plane** backed by `.env` and exposed via `/settings`, with a UI for editable settings and a restart-required indicator.
+- **Escalation to external providers** (OpenAI/Anthropic/Gemini/Grok, plus Ollama) when local inference is unavailable and policy allows.
+- A deterministic **memory system** with working-state JSON, episodic SQLite traces, and semantic recall via FAISS embeddings.
+- A **test/validation harness** (`scripts/validate_backend.py`) that runs unit/integration/agentic suites and supports Docker-based inference smoke tests.
 
 ---
 
-## 2. 🧭 Product Intent (Pragmatic Scope)
+## 2. Core Identity (Grounded in the Codebase)
 
-- **Daily Assistant:** search, research synthesis, task planning, code help, and knowledge recall.
-- **Voice Optional:** STT/TTS and wake word, but not required for core usage.
-- **Minimal Friction:** one‑command start, predictable outputs, and clear failure states.
+### 2.1 Deterministic Orchestration
+- All task execution paths are driven by a **controller state machine** and a **workflow graph** (plan → execute → validate → commit → archive).
+- The system logs every decision and node event into an append-only episodic trace for replay.
 
----
+### 2.2 Local‑First Inference
+- Local models are selected from a YAML catalog and executed via `llama-cpp-python`.
+- Local model execution is the default; escalation is an explicit, opt-in path.
 
-## 3. 🏗️ Target Architecture
+### 2.3 Optional Search/Tools
+- Tool calls (including web search via SeaxNG/DuckDuckGo/Tavily) are implemented as pluggable nodes and gated by explicit settings.
+- External calls are deny-by-default and require `ALLOW_EXTERNAL_SEARCH=true`.
 
-### 3.1 Control Plane
+### 2.4 Optional Escalation
+- Escalation is controlled by settings (`ALLOW_MODEL_ESCALATION`, `ESCALATION_PROVIDER`, `ESCALATION_BUDGET_USD`), with provider key presence checked at runtime.
+- Ollama escalation is configurable separately (`ALLOW_OLLAMA_ESCALATION`, `OLLAMA_MODEL`, `OLLAMA_BASE_URL`).
 
-- **Controller FSM/DAG:** `INIT → PLAN → EXECUTE → VALIDATE → COMMIT → ARCHIVE`.
-- **Plan‑to‑Workflow Compiler:** Converts plan steps into executable nodes.
-- **Validation Gates:** Fail‑closed policies with explicit error artifacts.
+### 2.5 Settings / Control‑Plane UI
+- Settings are editable via the frontend `SettingsPanel`, which writes updated values back to `.env` and reports whether a restart is required.
+- The backend exposes a safe projection of settings, and only a subset is editable through the API.
 
-### 3.2 Memory System
-
-- **Working State:** JSON state for active tasks.
-- **Episodic Trace:** SQLite event log for deterministic replay.
-- **Semantic Memory:** Vector store + SQLite for retrieval, tagging, and recall.
-
-### 3.3 Model & Routing Layer
-
-- **Local LLM Routing:** GGUF/llama.cpp or local provider abstraction.
-- **Hardware‑Aware Selection:** CPU/GPU/NPU profiling.
-- **Escalation Policy:** Configurable rules for cloud model fallback.
-
-### 3.4 Tools & Extensions
-
-- **Tool Registry:** JSON‑schema validation for tool calls.
-- **Sandboxed Execution:** deterministic tooling with constrained IO.
-- **Search Providers:** pluggable sources with privacy redaction.
-
-### 3.5 User Experience
-
-- **Web Client:** chat + workflow status + memory/search controls.
-- **Voice Panel:** optional mic/wake word controls (non‑blocking).
-- **Settings:** hardware profiles, privacy levels, budget governance.
+### 2.6 Traceable Execution
+- Per-task decisions, node events, and tool call outcomes are persisted and can be replayed for deterministic debugging.
 
 ---
 
-## 4. 🧠 Memory Architecture
+## 3. What Is Deferred / Not Present (Clarifying Scope)
 
-### 4.1 Working State (Ephemeral)
-
-- **Storage:** JSON files on disk.
-- **Schema:** `task_id`, `goal`, `status`, `current_step`, `completed_steps`, `next_steps`.
-- **Lifecycle:** Created at task start, archived upon completion.
-
-### 4.2 Episodic Trace (Immutable)
-
-- **Storage:** SQLite (`decisions`, `tool_calls`, `validations` tables).
-- **Function:** Append-only log of every action, input, output, and outcome.
-- **Key Feature:** Enables deterministic replay of any episode.
-
-### 4.3 Semantic Memory (Curated)
-
-- **Storage:** Vector embeddings (FAISS) + SQLite metadata.
-- **Function:** Stores validated patterns, user preferences, and knowledge.
-- **Retrieval:** Hybrid search (semantic similarity + symbolic filtering).
-- **Privacy:** Local-first with optional redaction for sensitive content.
+- The repository does **not** currently provide **encrypted-at-rest storage** for trace artifacts; this is not implemented.
+- There is **no active model checksum verification workflow** or enforced model integrity verification beyond selecting a local model path.
+- Voice (STT/TTS) features are not present in the current codebase; any mention in earlier docs is aspirational.
 
 ---
 
-## 5. ⚙️ Workflow Engine
+## 4. Operational Reality
 
-### 5.1 Node Types
+### 4.1 Runtime Topology
+- Docker Compose defines a backend service (FastAPI), frontend (React/Vite), Redis (cache), and SeaxNG (search provider).
+- Backend runtime is driven by `.env` and expects local mounts for `models/` and `data/`.
 
-| Node Type | Purpose |
-|-----------|---------|
-| `router` | Determines task intent (chat, code, research). |
-| `context_builder` | Retrieves relevant memory artifacts. |
-| `llm_worker` | Executes model inference with injected context. |
-| `validator` | Verifies output quality and format compliance. |
-| `tool_call` | Invokes registered tools with sandboxed execution. |
-| `search_web` | Aggregates results from search providers. |
-
-### 5.2 Execution Flow
-
-1. **Task Received:** User input enters system.
-2. **Routing:** `router` node classifies intent.
-3. **Context Assembly:** `context_builder` retrieves relevant memory.
-4. **Execution:** Workflow DAG executes nodes in dependency order.
-5. **Validation:** Each node output validated before proceeding.
-6. **Commit:** Successful execution updates memory and returns result.
-7. **Archive:** Task state and artifacts stored for replay.
+### 4.2 Validation Surface
+- `scripts/validate_backend.py` is the canonical validation harness; it runs pytest suites and also supports docker inference smoke tests.
+- Unit tests live under `tests/unit`, with integration and agentic suites in `tests/integration` and `tests/agentic`.
 
 ---
 
-## 6. 🖥️ Model & Hardware Integration
+## 5. Key Repo Paths (Reality Snapshot)
 
-### 6.1 Hardware Detection
-
-Automatic profiling of:
-- CPU architecture and core count
-- GPU vendor, memory, and compute capabilities
-- Memory capacity and available resources
-- Specialized processors (NPU)
-
-### 6.2 Model Router
-
-- **Local Inference:** GGUF models via llama.cpp.
-- **Provider Abstraction:** Standardized interface for local/remote models.
-- **Hardware Routing:** Matches model requirements to available hardware.
-- **Integrity Verification:** Model checksums and validation.
-
-### 6.3 Escalation Policy
-
-- **Local Priority:** All tasks attempt local execution first.
-- **Policy Triggers:** Resource constraints, capability gaps, explicit user request.
-- **Budget Governance:** Configurable limits with real-time tracking.
-- **Privacy Controls:** Automatic redaction before external API calls.
+- **Controller / Workflow:** `backend/controller/controller_service.py`, `backend/workflow/`
+- **Settings/config:** `backend/config/settings.py`, `.env`, `.env.example`, `backend/api/main.py` (settings endpoints)
+- **Model catalog:** `models/models.yaml`, `backend/models/model_registry.py`
+- **Escalation providers:** `backend/models/providers/*` and `backend/config/api_keys.py`
+- **Frontend settings UI:** `frontend/src/components/SettingsPanel.jsx`, `frontend/src/api/taskClient.js`
+- **Validation harness:** `scripts/validate_backend.py`
 
 ---
 
-## 7. 🎙️ Voice System
+## 6. Tone & Usage
 
-### 7.1 Components
+This document is intended for product/architecture readers who want a **grounded view of what is implemented today**, where it is wired, and what can be relied on without guessing. It is **not** a roadmap, nor a list of proposed future capabilities.
 
-- **STT Engine:** Whisper for speech-to-text.
-- **TTS Engine:** Piper for text-to-speech with fallback options.
-- **Wake Word:** openWakeWord for activation detection.
-
-### 7.2 Workflow Integration
-
-- **Voice Session:** Dedicated workflow path for continuous conversation.
-- **Artifact Lifecycle:** Voice interactions stored as episodic traces.
-- **Deterministic Runtime:** Reproducible voice processing with explicit state.
-
----
-
-## 8. 🔒 Privacy & Security
-
-### 8.1 Data Handling
-
-- **Local-First Processing:** All computation occurs locally by default.
-- **Data Classification:** Sensitive content identified and handled appropriately.
-- **Selective Redaction:** PII removed before external API calls.
-- **Encryption:** Conversation storage encrypted at rest.
-
-### 8.2 Security Implementation
-
-- **Model Integrity:** Checksum verification for all models.
-- **Sandboxed Execution:** Tool calls isolated from system.
-- **Inter-Component Security:** Secure communication between services.
-- **User Controls:** Explicit permissions for data retention and sharing.
-
----
-
-## 9. 🧰 Operational Stack
-
-### 9.1 Docker Services
-
-- **Backend:** FastAPI application with controller and agents.
-- **Frontend:** React web client with Vite build.
-- **Redis:** Cache for frequent queries and context snippets.
-- **Vector Store:** FAISS or Qdrant for semantic memory.
-- **Validation:** Dedicated service for regression testing.
-
-### 9.2 Configuration
-
-- **Environment Variables:** All configuration via `.env` file.
-- **Hardware Profiles:** Light, Medium, Heavy, NPU-optimized.
-- **Privacy Levels:** Configurable data handling policies.
-- **Budget Limits:** Per-provider cost thresholds.
-
----
-
-## 10. ✅ Verification & Quality
-
-### 10.1 Testing Strategy
-
-- **Unit Tests:** Component-level validation.
-- **Integration Tests:** Service interaction verification.
-- **Agentic Tests:** End-to-end workflow validation.
-- **Regression Harness:** `scripts/validate_backend.py` as authoritative suite.
-
-### 10.2 Success Metrics
-
-| Metric | Target | Definition |
-|--------|--------|------------|
-| **Reproducibility** | 100% | Replaying episode produces identical artifacts. |
-| **Memory Recall** | >95% | Accuracy of retrieving relevant past decisions. |
-| **Task Success** | >85% | Tasks completed without human intervention. |
-| **Drift Rate** | <5% | Behavioral variance over time. |
-| **Latency** | <200ms | P95 Controller overhead (excluding inference). |
-
----
-
-## 11. 🎨 User Interface
-
-### 11.1 Visual Design
-
-**Palette:**
-- Background: Deep navy `#050810`
-- Header: `#0a0e1a`
-- Panels: `#1a2332`
-- Accent: Cyan `#00d4ff`
-- User messages: Blue `#3b82f6`
-- Success: Green `#10b981`
-- Error: Red `#ef4444`
-
-**Typography:**
-- System UI stack: `-apple-system`, `BlinkMacSystemFont`, `Segoe UI`
-- Header: 32px
-- Message text: 18px
-
-**Layout:**
-- Full-screen fixed layout
-- Top status header
-- Scrollable message pane
-- Docked input bar
-
-**Components:**
-- Message bubbles: 20px rounded corners
-- AI bubbles: Cyan border glow
 - User bubbles: Solid blue
 - Error bubbles: Deep red with red border
 - Icons: Lucide React (Bot/User/Wifi/Cpu) in circular avatars
