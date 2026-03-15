@@ -20,6 +20,16 @@ def test_provider_names_match_supported_providers() -> None:
         assert provider.name in SUPPORTED_PROVIDERS
 
 
+def test_all_providers_registered() -> None:
+    providers = [
+        AnthropicEscalationProvider(),
+        OpenAIEscalationProvider(),
+        GeminiEscalationProvider(),
+        GrokEscalationProvider(),
+    ]
+    assert {provider.name for provider in providers} == SUPPORTED_PROVIDERS
+
+
 def test_anthropic_execute_success(monkeypatch) -> None:
     from backend.models.providers import anthropic_provider as module
 

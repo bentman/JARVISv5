@@ -15,6 +15,17 @@
 
 ## Entries
 
+- 2026-03-14 19:24
+  - Summary: Completed a separate T16.4 corrective gap-closure pass by adding the remaining roadmap-required test coverage for strict provider registration and Anthropic registry dispatch integration.
+  - Scope: `tests/unit/test_escalation_providers.py`, `tests/unit/test_controller_service_integration.py` (test-only corrective work).
+  - Notes:
+    - Added `test_all_providers_registered` and additive controller integration coverage for dispatch to a registered Anthropic provider.
+  - Evidence:
+    - `e:\WORK\CODE\GitHub\bentman\Repositories\JARVISv5\backend\.venv\Scripts\python.exe -m pytest tests/unit/test_escalation_providers.py tests/unit/test_controller_service_integration.py -q`
+      - PASS excerpt: `39 passed in 10.31s`
+    - `e:\WORK\CODE\GitHub\bentman\Repositories\JARVISv5\backend\.venv\Scripts\python.exe -m pytest tests/unit -q`
+      - PASS excerpt: `350 passed, 1 skipped in 89.80s (0:01:29)`
+
 - 2026-03-13 15:10
   - Summary: Completed T16.4 as a verification-only closeout for M16 escalation-provider/controller coverage with no additional implementation changes required.
   - Scope: Verification-only task; no production or test file modifications required beyond existing T16 work.

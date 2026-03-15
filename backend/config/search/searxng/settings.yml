@@ -95,7 +95,7 @@ server:
   # If your instance owns a /etc/searxng/settings.yml file, then set the following
   # values there.
 
-  secret_key: "ultrasecretkey"  # Is overwritten by ${SEARXNG_SECRET}
+  secret_key: "4q8xNYNKzLRbxIpr1BlnL7lmY2ULxjXX"  # Is overwritten by ${SEARXNG_SECRET}
   # Proxy image results through SearXNG. Is overwritten by ${SEARXNG_IMAGE_PROXY}
   image_proxy: false
   # 1.0 and 1.1 are supported
@@ -1792,24 +1792,6 @@ engines:
     shortcut: reu
     # https://docs.searxng.org/dev/engines/online/reuters.html
     # sort_order = "relevance"
-
-  - name: right dao
-    engine: xpath
-    paging: true
-    page_size: 12
-    search_url: https://rightdao.com/search?q={query}&start={pageno}
-    results_xpath: //div[contains(@class, "description")]
-    url_xpath: ../div[contains(@class, "title")]/a/@href
-    title_xpath: ../div[contains(@class, "title")]
-    content_xpath: .
-    categories: general
-    shortcut: rd
-    disabled: true
-    about:
-      website: https://rightdao.com/
-      use_official_api: false
-      require_api_key: false
-      results: HTML
 
   - name: rottentomatoes
     engine: rottentomatoes

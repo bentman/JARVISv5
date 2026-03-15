@@ -279,6 +279,36 @@ def test_controller_escalation_allowed_uses_registry_provider_and_redacts_prompt
         assert "[EMAIL_REDACTED]" in provider.last_prompt
 
 
+def test_controller_escalation_allowed_uses_registered_anthropic_provider(monkeypatch) -> None:
+    class _Settings:
+        MODEL_PATH = "models/"
+        ALLOW_MODEL_ESCALATION = True
+        ESCALATION_PROVIDER = "anthropic"
+        ESCALATION_BUDGET_USD = 10.0
+
+    monkeypatch.setattr(controller_service_module, "Settings", lambda: _Settings)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-anthropic-key")
+
+    provider = StubEscalationProvider(ok=True, output="anthropic-escalated-response")
+    monkeypatch.setitem(controller_service_module._ESCALATION_PROVIDER_REGISTRY, "anthropic", provider)
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=StubModelRegistry(),
+        )
+
+        result = service.run(user_input="contact me at test@example.com")
+        context = result["context"]
+
+        assert context.get("escalation_status") == "escalated"
+        assert context.get("llm_output") == "anthropic-escalated-response"
+        assert context.get("skip_llm") is False
+        assert "test@example.com" not in provider.last_prompt
+        assert "[EMAIL_REDACTED]" in provider.last_prompt
+
+
 def test_controller_escalation_allowed_provider_failure_sets_failed(monkeypatch) -> None:
     class _Settings:
         MODEL_PATH = "models/"

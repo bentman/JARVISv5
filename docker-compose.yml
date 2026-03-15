@@ -41,7 +41,7 @@ services:
       - ./backend/config/search/searxng:/etc/searxng:rw
       - ./data/search/searxng:/var/cache/searxng:rw
     environment:
-      - BASE_URL=http://localhost:8888/
+      - BASE_URL=http://localhost:8888
       - INSTANCE_NAME=JARVISv5-searxng
-      - BIND_ADDRESS=0.0.0.0:8080
+      - SEARXNG_BIND_ADDRESS=0.0.0.0:8080
     restart: unless-stopped
