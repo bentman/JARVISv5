@@ -24,7 +24,7 @@ JARVISv5 is a **daily‑use personal assistant** that is **local‑first by defa
 ## 2. 🧭 Product Intent (Pragmatic Scope)
 
 - **Daily Assistant:** search, research synthesis, task planning, code help, and knowledge recall.
-- **Voice Optional:** STT/TTS and wake word, but not required for core usage.
+- **Voice-Forward Direction:** voice interaction remains part of the long-term JARVIS vision, even when text-first usage leads day-to-day work today.
 - **Minimal Friction:** one‑command start, predictable outputs, and clear failure states.
 
 ---
@@ -126,7 +126,6 @@ Automatic profiling of:
 - **Local Inference:** GGUF models via llama.cpp.
 - **Provider Abstraction:** Standardized interface for local/remote models.
 - **Hardware Routing:** Matches model requirements to available hardware.
-- **Integrity Verification:** Model checksums and validation.
 
 ### 6.3 Escalation Policy
 
@@ -160,11 +159,9 @@ Automatic profiling of:
 - **Local-First Processing:** All computation occurs locally by default.
 - **Data Classification:** Sensitive content identified and handled appropriately.
 - **Selective Redaction:** PII removed before external API calls.
-- **Encryption:** Conversation storage encrypted at rest.
 
 ### 8.2 Security Implementation
 
-- **Model Integrity:** Checksum verification for all models.
 - **Sandboxed Execution:** Tool calls isolated from system.
 - **Inter-Component Security:** Secure communication between services.
 - **User Controls:** Explicit permissions for data retention and sharing.
@@ -246,7 +243,7 @@ Automatic profiling of:
 
 - **Chat Interface:** Message display with streaming responses and markdown support.
 - **Workflow Visualizer:** Live node status and execution graph.
-- **Voice Panel:** Microphone controls, wake word indicator, activation feedback.
+- **Voice Panel (Future Direction):** microphone controls, wake word indicator, and activation feedback remain part of the broader JARVIS interface vision.
 - **Settings Panel:** Hardware profiles, privacy controls, budget monitoring.
 - **Status Indicators:** Real-time system health, model routing, resource usage.
 
@@ -285,14 +282,14 @@ Access web interface at `http://localhost:3000`
 JARVISv5/
 ├── backend/                              # Python backend service (control plane, memory, tools, model routing)
 │   ├── Dockerfile                        # Backend container image definition
-│   ├── api/                              # Backend API surface (chat/workflow/memory/voice/settings)
+│   ├── api/                              # Backend API surface (chat/workflow/memory/settings and related runtime controls)
 │   ├── config/                           # Environment-driven configuration (hardware/privacy/budget)
 │   ├── controller/                       # Deterministic FSM/DAG orchestration and validation gates
 │   ├── memory/                           # Working state, episodic trace, semantic memory access
 │   ├── models/                           # Local-first model/provider abstraction and routing policy
 │   ├── security/                         # Redaction, permissions, and data protection controls
 │   ├── tools/                            # Tool registry and sandboxed execution
-│   ├── voice/                            # Optional STT/TTS/wake-word workflow path
+│   ├── voice/                            # Reserved for future voice-oriented capabilities within the JARVIS vision
 │   └── workflow/                         # Executable workflow nodes and runtime engine
 ├── data/                                 # Local runtime artifacts and memory persistence
 │   ├── archives/                         # Archived task artifacts for replay/history
@@ -302,7 +299,7 @@ JARVISv5/
 │   ├── retrieval/                        # <Need good description>
 │   ├── semantic/                         # Semantic memory index/metadata storage
 │   └── working_state/                    # Ephemeral task state JSON files
-├── frontend/                             # React web client (chat, status, settings, voice panel)
+├── frontend/                             # React web client (chat, status, settings, and related interface surfaces)
 │   ├── Dockerfile                        # Frontend container image definition
 │   └── src/                              # UI application source
 │       ├── api/                          # Client API bindings to backend services
@@ -322,7 +319,7 @@ JARVISv5/
 ├── CHANGE_LOG.md                         # Append-only record of completed work
 ├── docker-compose.yml                    # Root service orchestration entrypoint
 ├── LICENSE                               # Project license
-├── Project.md                            # Source-of-truth vision and architecture definition
+├── Project.md                            # Vision and intent document for the project
 ├── README.md                             # Setup, run, and usage instructions
 └── SYSTEM_INVENTORY.md                   # Capability ledger with verification state
 ```
