@@ -16,6 +16,7 @@ from backend.models.providers import (
     AnthropicEscalationProvider,
     GeminiEscalationProvider,
     GrokEscalationProvider,
+    OllamaEscalationProvider,
     OpenAIEscalationProvider,
 )
 from backend.models.hardware_profiler import HardwareService
@@ -244,6 +245,30 @@ class ControllerService:
             role: str,
         ) -> None:
             fallback_message = _no_model_fallback_message(profile, hardware_type, role)
+
+            ollama_enabled = bool(getattr(settings, "ALLOW_OLLAMA_ESCALATION", False))
+            ollama_model = str(getattr(settings, "OLLAMA_MODEL", "") or "").strip()
+            if ollama_enabled and ollama_model:
+                redactor = create_default_redactor()
+                redaction_result = redactor.redact(str(context.get("user_input", "")), mode="strict")
+                redacted_prompt = str(redaction_result.redacted)
+
+                ollama_impl = OllamaEscalationProvider()
+                ollama_ok, ollama_output, ollama_error = ollama_impl.execute(
+                    prompt=redacted_prompt,
+                    max_tokens=len(redacted_prompt),
+                    seed=self.generation_seed,
+                )
+                if ollama_ok:
+                    context["escalation_status"] = "escalated"
+                    context["escalation_provider_used"] = "ollama"
+                    context["llm_output"] = str(ollama_output)
+                    context["skip_llm"] = False
+                    context.pop("llm_error", None)
+                    return
+
+                context["ollama_fallback_reason"] = str(ollama_error or "ollama_execution_failed")
+
             provider = str(settings.ESCALATION_PROVIDER).strip().lower()
             api_key_value = ApiKeyRegistry().get_api_key(provider)
             provider_key_present = bool(str(api_key_value).strip())

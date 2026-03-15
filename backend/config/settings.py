@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     ALLOW_MODEL_ESCALATION: bool = False
     ESCALATION_PROVIDER: str = ""
     ESCALATION_BUDGET_USD: float = 0.0
+    ALLOW_OLLAMA_ESCALATION: bool = False
+    OLLAMA_BASE_URL: str = "http://host.docker.internal:11434"
+    OLLAMA_MODEL: str = ""
     DAILY_BUDGET_USD: float = 0.0
     MONTHLY_BUDGET_USD: float = 0.0
     GENERATION_SEED: int | None = None
@@ -98,6 +101,9 @@ class SafeConfigProjection(TypedDict):
     allow_model_escalation: bool
     escalation_provider: str
     escalation_budget_usd: float
+    allow_ollama_escalation: bool
+    ollama_base_url: str
+    ollama_model: str
     escalation_configured_providers: list[str]
 
 
@@ -122,6 +128,9 @@ def get_safe_config_projection(settings: Settings) -> SafeConfigProjection:
         "allow_model_escalation": settings.ALLOW_MODEL_ESCALATION,
         "escalation_provider": normalize_escalation_provider(settings.ESCALATION_PROVIDER),
         "escalation_budget_usd": float(settings.ESCALATION_BUDGET_USD),
+        "allow_ollama_escalation": settings.ALLOW_OLLAMA_ESCALATION,
+        "ollama_base_url": settings.OLLAMA_BASE_URL,
+        "ollama_model": settings.OLLAMA_MODEL,
         "escalation_configured_providers": api_keys.get_configured_providers(),
     }
 
@@ -134,6 +143,8 @@ EDITABLE_SETTINGS_ENV_KEYS: dict[str, str] = {
     "cache_enabled": "CACHE_ENABLED",
     "allow_model_escalation": "ALLOW_MODEL_ESCALATION",
     "escalation_provider": "ESCALATION_PROVIDER",
+    "allow_ollama_escalation": "ALLOW_OLLAMA_ESCALATION",
+    "ollama_model": "OLLAMA_MODEL",
 }
 
 ALLOWED_HARDWARE_PROFILES = {"light", "medium", "heavy", "test", "npu-optimized"}
@@ -187,7 +198,9 @@ def serialize_editable_setting_value(field_name: str, value: object) -> str:
         return normalize_default_search_provider(str(value))
     if field_name == "escalation_provider":
         return normalize_escalation_provider(str(value))
-    if field_name in {"allow_external_search", "cache_enabled", "allow_model_escalation"}:
+    if field_name == "ollama_model":
+        return str(value)
+    if field_name in {"allow_external_search", "cache_enabled", "allow_model_escalation", "allow_ollama_escalation"}:
         return "true" if bool(value) else "false"
 
     raise ValueError(f"unsupported editable setting: {field_name}")

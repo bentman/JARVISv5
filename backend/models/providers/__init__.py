@@ -1,4 +1,5 @@
 from .anthropic_provider import AnthropicEscalationProvider
 from .gemini_provider import GeminiEscalationProvider
 from .grok_provider import GrokEscalationProvider
+from .ollama_provider import OllamaEscalationProvider
 from .openai_provider import OpenAIEscalationProvider

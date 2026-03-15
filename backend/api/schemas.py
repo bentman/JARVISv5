@@ -93,6 +93,9 @@ class SettingsResponse(BaseModel):
     allow_model_escalation: bool | None = None
     escalation_provider: str | None = None
     escalation_budget_usd: float | None = None
+    allow_ollama_escalation: bool | None = None
+    ollama_base_url: str | None = None
+    ollama_model: str | None = None
     escalation_configured_providers: list[str] | None = None
 
 
@@ -106,6 +109,8 @@ class SettingsUpdateRequest(BaseModel):
     cache_enabled: bool | None = None
     allow_model_escalation: bool | None = None
     escalation_provider: str | None = None
+    allow_ollama_escalation: bool | None = None
+    ollama_model: str | None = None
 
     @field_validator("hardware_profile")
     @classmethod

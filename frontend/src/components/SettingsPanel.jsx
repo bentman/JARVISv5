@@ -30,6 +30,8 @@ const EDITABLE_FIELDS = [
   'cache_enabled',
   'allow_model_escalation',
   'escalation_provider',
+  'allow_ollama_escalation',
+  'ollama_model',
 ]
 
 const HARDWARE_PROFILE_OPTIONS = ['light', 'medium', 'heavy', 'test', 'npu-optimized']
@@ -45,6 +47,8 @@ function pickEditableSettings(settings) {
     cache_enabled: Boolean(settings?.cache_enabled),
     allow_model_escalation: Boolean(settings?.allow_model_escalation),
     escalation_provider: String(settings?.escalation_provider ?? ''),
+    allow_ollama_escalation: Boolean(settings?.allow_ollama_escalation),
+    ollama_model: String(settings?.ollama_model ?? ''),
   }
 }
 
@@ -510,6 +514,39 @@ function SettingsPanel({ isOpen, onClose }) {
           <div style={{ marginBottom: 10 }}>
             <div style={{ color: '#8fb6c2', marginBottom: 4 }}>Escalation Budget (USD)</div>
             <div>{String(settings?.escalation_budget_usd ?? '0')}</div>
+          </div>
+
+          <div style={{ marginBottom: 8, marginTop: 12 }}>
+            <div style={{ fontWeight: 600, marginBottom: 6 }}>Ollama Escalation</div>
+            <label style={{ color: '#8fb6c2', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <input
+                type="checkbox"
+                checked={Boolean(draftEditableSettings.allow_ollama_escalation)}
+                onChange={(event) => setDraftField('allow_ollama_escalation', event.target.checked)}
+                disabled={saving}
+              />
+              Allow Ollama Escalation
+            </label>
+
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ color: '#8fb6c2', marginBottom: 4 }}>Ollama Model</div>
+              <input
+                type="text"
+                value={draftEditableSettings.ollama_model}
+                onChange={(event) => setDraftField('ollama_model', event.target.value)}
+                disabled={saving || !Boolean(draftEditableSettings.allow_ollama_escalation)}
+                placeholder="e.g. llama3.2, mistral"
+                style={{ width: '100%', padding: '6px 8px', borderRadius: 6 }}
+              />
+            </div>
+
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ color: '#8fb6c2', marginBottom: 4 }}>Ollama Base URL</div>
+              <div>{String(settings?.ollama_base_url ?? '') || '(not set)'}</div>
+              <div style={{ color: '#8fb6c2', marginTop: 4, fontSize: 12 }}>
+                Read-only. Update in .env and restart backend to apply changes.
+              </div>
+            </div>
           </div>
 
           {isDirty ? <div style={{ color: '#f59e0b', marginBottom: 8 }}>Unsaved changes</div> : null}

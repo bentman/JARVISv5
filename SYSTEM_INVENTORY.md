@@ -25,6 +25,14 @@
 
 ## Inventory
 
+- Capability: Milestone 16.2 — Ollama Escalation Configuration, Provider Execution, Controller Fallback, and Settings UI Surface
+  - 2026-03-14 22:08
+  - State: Verified
+  - Location: `backend/config/settings.py`, `backend/api/schemas.py`, `backend/api/main.py`, `.env.example`, `docker-compose.yml`, `backend/models/providers/ollama_provider.py`, `backend/models/providers/__init__.py`, `backend/controller/controller_service.py`, `frontend/src/components/SettingsPanel.jsx`, `tests/unit/test_config.py`, `tests/unit/test_api_settings.py`, `tests/unit/test_escalation_providers.py`, `tests/unit/test_controller_service_integration.py`
+  - Validation: `backend\.venv\Scripts\python.exe -m pytest tests/unit/test_config.py tests/unit/test_api_settings.py -q`; `docker compose config`; `backend\.venv\Scripts\python.exe -m pytest tests/unit/test_escalation_providers.py -q`; `backend\.venv\Scripts\python.exe -m pytest tests/unit/test_controller_service_integration.py -q`; `npm --prefix frontend run build`; `backend\.venv\Scripts\python.exe -m pytest tests/unit/test_escalation_providers.py tests/unit/test_controller_service_integration.py -q`; `backend\.venv\Scripts\python.exe scripts/validate_backend.py --scope unit`
+  - Notes:
+    - Repository artifacts include Ollama host escalation config projection/edit constraints, compose host-gateway support, Ollama provider implementation, controller local->Ollama pre-cloud fallback behavior, and frontend settings controls for Ollama escalation.
+
 - Capability: Milestone 16 — Escalation Provider Execution Layer (T16.1–T16.4)
   - 2026-03-13 15:15
   - State: Verified

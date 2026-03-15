@@ -337,6 +337,177 @@ def test_controller_escalation_allowed_provider_failure_sets_failed(monkeypatch)
         assert "Local model missing" in str(context.get("llm_output", ""))
 
 
+def test_controller_ollama_success_skips_cloud_escalation_path(monkeypatch) -> None:
+    class _Settings:
+        MODEL_PATH = "models/"
+        ALLOW_OLLAMA_ESCALATION = True
+        OLLAMA_MODEL = "llama3.2"
+        ALLOW_MODEL_ESCALATION = True
+        ESCALATION_PROVIDER = "openai"
+        ESCALATION_BUDGET_USD = 10.0
+
+    class _OllamaProvider:
+        def execute(self, prompt: str, max_tokens: int, seed: int | None):
+            _ = prompt
+            _ = max_tokens
+            _ = seed
+            return True, "ollama-response", ""
+
+    monkeypatch.setattr(controller_service_module, "Settings", lambda: _Settings)
+    monkeypatch.setattr(controller_service_module, "OllamaEscalationProvider", _OllamaProvider)
+
+    def _unexpected_cloud_policy_call(*args, **kwargs):
+        _ = args
+        _ = kwargs
+        raise AssertionError("cloud escalation path should not execute after ollama success")
+
+    monkeypatch.setattr(controller_service_module, "decide_escalation", _unexpected_cloud_policy_call)
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=StubModelRegistry(),
+        )
+
+        result = service.run(user_input="hello")
+        context = result["context"]
+
+        assert context.get("escalation_status") == "escalated"
+        assert context.get("escalation_provider_used") == "ollama"
+        assert context.get("llm_output") == "ollama-response"
+
+
+def test_controller_ollama_failure_falls_through_to_cloud_escalation(monkeypatch) -> None:
+    class _Settings:
+        MODEL_PATH = "models/"
+        ALLOW_OLLAMA_ESCALATION = True
+        OLLAMA_MODEL = "llama3.2"
+        ALLOW_MODEL_ESCALATION = True
+        ESCALATION_PROVIDER = "openai"
+        ESCALATION_BUDGET_USD = 10.0
+
+    class _OllamaProvider:
+        def execute(self, prompt: str, max_tokens: int, seed: int | None):
+            _ = prompt
+            _ = max_tokens
+            _ = seed
+            return False, "", "ollama_unreachable"
+
+    monkeypatch.setattr(controller_service_module, "Settings", lambda: _Settings)
+    monkeypatch.setattr(controller_service_module, "OllamaEscalationProvider", _OllamaProvider)
+
+    def _allow_cloud_policy(request):
+        _ = request
+        return True, {"code": "ok", "reason": "allowed"}
+
+    monkeypatch.setattr(controller_service_module, "decide_escalation", _allow_cloud_policy)
+    monkeypatch.setenv("OPENAI_API_KEY", "test-openai-key")
+
+    provider = StubEscalationProvider(ok=True, output="cloud-response")
+    monkeypatch.setitem(controller_service_module._ESCALATION_PROVIDER_REGISTRY, "openai", provider)
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=StubModelRegistry(),
+        )
+
+        result = service.run(user_input="hello")
+        context = result["context"]
+
+        assert context.get("ollama_fallback_reason") == "ollama_unreachable"
+        assert context.get("escalation_status") == "escalated"
+        assert context.get("llm_output") == "cloud-response"
+
+
+def test_controller_ollama_disabled_falls_through_to_cloud_escalation(monkeypatch) -> None:
+    class _Settings:
+        MODEL_PATH = "models/"
+        ALLOW_OLLAMA_ESCALATION = False
+        OLLAMA_MODEL = "llama3.2"
+        ALLOW_MODEL_ESCALATION = True
+        ESCALATION_PROVIDER = "openai"
+        ESCALATION_BUDGET_USD = 10.0
+
+    class _UnexpectedOllamaProvider:
+        def execute(self, prompt: str, max_tokens: int, seed: int | None):
+            _ = prompt
+            _ = max_tokens
+            _ = seed
+            raise AssertionError("ollama should not run when disabled")
+
+    monkeypatch.setattr(controller_service_module, "Settings", lambda: _Settings)
+    monkeypatch.setattr(controller_service_module, "OllamaEscalationProvider", _UnexpectedOllamaProvider)
+
+    def _allow_cloud_policy(request):
+        _ = request
+        return True, {"code": "ok", "reason": "allowed"}
+
+    monkeypatch.setattr(controller_service_module, "decide_escalation", _allow_cloud_policy)
+    monkeypatch.setenv("OPENAI_API_KEY", "test-openai-key")
+
+    provider = StubEscalationProvider(ok=True, output="cloud-response-disabled")
+    monkeypatch.setitem(controller_service_module._ESCALATION_PROVIDER_REGISTRY, "openai", provider)
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=StubModelRegistry(),
+        )
+
+        result = service.run(user_input="hello")
+        context = result["context"]
+
+        assert context.get("escalation_status") == "escalated"
+        assert context.get("llm_output") == "cloud-response-disabled"
+
+
+def test_controller_ollama_enabled_with_blank_model_falls_through_to_cloud(monkeypatch) -> None:
+    class _Settings:
+        MODEL_PATH = "models/"
+        ALLOW_OLLAMA_ESCALATION = True
+        OLLAMA_MODEL = "   "
+        ALLOW_MODEL_ESCALATION = True
+        ESCALATION_PROVIDER = "openai"
+        ESCALATION_BUDGET_USD = 10.0
+
+    class _UnexpectedOllamaProvider:
+        def execute(self, prompt: str, max_tokens: int, seed: int | None):
+            _ = prompt
+            _ = max_tokens
+            _ = seed
+            raise AssertionError("ollama should not run when model is blank")
+
+    monkeypatch.setattr(controller_service_module, "Settings", lambda: _Settings)
+    monkeypatch.setattr(controller_service_module, "OllamaEscalationProvider", _UnexpectedOllamaProvider)
+
+    def _allow_cloud_policy(request):
+        _ = request
+        return True, {"code": "ok", "reason": "allowed"}
+
+    monkeypatch.setattr(controller_service_module, "decide_escalation", _allow_cloud_policy)
+
+    provider = StubEscalationProvider(ok=True, output="cloud-response-blank-model")
+    monkeypatch.setitem(controller_service_module._ESCALATION_PROVIDER_REGISTRY, "openai", provider)
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=StubModelRegistry(),
+        )
+
+        result = service.run(user_input="hello")
+        context = result["context"]
+
+        assert context.get("escalation_status") == "escalated"
+        assert context.get("llm_output") == "cloud-response-blank-model"
+        assert context.get("escalation_provider_used") != "ollama"
+
+
 def test_controller_service_run_uses_dag_executor_path(monkeypatch) -> None:
     original = DAGExecutor.resolve_execution_order
     calls = {"count": 0}

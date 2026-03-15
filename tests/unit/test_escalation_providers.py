@@ -5,6 +5,7 @@ from backend.models.providers import (
     AnthropicEscalationProvider,
     GeminiEscalationProvider,
     GrokEscalationProvider,
+    OllamaEscalationProvider,
     OpenAIEscalationProvider,
 )
 
@@ -344,3 +345,110 @@ def test_api_key_lookup_happens_at_execute_time(monkeypatch) -> None:
     assert calls == []
     provider.execute("prompt", 32, 4)
     assert calls == ["openai"]
+
+
+def test_ollama_execute_success(monkeypatch) -> None:
+    from backend.models.providers import ollama_provider as module
+
+    class _Settings:
+        OLLAMA_BASE_URL = "http://host.docker.internal:11434"
+        OLLAMA_MODEL = "llama3.2"
+
+    class _Response:
+        status_code = 200
+
+        @staticmethod
+        def json() -> dict[str, str]:
+            return {"response": "ollama-output"}
+
+    def _post(url: str, *, json: dict, timeout: float):
+        assert url == "http://host.docker.internal:11434/api/generate"
+        assert json["model"] == "llama3.2"
+        assert json["prompt"] == "prompt"
+        assert json["stream"] is False
+        assert json["options"]["num_predict"] == 77
+        assert timeout == 30.0
+        return _Response()
+
+    monkeypatch.setattr(module, "Settings", lambda: _Settings())
+    monkeypatch.setattr(module.httpx, "post", _post)
+
+    ok, output, error = OllamaEscalationProvider().execute("prompt", 77, 123)
+    assert ok is True
+    assert output == "ollama-output"
+    assert error == ""
+
+
+def test_ollama_execute_unreachable(monkeypatch) -> None:
+    from backend.models.providers import ollama_provider as module
+
+    class _Settings:
+        OLLAMA_BASE_URL = "http://host.docker.internal:11434"
+        OLLAMA_MODEL = "llama3.2"
+
+    def _post(url: str, *, json: dict, timeout: float):
+        _ = url
+        _ = json
+        _ = timeout
+        raise module.httpx.RequestError("connect failure")
+
+    monkeypatch.setattr(module, "Settings", lambda: _Settings())
+    monkeypatch.setattr(module.httpx, "post", _post)
+
+    ok, output, error = OllamaEscalationProvider().execute("prompt", 55, None)
+    assert ok is False
+    assert output == ""
+    assert error == "ollama_unreachable"
+
+
+def test_ollama_execute_missing_model(monkeypatch) -> None:
+    from backend.models.providers import ollama_provider as module
+
+    class _Settings:
+        OLLAMA_BASE_URL = "http://host.docker.internal:11434"
+        OLLAMA_MODEL = "   "
+
+    calls: list[str] = []
+
+    def _post(url: str, *, json: dict, timeout: float):
+        calls.append(url)
+        _ = json
+        _ = timeout
+        return None
+
+    monkeypatch.setattr(module, "Settings", lambda: _Settings())
+    monkeypatch.setattr(module.httpx, "post", _post)
+
+    ok, output, error = OllamaEscalationProvider().execute("prompt", 20, None)
+    assert ok is False
+    assert output == ""
+    assert error == "ollama_model_not_configured"
+    assert calls == []
+
+
+def test_ollama_execute_timeout_maps_to_unreachable(monkeypatch) -> None:
+    from backend.models.providers import ollama_provider as module
+
+    class _Settings:
+        OLLAMA_BASE_URL = "http://host.docker.internal:11434"
+        OLLAMA_MODEL = "llama3.2"
+
+    def _post(url: str, *, json: dict, timeout: float):
+        _ = url
+        _ = json
+        _ = timeout
+        raise module.httpx.TimeoutException("timeout")
+
+    monkeypatch.setattr(module, "Settings", lambda: _Settings())
+    monkeypatch.setattr(module.httpx, "post", _post)
+
+    ok, output, error = OllamaEscalationProvider().execute("prompt", 55, None)
+    assert ok is False
+    assert output == ""
+    assert error == "ollama_unreachable"
+
+
+def test_ollama_not_in_cloud_escalation_registry() -> None:
+    from backend.controller import controller_service as controller_service_module
+
+    assert "ollama" not in controller_service_module._ESCALATION_PROVIDER_REGISTRY

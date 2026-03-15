@@ -16,6 +16,8 @@ services:
       - MODEL_FETCH=${MODEL_FETCH:-never}
       - SEARCH_SEARXNG_URL=${SEARCH_SEARXNG_URL:-http://searxng:8888/search}
       - LOG_LEVEL=${LOG_LEVEL:-DEBUG}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       - redis
       - searxng

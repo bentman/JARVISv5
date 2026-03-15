@@ -15,6 +15,52 @@
 
 ## Entries
 
+- 2026-03-14 21:33
+  - Summary: Completed T16.2.7 by adding the minimum residual Ollama backend test coverage: explicit cloud-registry exclusion assertion, deterministic timeout-to-unreachable provider mapping, and controller fall-through coverage when Ollama is enabled with blank model.
+  - Scope: `tests/unit/test_escalation_providers.py`, `tests/unit/test_controller_service_integration.py`.
+  - Evidence:
+    - `backend\.venv\Scripts\python.exe -m pytest tests/unit/test_escalation_providers.py tests/unit/test_controller_service_integration.py -q`
+      - PASS excerpt: `48 passed in 6.28s`
+    - `backend\.venv\Scripts\python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `PASS WITH SKIPS: unit: 365 tests, 1 skipped`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+
+- 2026-03-14 21:25
+  - Summary: Completed T16.2.6 by adding a dedicated Ollama Escalation subsection in SettingsPanel with editable `allow_ollama_escalation` and `ollama_model` controls, plus read-only `ollama_base_url` display with restart-required note.
+  - Scope: `frontend/src/components/SettingsPanel.jsx`.
+  - Evidence:
+    - `npm --prefix frontend run build`
+      - PASS excerpt: `✓ built in 1.22s`
+
+- 2026-03-14 21:09
+  - Summary: Completed T16.2.4 by inserting an Ollama pre-check fallback attempt in local-model-unavailable handling so controller fallback order is local model -> Ollama (when enabled/configured) -> existing cloud escalation path.
+  - Scope: `backend/controller/controller_service.py`, `tests/unit/test_controller_service_integration.py`.
+  - Evidence:
+    - `backend\.venv\Scripts\python.exe -m pytest tests/unit/test_controller_service_integration.py -q`
+      - PASS excerpt: `31 passed in 5.96s`
+
+- 2026-03-14 21:04
+  - Summary: Completed T16.2.3 by adding an Ollama escalation provider with execution-time settings lookup and deterministic offline-tested failure handling for missing model and unreachable host paths.
+  - Scope: `backend/models/providers/ollama_provider.py`, `backend/models/providers/__init__.py`, `tests/unit/test_escalation_providers.py`.
+  - Evidence:
+    - `backend\.venv\Scripts\python.exe -m pytest tests/unit/test_escalation_providers.py -q`
+      - PASS excerpt: `14 passed in 0.86s`
+
+- 2026-03-14 20:57
+  - Summary: Completed T16.2.2 by adding Linux-compatible backend host-gateway mapping for `host.docker.internal` in compose, with no other compose/service behavior changes.
+  - Scope: `docker-compose.yml`.
+  - Evidence:
+    - `docker compose config`
+      - PASS excerpt: `extra_hosts:`
+      - PASS excerpt: `- host.docker.internal=host-gateway`
+
+- 2026-03-14 20:55
+  - Summary: Completed T16.2.1 by adding Ollama escalation settings defaults, safe projection fields, editable-settings constraints, and `.env`/`.env.example` key alignment with focused config/settings API coverage.
+  - Scope: `backend/config/settings.py`, `backend/api/schemas.py`, `backend/api/main.py`, `.env.example`, `.env`, `tests/unit/test_config.py`, `tests/unit/test_api_settings.py`.
+  - Evidence:
+    - `backend\.venv\Scripts\python.exe -m pytest tests/unit/test_config.py tests/unit/test_api_settings.py -q`
+      - PASS excerpt: `27 passed in 1.42s`
+
 - 2026-03-14 19:24
   - Summary: Completed a separate T16.4 corrective gap-closure pass by adding the remaining roadmap-required test coverage for strict provider registration and Anthropic registry dispatch integration.
   - Scope: `tests/unit/test_escalation_providers.py`, `tests/unit/test_controller_service_integration.py` (test-only corrective work).
