@@ -265,7 +265,7 @@ Single-command deployment:
 docker compose up
 ```
 
-Access web interface at `http://localhost:3000`
+Access web interface at `http://localhost:3001`
 
 ### 12.3 Project Organization
 

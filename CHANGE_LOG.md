@@ -15,6 +15,11 @@
 
 ## Entries
 
+- 2026-03-15 13:13 — User adjusted frontend host port re-align to 3001
+  - Summary: Completed a configuration/documentation-only change by updating the JARVISv5 frontend host-facing port from `3000` to `3001` (`3001:3000`) and aligning local access documentation to `http://localhost:3001`.
+- Scope: `docker-compose.yml`, docs referencing local frontend URL
+- Evidence: Compose frontend port mapping: `3001:3000`, Local documentation URL: `http://localhost:3001`
+ 
 - 2026-03-15 04:51
   - Summary: Completed a documentation-only `Project.md` reality-alignment pass to keep it vision/intent-focused by strengthening long-term voice direction language, removing active encryption-at-rest and model-integrity implementation phrasing, and softening selected repository/interface wording.
   - Scope: `Project.md`.
@@ -1429,7 +1434,7 @@
 
 - 2026-02-20 22:27
   - Summary: Completed UI-4 evidence closure pass without code changes. Verified header status transitions with backend stop/start polling, verified header task context display (shortened task id + final state) after send, and verified New Chat clears task context.
-  - Scope: Runtime surfaces only (`http://localhost:3000` header behavior, Docker services `jarvisv5-frontend-1`, `jarvisv5-backend-1`, `jarvisv5-redis-1`); no repository source files were modified by this pass.
+  - Scope: Runtime surfaces only (`http://localhost:3001` header behavior, Docker services `jarvisv5-frontend-1`, `jarvisv5-backend-1`, `jarvisv5-redis-1`); no repository source files were modified by this pass.
   - Evidence:
     - `docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"`
       ```text
@@ -1442,7 +1447,7 @@
       ```text
       {"status":"ok","service":"JARVISv5-backend"}
       ```
-    - `curl -I http://localhost:3000`
+    - `curl -I http://localhost:3001`
       ```text
       HTTP/1.1 200 OK
       ```
