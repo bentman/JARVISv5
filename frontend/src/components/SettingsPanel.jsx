@@ -7,6 +7,37 @@ function formatLabel(key) {
     .replace(/\b\w/g, (char) => char.toUpperCase())
 }
 
+function mapSettingsSnapshotLabel(key) {
+  if (key === 'searxng_url') {
+    return 'SearXNG URL'
+  }
+  return formatLabel(key)
+}
+
+function mapSettingsSnapshotValue(key, value) {
+  if (key !== 'searxng_url') {
+    return value
+  }
+
+  const raw = String(value ?? '').trim()
+  if (!raw) {
+    return raw
+  }
+
+  try {
+    const parsed = new URL(raw)
+    if (parsed.hostname.toLowerCase() === 'searxng') {
+      parsed.hostname = 'localhost'
+      parsed.port = '8888'
+      return parsed.toString()
+    }
+  } catch {
+    return raw
+  }
+
+  return raw
+}
+
 function renderObjectRows(data) {
   const entries = Object.entries(data || {}).sort(([a], [b]) => a.localeCompare(b))
 
@@ -16,8 +47,12 @@ function renderObjectRows(data) {
 
   return entries.map(([key, value]) => (
     <div key={key} style={{ marginBottom: 6 }}>
-      <span style={{ color: '#8fb6c2' }}>{formatLabel(key)}:</span>{' '}
-      <span>{typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value)}</span>
+      <span style={{ color: '#8fb6c2' }}>{mapSettingsSnapshotLabel(key)}:</span>{' '}
+      <span>
+        {typeof mapSettingsSnapshotValue(key, value) === 'object' && mapSettingsSnapshotValue(key, value) !== null
+          ? JSON.stringify(mapSettingsSnapshotValue(key, value))
+          : String(mapSettingsSnapshotValue(key, value))}
+      </span>
     </div>
   ))
 }
@@ -348,6 +383,17 @@ function SettingsPanel({ isOpen, onClose }) {
   const draftEscalationProvider = String(draftEditableSettings?.escalation_provider ?? '')
   const includeCurrentEscalationProviderOption =
     draftEscalationProvider.length > 0 && !configuredEscalationProviderSet.has(draftEscalationProvider)
+  const configuredOllamaModelOptions = Array.isArray(settings?.ollama_model_options)
+    ? settings.ollama_model_options
+        .filter((value) => typeof value === 'string')
+        .map((value) => value.trim())
+        .filter(Boolean)
+    : []
+  const configuredOllamaModelOptionSet = new Set(configuredOllamaModelOptions)
+  const draftOllamaModel = String(draftEditableSettings?.ollama_model ?? '')
+  const includeCurrentOllamaModelOption =
+    draftOllamaModel.length > 0 && !configuredOllamaModelOptionSet.has(draftOllamaModel)
+  const hasConfiguredOllamaModelOptions = configuredOllamaModelOptions.length > 0
 
   return (
     <div
@@ -530,14 +576,31 @@ function SettingsPanel({ isOpen, onClose }) {
 
             <div style={{ marginBottom: 8 }}>
               <div style={{ color: '#8fb6c2', marginBottom: 4 }}>Ollama Model</div>
-              <input
-                type="text"
+              <select
                 value={draftEditableSettings.ollama_model}
                 onChange={(event) => setDraftField('ollama_model', event.target.value)}
-                disabled={saving || !Boolean(draftEditableSettings.allow_ollama_escalation)}
-                placeholder="e.g. llama3.2, mistral"
+                disabled={
+                  saving ||
+                  !Boolean(draftEditableSettings.allow_ollama_escalation) ||
+                  !hasConfiguredOllamaModelOptions
+                }
                 style={{ width: '100%', padding: '6px 8px', borderRadius: 6 }}
-              />
+              >
+                {includeCurrentOllamaModelOption ? (
+                  <option value={draftOllamaModel}>{draftOllamaModel}</option>
+                ) : null}
+                <option value="">(none)</option>
+                {configuredOllamaModelOptions.map((modelName) => (
+                  <option key={modelName} value={modelName}>
+                    {modelName}
+                  </option>
+                ))}
+              </select>
+              {!hasConfiguredOllamaModelOptions ? (
+                <div style={{ color: '#8fb6c2', marginTop: 4, fontSize: 12 }}>
+                  No Ollama models available from current runtime status.
+                </div>
+              ) : null}
             </div>
 
             <div style={{ marginBottom: 8 }}>

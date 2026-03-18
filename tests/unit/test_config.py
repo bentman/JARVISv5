@@ -54,8 +54,8 @@ def test_settings_escalation_field_defaults() -> None:
     assert settings.ESCALATION_BUDGET_USD == 0.0
 
 
-def test_settings_ollama_field_defaults() -> None:
-    settings = Settings()
+def test_settings_ollama_field_defaults(monkeypatch) -> None:
+    settings = Settings(**{"_env_file": None})
     assert settings.ALLOW_OLLAMA_ESCALATION is False
     assert settings.OLLAMA_BASE_URL == "http://host.docker.internal:11434"
     assert settings.OLLAMA_MODEL == ""
@@ -88,8 +88,10 @@ def test_safe_config_projection_includes_escalation_fields(monkeypatch) -> None:
             return ["anthropic", "openai"]
 
     monkeypatch.setattr("backend.config.settings.ApiKeyRegistry", lambda: _Registry())
+    monkeypatch.setattr("backend.config.settings.fetch_ollama_model_options", lambda _url: ["llama3.2", "mistral"])
 
     settings = Settings(
+        **{"_env_file": None},
         ALLOW_MODEL_ESCALATION=True,
         ESCALATION_PROVIDER="openai",
         ESCALATION_BUDGET_USD=4.25,
@@ -102,6 +104,7 @@ def test_safe_config_projection_includes_escalation_fields(monkeypatch) -> None:
     assert projection["allow_ollama_escalation"] is False
     assert projection["ollama_base_url"] == "http://host.docker.internal:11434"
     assert projection["ollama_model"] == ""
+    assert projection["ollama_model_options"] == ["llama3.2", "mistral"]
     assert projection["escalation_configured_providers"] == ["anthropic", "openai"]
 
 
@@ -111,6 +114,7 @@ def test_safe_config_projection_includes_ollama_overrides(monkeypatch) -> None:
             return []
 
     monkeypatch.setattr("backend.config.settings.ApiKeyRegistry", lambda: _Registry())
+    monkeypatch.setattr("backend.config.settings.fetch_ollama_model_options", lambda _url: ["llama3.2:latest"])
 
     settings = Settings(
         ALLOW_OLLAMA_ESCALATION=True,
@@ -122,6 +126,7 @@ def test_safe_config_projection_includes_ollama_overrides(monkeypatch) -> None:
     assert projection["allow_ollama_escalation"] is True
     assert projection["ollama_base_url"] == "http://localhost:11434"
     assert projection["ollama_model"] == "llama3.2"
+    assert projection["ollama_model_options"] == ["llama3.2:latest"]
 
 
 def test_persist_settings_updates_rejects_escalation_budget_write(tmp_path) -> None:

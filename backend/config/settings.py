@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from typing import TypedDict
 
+import httpx
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic_settings.sources import PydanticBaseSettingsSource
@@ -104,11 +105,49 @@ class SafeConfigProjection(TypedDict):
     allow_ollama_escalation: bool
     ollama_base_url: str
     ollama_model: str
+    ollama_model_options: list[str]
     escalation_configured_providers: list[str]
+
+
+def fetch_ollama_model_options(ollama_base_url: str) -> list[str]:
+    base_url = str(ollama_base_url or "").strip().rstrip("/")
+    if not base_url:
+        return []
+
+    try:
+        response = httpx.get(f"{base_url}/api/tags", timeout=2.0)
+    except Exception:
+        return []
+
+    if response.status_code != 200:
+        return []
+
+    try:
+        payload = response.json()
+    except Exception:
+        return []
+
+    models_raw = payload.get("models", []) if isinstance(payload, dict) else []
+    if not isinstance(models_raw, list):
+        return []
+
+    out: list[str] = []
+    seen: set[str] = set()
+    for item in models_raw:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name") or item.get("model") or "").strip()
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        out.append(name)
+
+    return out
 
 
 def get_safe_config_projection(settings: Settings) -> SafeConfigProjection:
     api_keys = ApiKeyRegistry()
+    ollama_model_options = fetch_ollama_model_options(settings.OLLAMA_BASE_URL)
     return {
         "app_name": settings.APP_NAME,
         "debug": settings.DEBUG,
@@ -131,6 +170,7 @@ def get_safe_config_projection(settings: Settings) -> SafeConfigProjection:
         "allow_ollama_escalation": settings.ALLOW_OLLAMA_ESCALATION,
         "ollama_base_url": settings.OLLAMA_BASE_URL,
         "ollama_model": settings.OLLAMA_MODEL,
+        "ollama_model_options": ollama_model_options,
         "escalation_configured_providers": api_keys.get_configured_providers(),
     }
 

@@ -15,6 +15,65 @@
 
 ## Entries
 
+- 2026-03-18 08:27
+  - Summary: Completed bugfix-01 by fixing controller planned aggregation for upload-driven execution so redundant repeated subtask outputs no longer persisted as duplicated `[Part N]` blocks.
+  - Scope: `backend/controller/controller_service.py`, `tests/unit/test_controller_service_integration.py`.
+  - Notes:
+    - Upload-driven planned aggregation now collapses repeated identical subtask outputs.
+    - When deduped to a single upload result, assistant output is persisted without `[Part N]` wrappers.
+    - Distinct planned subtasks still aggregate normally into multi-part output.
+  - Evidence:
+    - `backend\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_controller_service_integration.py -q`
+      - PASS excerpt: `35 passed in 49.94s`
+    - `backend\\.venv\\Scripts\\python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `unit: 368 tests, 1 skipped`
+
+- 2026-03-18 07:07
+  - Summary: Completed bugfix-04 semantic-memory population slice by writing semantic memory from the successful validated controller path only, with fail-safe persistence behavior.
+  - Scope: `backend/controller/controller_service.py`, `tests/unit/test_controller_service_integration.py`.
+  - Notes:
+    - Semantic writes now occur only after validation passes and use final assistant output metadata (`task_id`, `source=assistant_final`, `intent`, `final_state_hint=validated`).
+    - Writes are skipped for invalid flows and empty/trivially low-value outputs; retrieval/UI follow-up remains a separate task if needed.
+  - Evidence:
+    - `backend\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_controller_service_integration.py -q`
+      - PASS excerpt: `34 passed in 51.65s`
+    - `backend\\.venv\\Scripts\\python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT=PASS_WITH_SKIPS`
+
+- 2026-03-17 06:40
+  - Summary: Completed a configuration/runtime-only fix for the cache connectivity issue by correcting `REDIS_URL` to the Docker service address (`redis://redis:6379/0`) and recreating the backend container so runtime settings reloaded correctly.
+  - Scope: `.env`, `.env.example`, backend container runtime refresh (no rebuild)
+  - Evidence:
+    - `curl -sS http://localhost:8000/health/detailed`
+      - PASS excerpt: `"cache":{"enabled":true,"connected":true}`
+    - `docker compose exec -T backend python -c "from backend.config.settings import Settings; print(Settings().REDIS_URL)"`
+      - PASS excerpt: `redis://redis:6379/0`
+
+- 2026-03-17 14:55
+  - Summary: Completed bugfix-05 as a minimal settings-surface enhancement: `/settings` now exposes selectable `ollama_model_options`, and the Settings UI now uses a dropdown/select for Ollama model choice. `ollama_base_url` remained read-only (not editable via settings write path) and restart-required semantics remained unchanged.
+  - Scope: `backend/api/schemas.py`, `backend/api/main.py`, `backend/config/settings.py`, `frontend/src/components/SettingsPanel.jsx`, `tests/unit/test_api_settings.py`, `tests/unit/test_api_schemas.py`, `tests/unit/test_config.py`.
+  - Evidence:
+    - `backend\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_api_settings.py tests/unit/test_api_schemas.py tests/unit/test_config.py -q`
+      - PASS excerpt: `32 passed in 1.29s`
+    - `backend\\.venv\\Scripts\\python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+    - `npm --prefix frontend run build`
+      - PASS excerpt: `✓ built in 686ms`
+
+- 2026-03-17 14:16
+  - Summary: Completed bugfix-02 as a frontend UI composition/visibility fix by removing inline Workflow Telemetry rendering from the response/message frame and making telemetry available only through an explicit toggle/flyout panel.
+  - Scope: `frontend/src/App.jsx`.
+  - Evidence:
+    - `npm --prefix frontend run build`
+      - PASS excerpt: `✓ built in 677ms`
+
+- 2026-03-17 13:57
+  - Summary: Completed bugfix-06 as a frontend display-layer settings snapshot fix by correcting `searxng_url` label casing to `SearXNG URL` and remapping internal Docker endpoint display (`searxng:8080`) to user-facing `localhost:8888` for display only.
+  - Scope: `frontend/src/components/SettingsPanel.jsx`.
+  - Evidence:
+    - `npm --prefix frontend run build`
+      - PASS excerpt: `✓ built in 1.06s`
+
 - 2026-03-15 13:13 — User adjusted frontend host port re-align to 3001
   - Summary: Completed a configuration/documentation-only change by updating the JARVISv5 frontend host-facing port from `3000` to `3001` (`3001:3000`) and aligning local access documentation to `http://localhost:3001`.
 - Scope: `docker-compose.yml`, docs referencing local frontend URL

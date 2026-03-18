@@ -8,6 +8,7 @@ import MemoryPanel from './components/MemoryPanel'
 
 function App() {
   const [isMemoryOpen, setIsMemoryOpen] = useState(false)
+  const [isWorkflowOpen, setIsWorkflowOpen] = useState(false)
 
   const {
     messages,
@@ -83,6 +84,13 @@ function App() {
             ) : null}
           </div>
           <button type="button" onClick={() => setIsMemoryOpen(true)} style={appStyles.headerButton}>Memory</button>
+          <button
+            type="button"
+            onClick={() => setIsWorkflowOpen((previous) => !previous)}
+            style={appStyles.headerButton}
+          >
+            {isWorkflowOpen ? 'Hide Telemetry' : 'Workflow Telemetry'}
+          </button>
           <button type="button" onClick={() => setIsSettingsOpen(true)} style={appStyles.headerButton}>Settings</button>
           <button type="button" onClick={handleNewChat} style={appStyles.headerButton}>New Chat</button>
         </div>
@@ -107,10 +115,42 @@ function App() {
 
       <SettingsPanel isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
 
+      {isWorkflowOpen ? (
+        <div
+          style={{
+            position: 'fixed',
+            top: 80,
+            right: 16,
+            width: 460,
+            maxWidth: '90vw',
+            maxHeight: '75vh',
+            overflowY: 'auto',
+            zIndex: 950,
+            border: '1px solid #00d4ff33',
+            borderRadius: 10,
+            background: '#0a0e1a',
+            boxShadow: '-8px 0 20px #00000055',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px 0 12px' }}>
+            <div style={{ fontWeight: 600 }}>Workflow Telemetry</div>
+            <button type="button" onClick={() => setIsWorkflowOpen(false)} style={appStyles.headerButton}>
+              Close
+            </button>
+          </div>
+          {taskId ? (
+            <WorkflowVisualizer taskId={taskId} />
+          ) : (
+            <div style={{ color: colors.muted, padding: '8px 12px 12px 12px' }}>
+              No active task yet.
+            </div>
+          )}
+        </div>
+      ) : null}
+
       <div style={appStyles.messagesContainer}>
         {messages.length === 0 ? <div style={appStyles.emptyState}>No messages yet.</div> : null}
         {messages.map((message, index) => renderChatMessage(message, index))}
-        {taskId ? <WorkflowVisualizer taskId={taskId} /> : null}
         <div ref={messagesEndRef} />
       </div>
 

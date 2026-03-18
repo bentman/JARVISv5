@@ -20,9 +20,43 @@ class TestEmbeddingFunction:
         return [base] * 384
 
 
+class RecordingMemoryManager(MemoryManager):
+    def __init__(
+        self,
+        episodic_db_path: str,
+        working_base_path: str,
+        working_archive_path: str,
+        semantic_db_path: str,
+        embedding_model: TestEmbeddingFunction,
+    ) -> None:
+        super().__init__(
+            episodic_db_path=episodic_db_path,
+            working_base_path=working_base_path,
+            working_archive_path=working_archive_path,
+            semantic_db_path=semantic_db_path,
+            embedding_model=embedding_model,
+        )
+        self.semantic_writes: list[dict] = []
+
+    def store_knowledge(self, text: str, metadata: dict[str, object]) -> int:
+        self.semantic_writes.append({"text": text, "metadata": dict(metadata)})
+        return super().store_knowledge(text, metadata)
+
+
 def build_memory(tmp_dir: str) -> MemoryManager:
     base = Path(tmp_dir)
     return MemoryManager(
+        episodic_db_path=str(base / "episodic.db"),
+        working_base_path=str(base / "working"),
+        working_archive_path=str(base / "archives"),
+        semantic_db_path=str(base / "semantic.db"),
+        embedding_model=TestEmbeddingFunction(),
+    )
+
+
+def build_recording_memory(tmp_dir: str) -> RecordingMemoryManager:
+    base = Path(tmp_dir)
+    return RecordingMemoryManager(
         episodic_db_path=str(base / "episodic.db"),
         working_base_path=str(base / "working"),
         working_archive_path=str(base / "archives"),
@@ -117,6 +151,112 @@ def test_controller_service_run_executes_nodes_and_handles_llm_gracefully() -> N
         assert "llm_output" in context
         assert isinstance(context["llm_output"], str)
         assert "Local model missing" in context["llm_output"]
+
+
+def test_controller_semantic_write_occurs_once_on_successful_validated_flow(monkeypatch) -> None:
+    from backend.workflow.nodes.llm_worker_node import LLMWorkerNode
+    from backend.workflow.nodes.validator_node import ValidatorNode
+
+    expected_output = "This is a sufficiently long assistant response for semantic memory persistence."
+
+    def _stub_llm_execute(self, context: dict) -> dict:
+        _ = self
+        context["llm_output"] = expected_output
+        context["llm_stream_chunks"] = [expected_output]
+        return context
+
+    def _stub_validator_execute(self, context: dict) -> dict:
+        _ = self
+        context["is_valid"] = True
+        context["validation_status"] = "passed"
+        context["validation_errors"] = []
+        return context
+
+    monkeypatch.setattr(LLMWorkerNode, "execute", _stub_llm_execute)
+    monkeypatch.setattr(ValidatorNode, "execute", _stub_validator_execute)
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        memory = build_recording_memory(tmp_dir)
+        service = ControllerService(
+            memory_manager=memory,
+            hardware_service=StubHardwareService(),
+            model_registry=PresentModelRegistry(),
+        )
+
+        result = service.run(user_input="persist semantic output")
+
+        assert result["final_state"] == "ARCHIVE"
+        assert len(memory.semantic_writes) == 1
+
+        write = memory.semantic_writes[0]
+        assert write["text"] == expected_output
+        assert write["metadata"]["task_id"] == result["task_id"]
+        assert write["metadata"]["source"] == "assistant_final"
+        assert write["metadata"]["intent"] == "chat"
+        assert write["metadata"]["final_state_hint"] == "validated"
+
+
+def test_controller_semantic_write_skips_invalid_and_empty_paths(monkeypatch) -> None:
+    from backend.workflow.nodes.llm_worker_node import LLMWorkerNode
+    from backend.workflow.nodes.validator_node import ValidatorNode
+
+    def _stub_llm_execute_long(self, context: dict) -> dict:
+        _ = self
+        context["llm_output"] = "This is long enough but should not persist when validation fails."
+        context["llm_stream_chunks"] = [context["llm_output"]]
+        return context
+
+    def _stub_llm_execute_empty(self, context: dict) -> dict:
+        _ = self
+        context["llm_output"] = "   "
+        context["llm_stream_chunks"] = [context["llm_output"]]
+        return context
+
+    def _stub_validator_fail(self, context: dict) -> dict:
+        _ = self
+        context["is_valid"] = False
+        context["validation_status"] = "failed"
+        context["validation_errors"] = ["forced_invalid"]
+        return context
+
+    def _stub_validator_pass(self, context: dict) -> dict:
+        _ = self
+        context["is_valid"] = True
+        context["validation_status"] = "passed"
+        context["validation_errors"] = []
+        return context
+
+    # Case A: validation fails -> no semantic write.
+    monkeypatch.setattr(LLMWorkerNode, "execute", _stub_llm_execute_long)
+    monkeypatch.setattr(ValidatorNode, "execute", _stub_validator_fail)
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        memory = build_recording_memory(tmp_dir)
+        service = ControllerService(
+            memory_manager=memory,
+            hardware_service=StubHardwareService(),
+            model_registry=PresentModelRegistry(),
+        )
+
+        result = service.run(user_input="invalid flow")
+
+        assert result["final_state"] == "FAILED"
+        assert memory.semantic_writes == []
+
+    # Case B: validation passes but output empty -> no semantic write.
+    monkeypatch.setattr(LLMWorkerNode, "execute", _stub_llm_execute_empty)
+    monkeypatch.setattr(ValidatorNode, "execute", _stub_validator_pass)
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        memory = build_recording_memory(tmp_dir)
+        service = ControllerService(
+            memory_manager=memory,
+            hardware_service=StubHardwareService(),
+            model_registry=PresentModelRegistry(),
+        )
+
+        result = service.run(user_input="empty output flow")
+
+        assert result["final_state"] == "ARCHIVE"
+        assert memory.semantic_writes == []
 
 
 def test_controller_local_model_found_sets_escalation_not_attempted(monkeypatch) -> None:
@@ -599,6 +739,72 @@ def test_controller_service_run_planned_mode_aggregates_subtask_outputs() -> Non
         assert "answer::collect requirements" in llm_output
         assert "[Part 3]" in llm_output
         assert "answer::draft approach" in llm_output
+
+
+def test_controller_service_upload_planned_mode_collapses_redundant_subtask_outputs(monkeypatch) -> None:
+    class StubPlanningLLMModelRegistry(StubModelRegistry):
+        def select_model(self, profile: str, hardware: str, role: str) -> dict | None:
+            _ = profile
+            _ = hardware
+            _ = role
+            return {"id": "stub-model", "path": "models/stub.gguf"}
+
+        def ensure_model_present(self, model: dict) -> str:
+            _ = model
+            return "models/stub.gguf"
+
+    def _stub_constrained_plan(user_input: str) -> dict:
+        _ = user_input
+        return {
+            "mode": "planned",
+            "subtasks": [
+                "extract file purpose",
+                "extract file purpose",
+                "extract file purpose",
+            ],
+            "max_subtasks": 3,
+        }
+
+    from backend.workflow.nodes.llm_worker_node import LLMWorkerNode
+
+    def _stub_llm_execute(self, context: dict) -> dict:
+        _ = self
+        _ = context
+        output = "The file is an ISO image creation script for Windows ADK."
+        context["llm_output"] = output
+        context["llm_stream_chunks"] = [output]
+        return context
+
+    monkeypatch.setattr(controller_service_module, "build_constrained_plan", _stub_constrained_plan)
+    monkeypatch.setattr(LLMWorkerNode, "execute", _stub_llm_execute)
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=StubPlanningLLMModelRegistry(),
+        )
+
+        result = service.run(
+            user_input=(
+                "what is this file?\n\n"
+                "[ATTACHMENT_CONTEXT_BEGIN]\n"
+                "filename=oscdimg.txt\n"
+                "set FLDLOC=\"E:/_WORK/OS/W11\"\n"
+                "[ATTACHMENT_CONTEXT_END]"
+            )
+        )
+
+        assert result["final_state"] in {"ARCHIVE", "FAILED"}
+        context = result["context"]
+        assert context.get("planning_mode") == "planned"
+        assert context.get("planning_aggregated_parts") == 1
+
+        llm_output = str(context.get("llm_output", ""))
+        assert "[Part 1]" not in llm_output
+        assert "[Part 2]" not in llm_output
+        assert "[Part 3]" not in llm_output
+        assert llm_output == "The file is an ISO image creation script for Windows ADK."
 
 
 def test_controller_service_run_linear_mode_preserved_for_short_prompt() -> None:

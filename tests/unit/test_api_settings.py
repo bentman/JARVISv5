@@ -1,11 +1,17 @@
 from fastapi.testclient import TestClient
 import os
 from pathlib import Path
+import pytest
 
 from backend.api.main import app
 
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _stub_ollama_model_options(monkeypatch):
+    monkeypatch.setattr("backend.config.settings.fetch_ollama_model_options", lambda _url: [])
 
 
 def _write_env(path: Path, content: str) -> None:
@@ -69,6 +75,7 @@ def test_settings_endpoint_returns_schema_aligned_keys(monkeypatch) -> None:
             "allow_ollama_escalation",
             "ollama_base_url",
             "ollama_model",
+            "ollama_model_options",
             "escalation_configured_providers",
         ]
     ).issubset(body.keys())
@@ -86,6 +93,7 @@ def test_settings_endpoint_returns_schema_aligned_keys(monkeypatch) -> None:
     assert body["allow_ollama_escalation"] is False
     assert body["ollama_base_url"] == "http://host.docker.internal:11434"
     assert body["ollama_model"] == ""
+    assert body["ollama_model_options"] == []
     assert isinstance(body["escalation_configured_providers"], list)
 
 
@@ -156,6 +164,7 @@ def test_settings_endpoint_respects_env_overrides(monkeypatch) -> None:
     assert body["allow_ollama_escalation"] is True
     assert body["ollama_base_url"] == "http://localhost:11434"
     assert body["ollama_model"] == "llama3.2"
+    assert body["ollama_model_options"] == []
     assert isinstance(body["escalation_configured_providers"], list)
 
 
@@ -210,6 +219,7 @@ def test_settings_get_explicit_search_projection_fields(monkeypatch) -> None:
     assert body["allow_ollama_escalation"] is True
     assert body["ollama_base_url"] == "http://host.docker.internal:11434"
     assert body["ollama_model"] == "llama3.2"
+    assert body["ollama_model_options"] == []
     assert isinstance(body["escalation_configured_providers"], list)
 
 
@@ -328,6 +338,7 @@ def test_settings_write_endpoint_updates_projection_and_returns_restart_headers_
     assert body["allow_ollama_escalation"] is True
     assert body["ollama_base_url"] == "http://host.docker.internal:11434"
     assert body["ollama_model"] == "llama3.2"
+    assert body["ollama_model_options"] == []
     assert isinstance(body["escalation_configured_providers"], list)
 
     persisted = _read_env(env_path)

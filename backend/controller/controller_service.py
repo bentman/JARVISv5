@@ -474,7 +474,7 @@ class ControllerService:
                 else:
                     execution_inputs = [str(context.get("user_input", ""))]
 
-                aggregated_parts: list[str] = []
+                aggregated_subtask_outputs: list[str] = []
                 for index, execution_input in enumerate(execution_inputs, start=1):
                     if planning_mode == "planned":
                         context["user_input"] = execution_input
@@ -532,13 +532,38 @@ class ControllerService:
                     if planning_mode == "planned":
                         subtask_output = str(context.get("llm_output", "")).strip()
                         if subtask_output:
-                            aggregated_parts.append(f"[Part {index}]\n{subtask_output}")
+                            aggregated_subtask_outputs.append(subtask_output)
 
                 if planning_mode == "planned":
                     context["user_input"] = user_input
-                    if aggregated_parts:
-                        context["llm_output"] = "\n\n".join(aggregated_parts)
-                        context["planning_aggregated_parts"] = len(aggregated_parts)
+                    if aggregated_subtask_outputs:
+                        outputs_for_aggregation = list(aggregated_subtask_outputs)
+
+                        # Upload-driven prompts include explicit attachment-context markers.
+                        # For this surface, collapse repeated identical subtask outputs to avoid
+                        # persisting redundant [Part N] blocks.
+                        if "[ATTACHMENT_CONTEXT_BEGIN]" in str(user_input):
+                            deduped_outputs: list[str] = []
+                            seen_outputs: set[str] = set()
+                            for output in outputs_for_aggregation:
+                                normalized_output = str(output).strip()
+                                if not normalized_output or normalized_output in seen_outputs:
+                                    continue
+                                deduped_outputs.append(normalized_output)
+                                seen_outputs.add(normalized_output)
+                            if deduped_outputs:
+                                outputs_for_aggregation = deduped_outputs
+
+                        if len(outputs_for_aggregation) == 1:
+                            context["llm_output"] = outputs_for_aggregation[0]
+                            context["planning_aggregated_parts"] = 1
+                        else:
+                            aggregated_parts = [
+                                f"[Part {index}]\n{output}"
+                                for index, output in enumerate(outputs_for_aggregation, start=1)
+                            ]
+                            context["llm_output"] = "\n\n".join(aggregated_parts)
+                            context["planning_aggregated_parts"] = len(aggregated_parts)
             except Exception as exc:
                 return self._fail(fsm, resolved_task_id, context, f"execute_node_error: {exc}")
 
@@ -605,6 +630,22 @@ class ControllerService:
 
             if not bool(context.get("is_valid", False)):
                 return self._fail(fsm, resolved_task_id, context, "validation_failed")
+
+            semantic_text = str(context.get("llm_output", "")).strip()
+            if semantic_text and len(semantic_text) >= 20:
+                try:
+                    self.memory.store_knowledge(
+                        semantic_text,
+                        {
+                            "task_id": resolved_task_id,
+                            "source": "assistant_final",
+                            "intent": str(context.get("intent", "")),
+                            "final_state_hint": "validated",
+                        },
+                    )
+                except Exception:
+                    # Semantic memory persistence is non-blocking for task completion.
+                    pass
 
             fsm.transition(ControllerState.COMMIT)
             self.memory.update_task_status(resolved_task_id, ControllerState.COMMIT.value)

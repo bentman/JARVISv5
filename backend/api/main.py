@@ -329,6 +329,7 @@ def get_settings() -> SettingsResponse:
         allow_ollama_escalation=projection["allow_ollama_escalation"],
         ollama_base_url=projection["ollama_base_url"],
         ollama_model=projection["ollama_model"],
+        ollama_model_options=projection["ollama_model_options"],
         escalation_configured_providers=projection["escalation_configured_providers"],
     )
 
@@ -393,6 +394,7 @@ def update_settings(request: SettingsUpdateRequest, response: Response) -> Setti
         allow_ollama_escalation=projection["allow_ollama_escalation"],
         ollama_base_url=projection["ollama_base_url"],
         ollama_model=projection["ollama_model"],
+        ollama_model_options=projection["ollama_model_options"],
         escalation_configured_providers=projection["escalation_configured_providers"],
     )
 

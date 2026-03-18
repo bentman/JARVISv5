@@ -96,6 +96,7 @@ class SettingsResponse(BaseModel):
     allow_ollama_escalation: bool | None = None
     ollama_base_url: str | None = None
     ollama_model: str | None = None
+    ollama_model_options: list[str] | None = None
     escalation_configured_providers: list[str] | None = None
 
 

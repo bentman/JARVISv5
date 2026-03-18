@@ -50,6 +50,7 @@ def test_workflow_and_settings_schema_instantiation_and_dump() -> None:
         allow_model_escalation=True,
         escalation_provider="openai",
         escalation_budget_usd=2.5,
+        ollama_model_options=["llama3.2", "mistral"],
         escalation_configured_providers=["anthropic", "openai"],
     )
 
@@ -68,6 +69,7 @@ def test_workflow_and_settings_schema_instantiation_and_dump() -> None:
     assert settings_dump["allow_model_escalation"] is True
     assert settings_dump["escalation_provider"] == "openai"
     assert settings_dump["escalation_budget_usd"] == 2.5
+    assert settings_dump["ollama_model_options"] == ["llama3.2", "mistral"]
     assert settings_dump["escalation_configured_providers"] == ["anthropic", "openai"]
 
 
@@ -111,7 +113,7 @@ def test_settings_update_request_accepts_valid_escalation_fields() -> None:
 
 def test_settings_update_request_rejects_escalation_budget_field() -> None:
     with pytest.raises(ValueError):
-        SettingsUpdateRequest(escalation_budget_usd=3.0)
+        SettingsUpdateRequest.model_validate({"escalation_budget_usd": 3.0})
 
 
 def test_settings_update_request_rejects_invalid_escalation_provider() -> None:
