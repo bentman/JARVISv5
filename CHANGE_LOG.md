@@ -41,7 +41,7 @@
       - PASS excerpt: `UNIT=PASS_WITH_SKIPS`
 
 - 2026-03-17 06:40
-  - Summary: Completed a configuration/runtime-only fix for the cache connectivity issue by correcting `REDIS_URL` to the Docker service address (`redis://redis:6379/0`) and recreating the backend container so runtime settings reloaded correctly.
+  - Summary: bugfix-04 - Completed a configuration/runtime-only fix for the cache connectivity issue by correcting `REDIS_URL` to the Docker service address (`redis://redis:6379/0`) and recreating the backend container so runtime settings reloaded correctly.
   - Scope: `.env`, `.env.example`, backend container runtime refresh (no rebuild)
   - Evidence:
     - `curl -sS http://localhost:8000/health/detailed`
