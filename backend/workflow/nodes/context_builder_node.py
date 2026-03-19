@@ -31,6 +31,7 @@ class ContextBuilderNode(BaseNode):
         self.retrieval_token_budget = max(1, int(retrieval_token_budget))
 
     def execute(self, context: dict[str, Any]) -> dict[str, Any]:
+        context["retrieved_context_injected"] = []
         memory_manager = context.get("memory_manager")
         task_id = context.get("task_id")
 
@@ -102,7 +103,13 @@ class ContextBuilderNode(BaseNode):
             pass
 
         try:
-            messages = self._inject_retrieved_context(messages, context, task_id, turn)
+            messages, retrieved_context_injected = self._inject_retrieved_context(
+                messages,
+                context,
+                task_id,
+                turn,
+            )
+            context["retrieved_context_injected"] = retrieved_context_injected
         except Exception:
             pass
 
@@ -162,13 +169,13 @@ class ContextBuilderNode(BaseNode):
         context: dict[str, Any],
         task_id: Any,
         turn: int,
-    ) -> list[dict[str, Any]]:
+    ) -> tuple[list[dict[str, Any]], list[str]]:
         if self.retriever is None:
-            return messages
+            return messages, []
 
         query_text = str(context.get("user_input", "")).strip()
         if not query_text:
-            return messages
+            return messages, []
 
         config = self.retrieval_config or RetrievalConfig()
         results = self.retriever.retrieve(
@@ -179,7 +186,7 @@ class ContextBuilderNode(BaseNode):
             limit=config.max_results,
         )
         if not results:
-            return messages
+            return messages, []
 
         lines = ["Retrieved Context:"]
         used_tokens = _approx_token_count(lines[0])
@@ -195,7 +202,7 @@ class ContextBuilderNode(BaseNode):
             used_tokens += line_tokens
 
         if len(lines) == 1:
-            return messages
+            return messages, []
 
         retrieval_message = {"role": "system", "content": "\n".join(lines)}
 
@@ -207,7 +214,7 @@ class ContextBuilderNode(BaseNode):
                 break
 
         output.insert(insert_at, retrieval_message)
-        return output
+        return output, [str(retrieval_message["content"])]
 
 
 def _approx_token_count(text: str) -> int:

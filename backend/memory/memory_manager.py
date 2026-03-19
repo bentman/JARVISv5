@@ -60,6 +60,9 @@ class MemoryManager:
     def retrieve_knowledge(self, query: str, k: int = 5) -> list[dict[str, Any]]:
         return self.semantic.search(query, k)
 
+    def delete_knowledge(self, entry_id: int) -> bool:
+        return self.semantic.delete(entry_id)
+
     def get_relevant_context(self, task_id: str, query_text: str, k: int = 3) -> dict[str, Any]:
         working_state = self.get_task_state(task_id)
         semantic_results = self.retrieve_knowledge(query_text, k)

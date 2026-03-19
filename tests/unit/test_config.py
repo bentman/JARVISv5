@@ -205,3 +205,67 @@ def test_persist_settings_updates_accepts_privacy_redaction_fields(tmp_path) -> 
     updated = env_path.read_text(encoding="utf-8")
     assert "REDACT_PII_QUERIES=false" in updated
     assert "REDACT_PII_RESULTS=true" in updated
+
+
+def test_safe_config_projection_includes_retrieval_fields(monkeypatch) -> None:
+    class _Registry:
+        def get_configured_providers(self) -> list[str]:
+            return []
+
+    monkeypatch.setattr("backend.config.settings.ApiKeyRegistry", lambda: _Registry())
+    monkeypatch.setattr("backend.config.settings.fetch_ollama_model_options", lambda _url: [])
+
+    settings = Settings(
+        RETRIEVAL_MAX_RESULTS=15,
+        RETRIEVAL_MIN_SCORE=0.2,
+        RETRIEVAL_TIME_DECAY_TAU_HOURS=30.0,
+    )
+    projection = get_safe_config_projection(settings)
+
+    assert projection["retrieval_max_results"] == 15
+    assert projection["retrieval_min_score"] == 0.2
+    assert projection["retrieval_time_decay_tau_hours"] == 30.0
+
+
+def test_serialize_editable_setting_value_supports_retrieval_fields() -> None:
+    assert serialize_editable_setting_value("retrieval_max_results", 12) == "12"
+    assert serialize_editable_setting_value("retrieval_min_score", 0.25) == "0.25"
+    assert (
+        serialize_editable_setting_value("retrieval_time_decay_tau_hours", 18.0)
+        == "18.0"
+    )
+
+
+def test_serialize_editable_setting_value_rejects_invalid_retrieval_fields() -> None:
+    with pytest.raises(ValueError, match="retrieval_max_results must be >= 1"):
+        serialize_editable_setting_value("retrieval_max_results", 0)
+
+    with pytest.raises(ValueError, match=r"retrieval_min_score must be within \[0.0, 1.0\]"):
+        serialize_editable_setting_value("retrieval_min_score", 1.1)
+
+    with pytest.raises(ValueError, match="retrieval_time_decay_tau_hours must be > 0"):
+        serialize_editable_setting_value("retrieval_time_decay_tau_hours", 0.0)
+
+
+def test_persist_settings_updates_accepts_retrieval_fields(tmp_path) -> None:
+    env_path = tmp_path / ".env"
+    env_path.write_text(
+        "RETRIEVAL_MAX_RESULTS=10\n"
+        "RETRIEVAL_MIN_SCORE=0.0\n"
+        "RETRIEVAL_TIME_DECAY_TAU_HOURS=24.0\n",
+        encoding="utf-8",
+    )
+
+    persist_settings_updates(
+        updates={
+            "retrieval_max_results": 20,
+            "retrieval_min_score": 0.3,
+            "retrieval_time_decay_tau_hours": 40.0,
+        },
+        env_path=env_path,
+    )
+
+    updated = env_path.read_text(encoding="utf-8")
+    assert "RETRIEVAL_MAX_RESULTS=20" in updated
+    assert "RETRIEVAL_MIN_SCORE=0.3" in updated
+    assert "RETRIEVAL_TIME_DECAY_TAU_HOURS=40.0" in updated

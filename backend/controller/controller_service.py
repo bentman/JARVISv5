@@ -22,6 +22,7 @@ from backend.models.providers import (
 from backend.models.hardware_profiler import HardwareService
 from backend.models.model_registry import ModelRegistry
 from backend.security.redactor import create_default_redactor
+from backend.retrieval.retrieval_types import RetrievalConfig
 from backend.workflow import ContextBuilderNode, LLMWorkerNode, RouterNode, SearchWebNode, ToolCallNode, ValidatorNode
 from backend.workflow.dag_executor import DAGExecutor, WorkflowEdge, WorkflowGraph
 from backend.workflow.plan_compiler import build_constrained_plan, compile_plan_to_workflow_graph
@@ -149,7 +150,12 @@ class ControllerService:
         task_started_ns = time.perf_counter_ns()
 
         router_node = RouterNode()
-        context_builder_node = ContextBuilderNode()
+        retrieval_config = RetrievalConfig(
+            max_results=int(getattr(settings, "RETRIEVAL_MAX_RESULTS", 10)),
+            min_final_score_threshold=float(getattr(settings, "RETRIEVAL_MIN_SCORE", 0.0)),
+            time_decay_tau_hours=float(getattr(settings, "RETRIEVAL_TIME_DECAY_TAU_HOURS", 24.0)),
+        )
+        context_builder_node = ContextBuilderNode(retrieval_config=retrieval_config)
         search_web_node = SearchWebNode()
         llm_worker_node = LLMWorkerNode()
         tool_call_node = ToolCallNode()

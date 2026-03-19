@@ -70,6 +70,11 @@ class MemorySearchResponse(BaseModel):
     episodic_results: list[MemorySearchItem] = Field(default_factory=list)
 
 
+class MemoryDeleteResponse(BaseModel):
+    deleted: bool
+    entry_id: int
+
+
 class SettingsResponse(BaseModel):
     """v1 schema for settings responses, aligned to current Settings model."""
 
@@ -96,6 +101,9 @@ class SettingsResponse(BaseModel):
     allow_ollama_escalation: bool | None = None
     ollama_base_url: str | None = None
     ollama_model: str | None = None
+    retrieval_max_results: int | None = None
+    retrieval_min_score: float | None = None
+    retrieval_time_decay_tau_hours: float | None = None
     ollama_model_options: list[str] | None = None
     escalation_configured_providers: list[str] | None = None
 
@@ -114,6 +122,9 @@ class SettingsUpdateRequest(BaseModel):
     escalation_provider: str | None = None
     allow_ollama_escalation: bool | None = None
     ollama_model: str | None = None
+    retrieval_max_results: int | None = Field(default=None, ge=1)
+    retrieval_min_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    retrieval_time_decay_tau_hours: float | None = Field(default=None, gt=0.0)
 
     @field_validator("hardware_profile")
     @classmethod

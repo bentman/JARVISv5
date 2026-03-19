@@ -1612,3 +1612,62 @@ def test_controller_combined_query_and_result_redaction_path_redacts_prompt_pers
         semantic_text = str(memory.semantic_writes[0].get("text", ""))
         assert "test@example.com" not in semantic_text
         assert "[EMAIL_REDACTED]" in semantic_text
+
+
+def test_controller_wires_retrieval_settings_into_context_builder_retrieval_config(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class _Settings:
+        REDACT_PII_QUERIES = False
+        REDACT_PII_RESULTS = False
+        MODEL_PATH = "models/"
+        ALLOW_OLLAMA_ESCALATION = False
+        OLLAMA_MODEL = ""
+        ALLOW_MODEL_ESCALATION = False
+        ESCALATION_PROVIDER = ""
+        ESCALATION_BUDGET_USD = 0.0
+        RETRIEVAL_MAX_RESULTS = 17
+        RETRIEVAL_MIN_SCORE = 0.4
+        RETRIEVAL_TIME_DECAY_TAU_HOURS = 36.0
+
+    class _ContextBuilderStub:
+        def __init__(self, *args, **kwargs) -> None:
+            _ = args
+            captured["retrieval_config"] = kwargs.get("retrieval_config")
+
+        def execute(self, context: dict) -> dict:
+            return context
+
+    class _LLMWorkerStub:
+        def execute(self, context: dict) -> dict:
+            context["llm_output"] = "This output is long enough for validation success."
+            context["llm_stream_chunks"] = [context["llm_output"]]
+            return context
+
+    class _ValidatorStub:
+        def execute(self, context: dict) -> dict:
+            context["is_valid"] = True
+            context["validation_status"] = "passed"
+            context["validation_errors"] = []
+            return context
+
+    monkeypatch.setattr(controller_service_module, "Settings", lambda: _Settings)
+    monkeypatch.setattr(controller_service_module, "ContextBuilderNode", _ContextBuilderStub)
+    monkeypatch.setattr(controller_service_module, "LLMWorkerNode", _LLMWorkerStub)
+    monkeypatch.setattr(controller_service_module, "ValidatorNode", _ValidatorStub)
+
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=PresentModelRegistry(),
+        )
+
+        result = service.run(user_input="hello")
+
+    assert result["final_state"] == "ARCHIVE"
+    retrieval_config = captured.get("retrieval_config")
+    assert retrieval_config is not None
+    assert getattr(retrieval_config, "max_results") == 17
+    assert getattr(retrieval_config, "min_final_score_threshold") == 0.4
+    assert getattr(retrieval_config, "time_decay_tau_hours") == 36.0

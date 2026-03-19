@@ -45,6 +45,9 @@ def test_settings_endpoint_returns_schema_aligned_keys(monkeypatch) -> None:
         ALLOW_OLLAMA_ESCALATION = False
         OLLAMA_BASE_URL = "http://host.docker.internal:11434"
         OLLAMA_MODEL = ""
+        RETRIEVAL_MAX_RESULTS = 10
+        RETRIEVAL_MIN_SCORE = 0.0
+        RETRIEVAL_TIME_DECAY_TAU_HOURS = 24.0
 
     monkeypatch.setattr("backend.api.main.Settings", lambda: _DefaultSettings)
 
@@ -75,6 +78,9 @@ def test_settings_endpoint_returns_schema_aligned_keys(monkeypatch) -> None:
             "allow_ollama_escalation",
             "ollama_base_url",
             "ollama_model",
+            "retrieval_max_results",
+            "retrieval_min_score",
+            "retrieval_time_decay_tau_hours",
             "ollama_model_options",
             "escalation_configured_providers",
         ]
@@ -93,6 +99,9 @@ def test_settings_endpoint_returns_schema_aligned_keys(monkeypatch) -> None:
     assert body["allow_ollama_escalation"] is False
     assert body["ollama_base_url"] == "http://host.docker.internal:11434"
     assert body["ollama_model"] == ""
+    assert body["retrieval_max_results"] == 10
+    assert body["retrieval_min_score"] == 0.0
+    assert body["retrieval_time_decay_tau_hours"] == 24.0
     assert body["ollama_model_options"] == []
     assert isinstance(body["escalation_configured_providers"], list)
 
@@ -116,6 +125,9 @@ def test_settings_endpoint_respects_env_overrides(monkeypatch) -> None:
     monkeypatch.setenv("ALLOW_OLLAMA_ESCALATION", "true")
     monkeypatch.setenv("OLLAMA_BASE_URL", "http://localhost:11434")
     monkeypatch.setenv("OLLAMA_MODEL", "llama3.2")
+    monkeypatch.setenv("RETRIEVAL_MAX_RESULTS", "14")
+    monkeypatch.setenv("RETRIEVAL_MIN_SCORE", "0.25")
+    monkeypatch.setenv("RETRIEVAL_TIME_DECAY_TAU_HOURS", "18.0")
 
     class _EnvSettings:
         APP_NAME = os.environ["APP_NAME"]
@@ -139,6 +151,9 @@ def test_settings_endpoint_respects_env_overrides(monkeypatch) -> None:
         ALLOW_OLLAMA_ESCALATION = os.environ["ALLOW_OLLAMA_ESCALATION"].strip().lower() in {"1", "true", "yes", "on"}
         OLLAMA_BASE_URL = os.environ["OLLAMA_BASE_URL"]
         OLLAMA_MODEL = os.environ["OLLAMA_MODEL"]
+        RETRIEVAL_MAX_RESULTS = int(os.environ["RETRIEVAL_MAX_RESULTS"])
+        RETRIEVAL_MIN_SCORE = float(os.environ["RETRIEVAL_MIN_SCORE"])
+        RETRIEVAL_TIME_DECAY_TAU_HOURS = float(os.environ["RETRIEVAL_TIME_DECAY_TAU_HOURS"])
 
     monkeypatch.setattr("backend.api.main.Settings", lambda: _EnvSettings)
 
@@ -164,6 +179,9 @@ def test_settings_endpoint_respects_env_overrides(monkeypatch) -> None:
     assert body["allow_ollama_escalation"] is True
     assert body["ollama_base_url"] == "http://localhost:11434"
     assert body["ollama_model"] == "llama3.2"
+    assert body["retrieval_max_results"] == 14
+    assert body["retrieval_min_score"] == 0.25
+    assert body["retrieval_time_decay_tau_hours"] == 18.0
     assert body["ollama_model_options"] == []
     assert isinstance(body["escalation_configured_providers"], list)
 
@@ -203,6 +221,9 @@ def test_settings_get_explicit_search_projection_fields(monkeypatch) -> None:
         ALLOW_OLLAMA_ESCALATION = True
         OLLAMA_BASE_URL = "http://host.docker.internal:11434"
         OLLAMA_MODEL = "llama3.2"
+        RETRIEVAL_MAX_RESULTS = 11
+        RETRIEVAL_MIN_SCORE = 0.2
+        RETRIEVAL_TIME_DECAY_TAU_HOURS = 12.5
 
     monkeypatch.setattr("backend.api.main.Settings", lambda: _Settings)
 
@@ -219,6 +240,9 @@ def test_settings_get_explicit_search_projection_fields(monkeypatch) -> None:
     assert body["allow_ollama_escalation"] is True
     assert body["ollama_base_url"] == "http://host.docker.internal:11434"
     assert body["ollama_model"] == "llama3.2"
+    assert body["retrieval_max_results"] == 11
+    assert body["retrieval_min_score"] == 0.2
+    assert body["retrieval_time_decay_tau_hours"] == 12.5
     assert body["ollama_model_options"] == []
     assert isinstance(body["escalation_configured_providers"], list)
 
@@ -246,6 +270,9 @@ def test_settings_get_does_not_expose_raw_api_key_fields_or_values(monkeypatch) 
         ALLOW_OLLAMA_ESCALATION = True
         OLLAMA_BASE_URL = "http://host.docker.internal:11434"
         OLLAMA_MODEL = "llama3.2"
+        RETRIEVAL_MAX_RESULTS = 10
+        RETRIEVAL_MIN_SCORE = 0.0
+        RETRIEVAL_TIME_DECAY_TAU_HOURS = 24.0
 
     monkeypatch.setenv("ANTHROPIC_API_KEY", "anthropic-secret")
     monkeypatch.setenv("GEMINI_API_KEY", "gemini-secret")
@@ -301,6 +328,9 @@ def test_settings_write_endpoint_updates_projection_and_returns_restart_headers_
                 "ALLOW_OLLAMA_ESCALATION=false",
                 "OLLAMA_BASE_URL=http://host.docker.internal:11434",
                 "OLLAMA_MODEL=",
+                "RETRIEVAL_MAX_RESULTS=10",
+                "RETRIEVAL_MIN_SCORE=0.0",
+                "RETRIEVAL_TIME_DECAY_TAU_HOURS=24.0",
             ]
         )
         + "\n",
@@ -321,6 +351,9 @@ def test_settings_write_endpoint_updates_projection_and_returns_restart_headers_
             "escalation_provider": "openai",
             "allow_ollama_escalation": True,
             "ollama_model": "llama3.2",
+            "retrieval_max_results": 25,
+            "retrieval_min_score": 0.35,
+            "retrieval_time_decay_tau_hours": 30.0,
         },
     )
 
@@ -342,6 +375,9 @@ def test_settings_write_endpoint_updates_projection_and_returns_restart_headers_
     assert body["allow_ollama_escalation"] is True
     assert body["ollama_base_url"] == "http://host.docker.internal:11434"
     assert body["ollama_model"] == "llama3.2"
+    assert body["retrieval_max_results"] == 25
+    assert body["retrieval_min_score"] == 0.35
+    assert body["retrieval_time_decay_tau_hours"] == 30.0
     assert body["ollama_model_options"] == []
     assert isinstance(body["escalation_configured_providers"], list)
 
@@ -354,6 +390,9 @@ def test_settings_write_endpoint_updates_projection_and_returns_restart_headers_
     assert "ALLOW_OLLAMA_ESCALATION=true" in persisted
     assert "OLLAMA_MODEL=llama3.2" in persisted
     assert "OLLAMA_BASE_URL=http://host.docker.internal:11434" in persisted
+    assert "RETRIEVAL_MAX_RESULTS=25" in persisted
+    assert "RETRIEVAL_MIN_SCORE=0.35" in persisted
+    assert "RETRIEVAL_TIME_DECAY_TAU_HOURS=30.0" in persisted
 
     assert response.headers.get("X-Settings-Restart-Required") == "true"
     restart_fields_header = response.headers.get("X-Settings-Restart-Required-Fields", "")
@@ -374,7 +413,32 @@ def test_settings_write_endpoint_updates_projection_and_returns_restart_headers_
         "escalation_provider",
         "allow_ollama_escalation",
         "ollama_model",
+        "retrieval_max_results",
+        "retrieval_min_score",
+        "retrieval_time_decay_tau_hours",
     }
+
+
+def test_settings_write_endpoint_rejects_retrieval_min_score_gt_one(monkeypatch, tmp_path: Path) -> None:
+    env_path = tmp_path / ".env"
+    _write_env(env_path, "RETRIEVAL_MIN_SCORE=0.0\n")
+    monkeypatch.setattr("backend.api.main._SETTINGS_ENV_PATH", env_path)
+
+    response = client.post("/settings", json={"retrieval_min_score": 1.1})
+
+    assert response.status_code == 422
+
+
+def test_settings_write_endpoint_rejects_retrieval_time_decay_tau_hours_non_positive(
+    monkeypatch, tmp_path: Path
+) -> None:
+    env_path = tmp_path / ".env"
+    _write_env(env_path, "RETRIEVAL_TIME_DECAY_TAU_HOURS=24.0\n")
+    monkeypatch.setattr("backend.api.main._SETTINGS_ENV_PATH", env_path)
+
+    response = client.post("/settings", json={"retrieval_time_decay_tau_hours": 0.0})
+
+    assert response.status_code == 422
 
 
 def test_settings_write_endpoint_rejects_invalid_value_without_partial_write(

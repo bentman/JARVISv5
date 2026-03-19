@@ -75,3 +75,12 @@ def test_get_relevant_context_combines_working_and_semantic() -> None:
         assert "semantic_results" in context
         assert context["working_state"] is not None
         assert isinstance(context["semantic_results"], list)
+
+
+def test_delete_knowledge_delegates_to_semantic() -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        manager = build_manager(tmp_dir)
+        entry_id = manager.store_knowledge("delete target", {"kind": "delete"})
+
+        assert manager.delete_knowledge(entry_id) is True
+        assert manager.delete_knowledge(entry_id) is False

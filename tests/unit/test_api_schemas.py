@@ -50,6 +50,9 @@ def test_workflow_and_settings_schema_instantiation_and_dump() -> None:
         allow_model_escalation=True,
         escalation_provider="openai",
         escalation_budget_usd=2.5,
+        retrieval_max_results=10,
+        retrieval_min_score=0.1,
+        retrieval_time_decay_tau_hours=24.0,
         ollama_model_options=["llama3.2", "mistral"],
         escalation_configured_providers=["anthropic", "openai"],
     )
@@ -69,6 +72,9 @@ def test_workflow_and_settings_schema_instantiation_and_dump() -> None:
     assert settings_dump["allow_model_escalation"] is True
     assert settings_dump["escalation_provider"] == "openai"
     assert settings_dump["escalation_budget_usd"] == 2.5
+    assert settings_dump["retrieval_max_results"] == 10
+    assert settings_dump["retrieval_min_score"] == 0.1
+    assert settings_dump["retrieval_time_decay_tau_hours"] == 24.0
     assert settings_dump["ollama_model_options"] == ["llama3.2", "mistral"]
     assert settings_dump["escalation_configured_providers"] == ["anthropic", "openai"]
 
@@ -129,3 +135,25 @@ def test_settings_update_request_accepts_privacy_redaction_boolean_fields() -> N
 
     assert req.redact_pii_queries is False
     assert req.redact_pii_results is True
+
+
+def test_settings_update_request_accepts_retrieval_fields() -> None:
+    req = SettingsUpdateRequest(
+        retrieval_max_results=12,
+        retrieval_min_score=0.25,
+        retrieval_time_decay_tau_hours=36.0,
+    )
+
+    assert req.retrieval_max_results == 12
+    assert req.retrieval_min_score == 0.25
+    assert req.retrieval_time_decay_tau_hours == 36.0
+
+
+def test_settings_update_request_rejects_invalid_retrieval_min_score() -> None:
+    with pytest.raises(ValueError):
+        SettingsUpdateRequest(retrieval_min_score=1.1)
+
+
+def test_settings_update_request_rejects_invalid_retrieval_time_decay_tau_hours() -> None:
+    with pytest.raises(ValueError):
+        SettingsUpdateRequest(retrieval_time_decay_tau_hours=0.0)

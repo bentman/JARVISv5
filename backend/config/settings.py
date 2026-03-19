@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     ALLOW_OLLAMA_ESCALATION: bool = False
     OLLAMA_BASE_URL: str = "http://host.docker.internal:11434"
     OLLAMA_MODEL: str = ""
+    RETRIEVAL_MAX_RESULTS: int = 10
+    RETRIEVAL_MIN_SCORE: float = 0.0
+    RETRIEVAL_TIME_DECAY_TAU_HOURS: float = 24.0
     DAILY_BUDGET_USD: float = 0.0
     MONTHLY_BUDGET_USD: float = 0.0
     GENERATION_SEED: int | None = None
@@ -105,6 +108,9 @@ class SafeConfigProjection(TypedDict):
     allow_ollama_escalation: bool
     ollama_base_url: str
     ollama_model: str
+    retrieval_max_results: int
+    retrieval_min_score: float
+    retrieval_time_decay_tau_hours: float
     ollama_model_options: list[str]
     escalation_configured_providers: list[str]
 
@@ -170,6 +176,9 @@ def get_safe_config_projection(settings: Settings) -> SafeConfigProjection:
         "allow_ollama_escalation": settings.ALLOW_OLLAMA_ESCALATION,
         "ollama_base_url": settings.OLLAMA_BASE_URL,
         "ollama_model": settings.OLLAMA_MODEL,
+        "retrieval_max_results": int(settings.RETRIEVAL_MAX_RESULTS),
+        "retrieval_min_score": float(settings.RETRIEVAL_MIN_SCORE),
+        "retrieval_time_decay_tau_hours": float(settings.RETRIEVAL_TIME_DECAY_TAU_HOURS),
         "ollama_model_options": ollama_model_options,
         "escalation_configured_providers": api_keys.get_configured_providers(),
     }
@@ -187,6 +196,9 @@ EDITABLE_SETTINGS_ENV_KEYS: dict[str, str] = {
     "escalation_provider": "ESCALATION_PROVIDER",
     "allow_ollama_escalation": "ALLOW_OLLAMA_ESCALATION",
     "ollama_model": "OLLAMA_MODEL",
+    "retrieval_max_results": "RETRIEVAL_MAX_RESULTS",
+    "retrieval_min_score": "RETRIEVAL_MIN_SCORE",
+    "retrieval_time_decay_tau_hours": "RETRIEVAL_TIME_DECAY_TAU_HOURS",
 }
 
 ALLOWED_HARDWARE_PROFILES = {"light", "medium", "heavy", "test", "npu-optimized"}
@@ -242,6 +254,21 @@ def serialize_editable_setting_value(field_name: str, value: object) -> str:
         return normalize_escalation_provider(str(value))
     if field_name == "ollama_model":
         return str(value)
+    if field_name == "retrieval_max_results":
+        value_i = int(value)
+        if value_i < 1:
+            raise ValueError("retrieval_max_results must be >= 1")
+        return str(value_i)
+    if field_name == "retrieval_min_score":
+        value_f = float(value)
+        if value_f < 0.0 or value_f > 1.0:
+            raise ValueError("retrieval_min_score must be within [0.0, 1.0]")
+        return str(value_f)
+    if field_name == "retrieval_time_decay_tau_hours":
+        value_f = float(value)
+        if value_f <= 0.0:
+            raise ValueError("retrieval_time_decay_tau_hours must be > 0")
+        return str(value_f)
     if field_name in {
         "redact_pii_queries",
         "redact_pii_results",

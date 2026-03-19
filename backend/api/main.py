@@ -18,6 +18,7 @@ from backend.api.schemas import (
     HardwareHealth,
     MemorySearchItem,
     MemorySearchResponse,
+    MemoryDeleteResponse,
     ModelHealth,
     SettingsResponse,
     SettingsUpdateRequest,
@@ -329,6 +330,9 @@ def get_settings() -> SettingsResponse:
         allow_ollama_escalation=projection["allow_ollama_escalation"],
         ollama_base_url=projection["ollama_base_url"],
         ollama_model=projection["ollama_model"],
+        retrieval_max_results=projection["retrieval_max_results"],
+        retrieval_min_score=projection["retrieval_min_score"],
+        retrieval_time_decay_tau_hours=projection["retrieval_time_decay_tau_hours"],
         ollama_model_options=projection["ollama_model_options"],
         escalation_configured_providers=projection["escalation_configured_providers"],
     )
@@ -394,6 +398,9 @@ def update_settings(request: SettingsUpdateRequest, response: Response) -> Setti
         allow_ollama_escalation=projection["allow_ollama_escalation"],
         ollama_base_url=projection["ollama_base_url"],
         ollama_model=projection["ollama_model"],
+        retrieval_max_results=projection["retrieval_max_results"],
+        retrieval_min_score=projection["retrieval_min_score"],
+        retrieval_time_decay_tau_hours=projection["retrieval_time_decay_tau_hours"],
         ollama_model_options=projection["ollama_model_options"],
         escalation_configured_providers=projection["escalation_configured_providers"],
     )
@@ -700,6 +707,9 @@ def memory_search(q: str, limit: int = 5) -> MemorySearchResponse:
         metadata_raw = row.get("metadata", {})
         metadata = dict(metadata_raw) if isinstance(metadata_raw, dict) else {}
 
+        if "id" in row:
+            metadata["id"] = row.get("id")
+
         if "vector_id" in row:
             metadata["vector_id"] = row.get("vector_id")
         if "distance" in row:
@@ -742,6 +752,21 @@ def memory_search(q: str, limit: int = 5) -> MemorySearchResponse:
         semantic_results=semantic_results,
         episodic_results=episodic_results,
     )
+
+
+@app.delete("/memory/semantic/{entry_id}", response_model=MemoryDeleteResponse)
+def delete_semantic_memory(entry_id: int) -> MemoryDeleteResponse:
+    try:
+        settings = Settings()
+        memory = _build_memory_manager(settings)
+        deleted = bool(memory.delete_knowledge(int(entry_id)))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="memory_delete_unavailable") from exc
+
+    if not deleted:
+        raise HTTPException(status_code=404, detail="memory_entry_not_found")
+
+    return MemoryDeleteResponse(deleted=True, entry_id=int(entry_id))
 
 
 @app.get("/workflow/{task_id}", response_model=WorkflowTelemetryResponse)

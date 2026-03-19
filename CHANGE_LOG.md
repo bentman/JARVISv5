@@ -15,6 +15,72 @@
 
 ## Entries
 
+- 2026-03-19 10:55
+  - Summary: Completed T18.6 milestone-close validation by adding one integrated API-level semantic delete/search flow test that verifies semantic search exposes `metadata.id`, delete returns the expected `200` contract, deleted entries disappear, and non-deleted entries remain retrievable after delete + rebuild.
+  - Scope: `tests/unit/test_api_memory_search.py` (test-only).
+  - Notes:
+    - This closed the focused M18 validation gap without production-code changes.
+  - Evidence:
+    - `backend\.venv\Scripts\python.exe -m pytest tests/unit/test_api_memory_search.py tests/unit/test_semantic_store.py tests/unit/test_context_builder_retrieval.py tests/unit/test_api_settings.py tests/unit/test_controller_service_integration.py -q`
+      - PASS excerpt: `73 passed in 51.65s`
+    - `backend\.venv\Scripts\python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+    - `npm --prefix frontend run build`
+      - PASS excerpt: `✓ built in 699ms`
+
+- 2026-03-19 10:40
+  - Summary: Completed T18.5 frontend Settings UI exposure of retrieval controls by adding retrieval numeric fields to the existing editable-settings flow.
+  - Scope: `frontend/src/components/SettingsPanel.jsx`.
+  - Notes:
+    - `retrieval_max_results`, `retrieval_min_score`, and `retrieval_time_decay_tau_hours` are now editable in the Settings UI.
+    - Save/cancel/diff behavior remained unchanged because all three fields were wired through the existing editable-settings draft/server flow.
+  - Evidence:
+    - `npm --prefix frontend run build`
+      - PASS excerpt: `✓ built in 699ms`
+
+- 2026-03-19 10:19
+  - Summary: Completed T18.4 frontend semantic-memory delete UI task by exposing semantic delete in Memory Search cards and wiring it to the existing semantic delete API contract.
+  - Scope: `frontend/src/components/MemoryPanel.jsx`, `frontend/src/api/taskClient.js`.
+  - Notes:
+    - Successful semantic deletes now remove the corresponding semantic result from local panel state.
+    - Delete failures are shown inline on the affected card; episodic entries remain non-deletable.
+  - Evidence:
+    - `npm --prefix frontend run build`
+      - PASS excerpt: `✓ built in 1.09s`
+
+- 2026-03-19 09:58
+  - Summary: Completed T18.3 retrieval-settings exposure and controller wiring by making retrieval parameters readable/editable through typed config + `/settings`, and wiring controller runtime to construct `RetrievalConfig` from live settings values.
+  - Scope: `backend/config/settings.py`, `backend/api/schemas.py`, `backend/api/main.py`, `backend/controller/controller_service.py`, `.env`, `.env.example`, `tests/unit/test_config.py`, `tests/unit/test_api_settings.py`, `tests/unit/test_api_schemas.py`, `tests/unit/test_controller_service_integration.py`.
+  - Notes:
+    - Retrieval scoring logic/design was not changed in this task.
+    - Change was limited to settings/API exposure + controller retrieval-config wiring.
+  - Evidence:
+    - `backend\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_config.py tests/unit/test_api_schemas.py tests/unit/test_api_settings.py tests/unit/test_controller_service_integration.py -q`
+      - PASS excerpt: `86 passed in 51.44s`
+    - `backend\\.venv\\Scripts\\python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT=PASS_WITH_SKIPS`
+
+- 2026-03-19 09:11
+  - Summary: Completed T18.2 by adding retrieved-context observability in `ContextBuilderNode` so `retrieved_context_injected` is initialized as `[]` in `execute()` and populated deterministically only when retrieval context is actually injected.
+  - Scope: `backend/workflow/nodes/context_builder_node.py`, `tests/unit/test_context_builder_retrieval.py`.
+  - Notes:
+    - Validation remained unit-level only in this task.
+    - No `/workflow/{task_id}` telemetry behavior was added or changed.
+  - Evidence:
+    - `backend\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_context_builder_retrieval.py -q`
+      - PASS excerpt: `7 passed in 0.20s`
+    - `backend\\.venv\\Scripts\\python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+
+- 2026-03-19 08:51
+  - Summary: Completed T18.1 by implementing semantic-memory delete by `entry_id`, surfacing a stable semantic delete key in `/memory/search` via `metadata.id`, and validating that non-deleted semantic entries remain retrievable after delete + index rebuild.
+  - Scope: `backend/memory/semantic_store.py`, `backend/memory/memory_manager.py`, `backend/api/schemas.py`, `backend/api/main.py`, `tests/unit/test_semantic_store.py`, `tests/unit/test_memory_manager.py`, `tests/unit/test_api_memory_search.py`.
+  - Evidence:
+    - `backend\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_semantic_store.py tests/unit/test_memory_manager.py tests/unit/test_api_memory_search.py -q`
+      - PASS excerpt: `16 passed in 2.27s`
+    - `backend\\.venv\\Scripts\\python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+
 - 2026-03-19 06:52
   - Summary: Completed T17.6 task-close validation by adding focused combined-path test coverage proving privacy redaction behavior across prompt input, persisted assistant output, and semantic write in one execution flow.
   - Scope: `tests/unit/test_controller_service_integration.py` (test-only).

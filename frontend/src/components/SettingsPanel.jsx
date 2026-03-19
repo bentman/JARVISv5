@@ -63,6 +63,9 @@ const EDITABLE_FIELDS = [
   'allow_external_search',
   'default_search_provider',
   'cache_enabled',
+  'retrieval_max_results',
+  'retrieval_min_score',
+  'retrieval_time_decay_tau_hours',
   'redact_pii_queries',
   'redact_pii_results',
   'allow_model_escalation',
@@ -82,6 +85,9 @@ function pickEditableSettings(settings) {
     allow_external_search: Boolean(settings?.allow_external_search),
     default_search_provider: String(settings?.default_search_provider ?? 'duckduckgo'),
     cache_enabled: Boolean(settings?.cache_enabled),
+    retrieval_max_results: String(settings?.retrieval_max_results ?? 10),
+    retrieval_min_score: String(settings?.retrieval_min_score ?? 0),
+    retrieval_time_decay_tau_hours: String(settings?.retrieval_time_decay_tau_hours ?? 24),
     redact_pii_queries: Boolean(settings?.redact_pii_queries),
     redact_pii_results: Boolean(settings?.redact_pii_results),
     allow_model_escalation: Boolean(settings?.allow_model_escalation),
@@ -518,6 +524,46 @@ function SettingsPanel({ isOpen, onClose }) {
               />
               Cache Enabled
             </label>
+          </div>
+
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ color: '#8fb6c2', marginBottom: 4 }}>Retrieval Max Results</div>
+            <input
+              type="number"
+              min="1"
+              step="1"
+              value={draftEditableSettings.retrieval_max_results}
+              onChange={(event) => setDraftField('retrieval_max_results', event.target.value)}
+              disabled={saving}
+              style={{ width: '100%', padding: '6px 8px', borderRadius: 6 }}
+            />
+          </div>
+
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ color: '#8fb6c2', marginBottom: 4 }}>Retrieval Min Score</div>
+            <input
+              type="number"
+              min="0"
+              max="1"
+              step="0.01"
+              value={draftEditableSettings.retrieval_min_score}
+              onChange={(event) => setDraftField('retrieval_min_score', event.target.value)}
+              disabled={saving}
+              style={{ width: '100%', padding: '6px 8px', borderRadius: 6 }}
+            />
+          </div>
+
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ color: '#8fb6c2', marginBottom: 4 }}>Retrieval Time Decay Tau Hours</div>
+            <input
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={draftEditableSettings.retrieval_time_decay_tau_hours}
+              onChange={(event) => setDraftField('retrieval_time_decay_tau_hours', event.target.value)}
+              disabled={saving}
+              style={{ width: '100%', padding: '6px 8px', borderRadius: 6 }}
+            />
           </div>
 
           <div style={{ marginBottom: 8 }}>

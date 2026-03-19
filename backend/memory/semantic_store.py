@@ -187,6 +187,30 @@ class SemanticMemory:
         self._persist_index_best_effort()
         return inserted_id
 
+    def delete(self, entry_id: int) -> bool:
+        target_id = int(entry_id)
+
+        with closing(self._connect()) as conn:
+            cursor = conn.execute("DELETE FROM embeddings WHERE id = ?", (target_id,))
+            deleted = int(cursor.rowcount or 0)
+            if deleted == 0:
+                conn.commit()
+                return False
+
+            remaining_ids = conn.execute(
+                "SELECT id FROM embeddings ORDER BY vector_id ASC, id ASC"
+            ).fetchall()
+            for next_vector_id, row in enumerate(remaining_ids):
+                conn.execute(
+                    "UPDATE embeddings SET vector_id = ? WHERE id = ?",
+                    (int(next_vector_id), int(row[0])),
+                )
+            conn.commit()
+
+        self._rebuild_index_from_db()
+        self._persist_index_best_effort()
+        return True
+
     def search(self, query_text: str, k: int = 5) -> list[dict[str, Any]]:
         if self.index is None or self.index.ntotal == 0:
             return []
@@ -235,7 +259,7 @@ class SemanticMemory:
                     continue
 
                 row = conn.execute(
-                    "SELECT text, metadata FROM embeddings WHERE vector_id = ?",
+                    "SELECT id, text, metadata FROM embeddings WHERE vector_id = ?",
                     (vector_id_int,),
                 ).fetchone()
                 if row is None:
@@ -246,8 +270,9 @@ class SemanticMemory:
 
                 results.append(
                     {
-                        "text": row[0],
-                        "metadata": json.loads(row[1]),
+                        "id": int(row[0]),
+                        "text": row[1],
+                        "metadata": json.loads(row[2]),
                         "vector_id": vector_id_int,
                         "distance": distance_f,
                         "similarity_score": similarity_score,

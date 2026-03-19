@@ -270,3 +270,19 @@ export async function searchMemory(query, limit = 10) {
 
   return response.json()
 }
+
+export async function deleteMemoryEntry(entryId) {
+  const response = await fetch(
+    `${API_BASE_URL}/memory/semantic/${encodeURIComponent(String(entryId))}`,
+    {
+      method: 'DELETE',
+    }
+  )
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`DELETE /memory/semantic failed: ${response.status} ${errorText}`)
+  }
+
+  return response.json()
+}

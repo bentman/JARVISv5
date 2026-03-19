@@ -93,6 +93,7 @@ def test_context_builder_injects_retrieved_context_message_with_ordering() -> No
     )
     assert messages[1]["content"] == expected_block
     assert messages[2] == {"role": "user", "content": "hello"}
+    assert result["retrieved_context_injected"] == [expected_block]
 
 
 def test_context_builder_retrieval_fail_safe_on_exception() -> None:
@@ -117,6 +118,7 @@ def test_context_builder_retrieval_fail_safe_on_exception() -> None:
     result = node.execute(context)
 
     assert result["messages"] == [{"role": "user", "content": "unchanged"}]
+    assert result["retrieved_context_injected"] == []
 
 
 def test_context_builder_retrieval_injection_is_deterministic() -> None:
@@ -152,6 +154,7 @@ def test_context_builder_retrieval_injection_is_deterministic() -> None:
     second = node.execute(dict(base_context))
 
     assert first["messages"][0] == second["messages"][0]
+    assert first["retrieved_context_injected"] == second["retrieved_context_injected"]
 
 
 def test_context_builder_retrieval_budget_keeps_ordered_prefix_only() -> None:
@@ -210,6 +213,7 @@ def test_context_builder_retrieval_budget_keeps_ordered_prefix_only() -> None:
     assert len(lines) == 2
     assert lines[1].startswith("- [semantic] score=")
     assert "A" * 80 in lines[1]
+    assert result["retrieved_context_injected"] == [str(injected["content"])]
 
 
 def test_context_builder_retrieval_budget_skips_injection_when_first_chunk_oversized() -> None:
@@ -244,6 +248,7 @@ def test_context_builder_retrieval_budget_skips_injection_when_first_chunk_overs
 
     result = node.execute(context)
     assert result["messages"] == [{"role": "user", "content": "unchanged"}]
+    assert result["retrieved_context_injected"] == []
 
 
 def test_context_builder_retrieval_budget_trimming_is_deterministic() -> None:
@@ -287,3 +292,22 @@ def test_context_builder_retrieval_budget_trimming_is_deterministic() -> None:
     second = node.execute(dict(base_context))
 
     assert first["messages"] == second["messages"]
+    assert first["retrieved_context_injected"] == second["retrieved_context_injected"]
+
+
+def test_context_builder_sets_retrieved_context_injected_empty_without_retriever() -> None:
+    node = ContextBuilderNode(retriever=None)
+    context = {
+        "memory_manager": _MemoryManagerStub(
+            {
+                "task_id": "task-none",
+                "messages": [{"role": "user", "content": "hello"}],
+            }
+        ),
+        "task_id": "task-none",
+        "turn": 1,
+        "user_input": "hello",
+    }
+
+    result = node.execute(context)
+    assert result["retrieved_context_injected"] == []

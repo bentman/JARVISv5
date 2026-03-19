@@ -25,6 +25,16 @@
 
 ## Inventory
 
+- Capability: Milestone 18 — Semantic Delete/Retrieval Settings/Context Observability Surface with Milestone-Close Validation
+  - 2026-03-19 11:23
+  - State: Verified
+  - Location: `backend/memory/semantic_store.py`, `backend/memory/memory_manager.py`, `backend/api/main.py`, `backend/api/schemas.py`, `backend/config/settings.py`, `backend/controller/controller_service.py`, `backend/workflow/nodes/context_builder_node.py`, `frontend/src/components/MemoryPanel.jsx`, `frontend/src/components/SettingsPanel.jsx`, `frontend/src/api/taskClient.js`, `tests/unit/test_api_memory_search.py`, `tests/unit/test_semantic_store.py`, `tests/unit/test_context_builder_retrieval.py`, `tests/unit/test_api_settings.py`, `tests/unit/test_controller_service_integration.py`
+  - Validation: `backend\.venv\Scripts\python.exe -m pytest tests/unit/test_api_memory_search.py tests/unit/test_semantic_store.py tests/unit/test_context_builder_retrieval.py tests/unit/test_api_settings.py tests/unit/test_controller_service_integration.py -q`; `backend\.venv\Scripts\python.exe scripts/validate_backend.py --scope unit`; `npm --prefix frontend run build`
+  - Notes:
+    - Repository/runtime artifacts expose semantic-memory delete by `entry_id`, stable delete key projection via `metadata.id`, and post-delete index rebuild behavior that preserves non-deleted semantic retrievability.
+    - Context-builder execution context includes deterministic `retrieved_context_injected` observability.
+    - Retrieval settings are exposed through backend config + `/settings` and surfaced in frontend Settings UI; semantic delete is surfaced in frontend Memory UI.
+
 - Capability: Milestone 17 — Privacy Redaction Settings-to-Execution Surface and Validation Coverage
   - 2026-03-19 07:07
   - State: Verified
