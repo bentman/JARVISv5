@@ -15,6 +15,81 @@
 
 ## Entries
 
+- 2026-03-19 06:52
+  - Summary: Completed T17.6 task-close validation by adding focused combined-path test coverage proving privacy redaction behavior across prompt input, persisted assistant output, and semantic write in one execution flow.
+  - Scope: `tests/unit/test_controller_service_integration.py` (test-only).
+  - Notes:
+    - Combined-path validation now proves query-side redaction, result-side redaction, and redacted semantic write in one run.
+    - This closes the focused M17 validation gap without production-code changes.
+  - Evidence:
+    - `backend\.venv\Scripts\python.exe -m pytest tests/unit/test_controller_service_integration.py -q`
+      - PASS excerpt: `40 passed in 51.84s`
+    - `backend\.venv\Scripts\python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+    - `npm --prefix frontend run build`
+      - PASS excerpt: `✓ built in 694ms`
+
+- 2026-03-19 06:32
+  - Summary: Completed T17.5 by exposing `redact_pii_queries` and `redact_pii_results` in the frontend Settings UI using the existing editable boolean settings flow.
+  - Scope: `frontend/src/components/SettingsPanel.jsx`.
+  - Notes:
+    - Both privacy redaction flags are now user-editable through existing Settings controls.
+    - Both are wired through the existing save/cancel/diff path for editable settings.
+    - Existing save/cancel/diff behavior remains unchanged.
+  - Evidence:
+    - `npm --prefix frontend run build`
+      - PASS excerpt: `✓ built in 682ms`
+
+- 2026-03-19 06:17
+  - Summary: Completed T17.4 by correcting controller result-side redaction ordering so strict result redaction is applied before assistant output persistence and before downstream semantic-memory write when enabled.
+  - Scope: `backend/controller/controller_service.py`, `tests/unit/test_controller_service_integration.py`.
+  - Notes:
+    - Persisted assistant-message content now reflects redacted result text when `redact_pii_results` is enabled.
+    - Semantic-memory write now receives redacted assistant output when enabled.
+    - Behavior remains unchanged when `redact_pii_results` is false.
+  - Evidence:
+    - `backend\.venv\Scripts\python.exe -m pytest tests/unit/test_controller_service_integration.py -q`
+      - PASS excerpt: `39 passed in 50.67s`
+    - `backend\.venv\Scripts\python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT=PASS_WITH_SKIPS`
+
+- 2026-03-18 11:43
+  - Summary: Completed T17.3 by wiring `redact_pii_queries` from settings into runtime context and applying strict query-side redaction only to model-bound prompt content on the real execution path, including message-history prompt assembly.
+  - Scope: `backend/controller/controller_service.py`, `backend/workflow/nodes/llm_worker_node.py`, `tests/unit/test_nodes.py`, `tests/unit/test_controller_service_integration.py`.
+  - Notes:
+    - Prompt-path redaction is gated by runtime `redact_pii_queries` and applies to content assembled into inference prompt text.
+    - Persisted task messages/history and result/output handling were unchanged in this task.
+  - Evidence:
+    - `backend\.venv\Scripts\python.exe -m pytest tests/unit/test_nodes.py tests/unit/test_controller_service_integration.py -q`
+      - PASS excerpt: `65 passed in 50.31s`
+    - `backend\.venv\Scripts\python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+
+- 2026-03-18 11:28
+  - Summary: Completed T17.2 by updating the settings API write contract so privacy redaction flags are writable through the existing `/settings` surface while preserving current hot-apply behavior.
+  - Scope: `backend/api/schemas.py`, `tests/unit/test_api_settings.py`, `tests/unit/test_api_schemas.py`.
+  - Notes:
+    - `SettingsUpdateRequest` now accepts `redact_pii_queries` and `redact_pii_results` as ordinary boolean settings fields.
+    - `POST /settings` now supports writing both privacy redaction flags through the existing settings update flow.
+    - Hot-applied behavior for these fields remains unchanged.
+  - Evidence:
+    - `backend\.venv\Scripts\python.exe -m pytest tests/unit/test_api_settings.py tests/unit/test_api_schemas.py -q`
+      - PASS excerpt: `17 passed in 1.35s`
+    - `backend\.venv\Scripts\python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT=PASS_WITH_SKIPS`
+
+- 2026-03-18 10:54
+  - Summary: Completed T17.1 by aligning settings/env editability for privacy redaction flags so `redact_pii_queries` and `redact_pii_results` are editable and serialized as booleans.
+  - Scope: `backend/config/settings.py`, `.env`, `.env.example`, `tests/unit/test_config.py`.
+  - Notes:
+    - Added both flags to `EDITABLE_SETTINGS_ENV_KEYS` and boolean serialization path.
+    - Added roadmap default keys to `.env` and `.env.example` (`REDACT_PII_QUERIES=true`, `REDACT_PII_RESULTS=false`).
+  - Evidence:
+    - `backend\.venv\Scripts\python.exe -m pytest tests/unit/test_config.py -q`
+      - PASS excerpt: `19 passed in 0.18s`
+    - `backend\.venv\Scripts\python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT=PASS_WITH_SKIPS`
+
 - 2026-03-18 08:27
   - Summary: Completed bugfix-01 by fixing controller planned aggregation for upload-driven execution so redundant repeated subtask outputs no longer persisted as duplicated `[Part N]` blocks.
   - Scope: `backend/controller/controller_service.py`, `tests/unit/test_controller_service_integration.py`.

@@ -25,6 +25,16 @@
 
 ## Inventory
 
+- Capability: Milestone 17 — Privacy Redaction Settings-to-Execution Surface and Validation Coverage
+  - 2026-03-19 07:07
+  - State: Verified
+  - Location: `backend/config/settings.py`, `backend/api/schemas.py`, `backend/api/main.py`, `backend/controller/controller_service.py`, `backend/workflow/nodes/llm_worker_node.py`, `frontend/src/components/SettingsPanel.jsx`, `tests/unit/test_config.py`, `tests/unit/test_api_settings.py`, `tests/unit/test_api_schemas.py`, `tests/unit/test_nodes.py`, `tests/unit/test_controller_service_integration.py`
+  - Validation: `backend\.venv\Scripts\python.exe -m pytest tests/unit/test_config.py -q`; `backend\.venv\Scripts\python.exe -m pytest tests/unit/test_api_settings.py tests/unit/test_api_schemas.py -q`; `backend\.venv\Scripts\python.exe -m pytest tests/unit/test_nodes.py tests/unit/test_controller_service_integration.py -q`; `backend\.venv\Scripts\python.exe -m pytest tests/unit/test_controller_service_integration.py -q`; `backend\.venv\Scripts\python.exe scripts/validate_backend.py --scope unit`; `npm --prefix frontend run build`
+  - Notes:
+    - Repository artifacts expose editable privacy redaction flags in config/settings and in the frontend Settings UI.
+    - `/settings` supports read/write projection for both redaction flags.
+    - Runtime/test artifacts verify query-side prompt redaction plus result-side redaction before assistant persistence and semantic write, including combined-path milestone-close coverage.
+
 - Capability: Milestone 16.2 — Ollama Escalation Configuration, Provider Execution, Controller Fallback, and Settings UI Surface
   - 2026-03-14 22:08
   - State: Verified

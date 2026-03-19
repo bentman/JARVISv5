@@ -1,10 +1,12 @@
 import pytest
 
 from backend.config.settings import (
+    EDITABLE_SETTINGS_ENV_KEYS,
     Settings,
     get_safe_config_projection,
     normalize_escalation_provider,
     persist_settings_updates,
+    serialize_editable_setting_value,
 )
 
 
@@ -170,3 +172,36 @@ def test_persist_settings_updates_rejects_ollama_base_url_write(tmp_path) -> Non
             updates={"ollama_base_url": "http://localhost:11434"},
             env_path=env_path,
         )
+
+
+def test_editable_settings_env_keys_include_privacy_redaction_fields() -> None:
+    assert EDITABLE_SETTINGS_ENV_KEYS["redact_pii_queries"] == "REDACT_PII_QUERIES"
+    assert EDITABLE_SETTINGS_ENV_KEYS["redact_pii_results"] == "REDACT_PII_RESULTS"
+
+
+def test_serialize_editable_setting_value_supports_privacy_redaction_booleans() -> None:
+    assert serialize_editable_setting_value("redact_pii_queries", True) == "true"
+    assert serialize_editable_setting_value("redact_pii_queries", False) == "false"
+    assert serialize_editable_setting_value("redact_pii_results", True) == "true"
+    assert serialize_editable_setting_value("redact_pii_results", False) == "false"
+
+
+def test_persist_settings_updates_accepts_privacy_redaction_fields(tmp_path) -> None:
+    env_path = tmp_path / ".env"
+    env_path.write_text(
+        "REDACT_PII_QUERIES=true\n"
+        "REDACT_PII_RESULTS=false\n",
+        encoding="utf-8",
+    )
+
+    persist_settings_updates(
+        updates={
+            "redact_pii_queries": False,
+            "redact_pii_results": True,
+        },
+        env_path=env_path,
+    )
+
+    updated = env_path.read_text(encoding="utf-8")
+    assert "REDACT_PII_QUERIES=false" in updated
+    assert "REDACT_PII_RESULTS=true" in updated

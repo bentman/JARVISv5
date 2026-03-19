@@ -312,6 +312,8 @@ def test_settings_write_endpoint_updates_projection_and_returns_restart_headers_
         json={
             "hardware_profile": "heavy",
             "log_level": "warning",
+            "redact_pii_queries": False,
+            "redact_pii_results": True,
             "allow_external_search": True,
             "default_search_provider": "tavily",
             "cache_enabled": True,
@@ -326,6 +328,8 @@ def test_settings_write_endpoint_updates_projection_and_returns_restart_headers_
     body = response.json()
     assert body["hardware_profile"] == "heavy"
     assert body["log_level"] == "WARNING"
+    assert body["redact_pii_queries"] is False
+    assert body["redact_pii_results"] is True
     assert body["allow_external_search"] is True
     assert body["allow_paid_search"] is False
     assert body["default_search_provider"] == "tavily"
@@ -342,6 +346,8 @@ def test_settings_write_endpoint_updates_projection_and_returns_restart_headers_
     assert isinstance(body["escalation_configured_providers"], list)
 
     persisted = _read_env(env_path)
+    assert "REDACT_PII_QUERIES=false" in persisted
+    assert "REDACT_PII_RESULTS=true" in persisted
     assert "ALLOW_MODEL_ESCALATION=true" in persisted
     assert "ESCALATION_PROVIDER=openai" in persisted
     assert "ESCALATION_BUDGET_USD=0.0" in persisted
@@ -359,6 +365,8 @@ def test_settings_write_endpoint_updates_projection_and_returns_restart_headers_
     assert "hardware_profile" not in hot_applied_fields
     assert set(hot_applied_fields) == {
         "log_level",
+        "redact_pii_queries",
+        "redact_pii_results",
         "allow_external_search",
         "default_search_provider",
         "cache_enabled",

@@ -119,3 +119,13 @@ def test_settings_update_request_rejects_escalation_budget_field() -> None:
 def test_settings_update_request_rejects_invalid_escalation_provider() -> None:
     with pytest.raises(ValueError):
         SettingsUpdateRequest(escalation_provider="unsupported")
+
+
+def test_settings_update_request_accepts_privacy_redaction_boolean_fields() -> None:
+    req = SettingsUpdateRequest(
+        redact_pii_queries=False,
+        redact_pii_results=True,
+    )
+
+    assert req.redact_pii_queries is False
+    assert req.redact_pii_results is True

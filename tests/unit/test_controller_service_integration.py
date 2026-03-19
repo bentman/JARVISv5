@@ -1,6 +1,8 @@
 import json
 import sqlite3
+import sys
 import tempfile
+import types
 from pathlib import Path
 
 import backend.security.audit_logger as audit_logger_module
@@ -257,6 +259,106 @@ def test_controller_semantic_write_skips_invalid_and_empty_paths(monkeypatch) ->
 
         assert result["final_state"] == "ARCHIVE"
         assert memory.semantic_writes == []
+
+
+def test_controller_result_redaction_enabled_redacts_persisted_assistant_and_semantic_write(monkeypatch) -> None:
+    from backend.workflow.nodes.llm_worker_node import LLMWorkerNode
+    from backend.workflow.nodes.validator_node import ValidatorNode
+
+    class _Settings:
+        REDACT_PII_RESULTS = True
+
+    pii_output = "Contact me at test@example.com for updates and follow-up details."
+
+    def _stub_llm_execute(self, context: dict) -> dict:
+        _ = self
+        context["llm_output"] = pii_output
+        context["llm_stream_chunks"] = [pii_output]
+        return context
+
+    def _stub_validator_execute(self, context: dict) -> dict:
+        _ = self
+        context["is_valid"] = True
+        context["validation_status"] = "passed"
+        context["validation_errors"] = []
+        return context
+
+    monkeypatch.setattr(controller_service_module, "Settings", lambda: _Settings)
+    monkeypatch.setattr(LLMWorkerNode, "execute", _stub_llm_execute)
+    monkeypatch.setattr(ValidatorNode, "execute", _stub_validator_execute)
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        memory = build_recording_memory(tmp_dir)
+        service = ControllerService(
+            memory_manager=memory,
+            hardware_service=StubHardwareService(),
+            model_registry=PresentModelRegistry(),
+        )
+
+        result = service.run(user_input="redact result output")
+
+        assert result["final_state"] == "ARCHIVE"
+
+        task_state = memory.get_task_state(result["task_id"])
+        assert isinstance(task_state, dict)
+        messages = task_state.get("messages", [])
+        assistant_messages = [m for m in messages if m.get("role") == "assistant"]
+        assert assistant_messages
+        persisted_assistant = str(assistant_messages[-1].get("content", ""))
+        assert "test@example.com" not in persisted_assistant
+        assert "[EMAIL_REDACTED]" in persisted_assistant
+
+        assert len(memory.semantic_writes) == 1
+        semantic_text = str(memory.semantic_writes[0].get("text", ""))
+        assert "test@example.com" not in semantic_text
+        assert "[EMAIL_REDACTED]" in semantic_text
+
+
+def test_controller_result_redaction_disabled_preserves_persisted_assistant_output(monkeypatch) -> None:
+    from backend.workflow.nodes.llm_worker_node import LLMWorkerNode
+    from backend.workflow.nodes.validator_node import ValidatorNode
+
+    class _Settings:
+        REDACT_PII_RESULTS = False
+
+    pii_output = "Contact me at test@example.com for updates and follow-up details."
+
+    def _stub_llm_execute(self, context: dict) -> dict:
+        _ = self
+        context["llm_output"] = pii_output
+        context["llm_stream_chunks"] = [pii_output]
+        return context
+
+    def _stub_validator_execute(self, context: dict) -> dict:
+        _ = self
+        context["is_valid"] = True
+        context["validation_status"] = "passed"
+        context["validation_errors"] = []
+        return context
+
+    monkeypatch.setattr(controller_service_module, "Settings", lambda: _Settings)
+    monkeypatch.setattr(LLMWorkerNode, "execute", _stub_llm_execute)
+    monkeypatch.setattr(ValidatorNode, "execute", _stub_validator_execute)
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        memory = build_recording_memory(tmp_dir)
+        service = ControllerService(
+            memory_manager=memory,
+            hardware_service=StubHardwareService(),
+            model_registry=PresentModelRegistry(),
+        )
+
+        result = service.run(user_input="do not redact result output")
+
+        assert result["final_state"] == "ARCHIVE"
+
+        task_state = memory.get_task_state(result["task_id"])
+        assert isinstance(task_state, dict)
+        messages = task_state.get("messages", [])
+        assistant_messages = [m for m in messages if m.get("role") == "assistant"]
+        assert assistant_messages
+        persisted_assistant = str(assistant_messages[-1].get("content", ""))
+        assert persisted_assistant == pii_output
 
 
 def test_controller_local_model_found_sets_escalation_not_attempted(monkeypatch) -> None:
@@ -1371,3 +1473,142 @@ def test_tool_call_node_attaches_redacted_output_and_logs_pii_events_to_override
         event_types = {event["event_type"] for event in events}
         assert "pii_detected" in event_types
         assert "pii_redacted" in event_types
+
+
+def test_controller_query_redaction_enabled_redacts_model_bound_prompt_message_path(monkeypatch) -> None:
+    class _Settings:
+        REDACT_PII_QUERIES = True
+        MODEL_PATH = "models/"
+        ALLOW_OLLAMA_ESCALATION = False
+        OLLAMA_MODEL = ""
+        ALLOW_MODEL_ESCALATION = False
+        ESCALATION_PROVIDER = ""
+        ESCALATION_BUDGET_USD = 0.0
+
+    captured: dict[str, object] = {}
+
+    class _StubLlama:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def create_completion(self, **kwargs):
+            captured.update(kwargs)
+            return {"choices": [{"text": "This is a sufficiently long assistant response."}]}
+
+    monkeypatch.setattr(controller_service_module, "Settings", lambda: _Settings)
+    monkeypatch.setitem(sys.modules, "llama_cpp", types.SimpleNamespace(Llama=_StubLlama))
+
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=PresentModelRegistry(),
+        )
+
+        raw_input = "Email me at test@example.com"
+        result = service.run(user_input=raw_input)
+
+    prompt = str(captured.get("prompt", ""))
+    assert "User: Email me at test@example.com" not in prompt
+    assert "[EMAIL_REDACTED]" in prompt
+    assert result["context"].get("user_input") == raw_input
+    assert result["context"].get("redact_pii_queries") is True
+
+
+def test_controller_query_redaction_disabled_preserves_model_bound_prompt_message_path(monkeypatch) -> None:
+    class _Settings:
+        REDACT_PII_QUERIES = False
+        MODEL_PATH = "models/"
+        ALLOW_OLLAMA_ESCALATION = False
+        OLLAMA_MODEL = ""
+        ALLOW_MODEL_ESCALATION = False
+        ESCALATION_PROVIDER = ""
+        ESCALATION_BUDGET_USD = 0.0
+
+    captured: dict[str, object] = {}
+
+    class _StubLlama:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def create_completion(self, **kwargs):
+            captured.update(kwargs)
+            return {"choices": [{"text": "This is a sufficiently long assistant response."}]}
+
+    monkeypatch.setattr(controller_service_module, "Settings", lambda: _Settings)
+    monkeypatch.setitem(sys.modules, "llama_cpp", types.SimpleNamespace(Llama=_StubLlama))
+
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=PresentModelRegistry(),
+        )
+
+        raw_input = "Email me at test@example.com"
+        result = service.run(user_input=raw_input)
+
+    prompt = str(captured.get("prompt", ""))
+    assert "User: Email me at test@example.com" in prompt
+    assert "[EMAIL_REDACTED]" not in prompt
+    assert result["context"].get("user_input") == raw_input
+    assert result["context"].get("redact_pii_queries") is False
+
+
+def test_controller_combined_query_and_result_redaction_path_redacts_prompt_persistence_and_semantic_write(
+    monkeypatch,
+) -> None:
+    class _Settings:
+        REDACT_PII_QUERIES = True
+        REDACT_PII_RESULTS = True
+        MODEL_PATH = "models/"
+        ALLOW_OLLAMA_ESCALATION = False
+        OLLAMA_MODEL = ""
+        ALLOW_MODEL_ESCALATION = False
+        ESCALATION_PROVIDER = ""
+        ESCALATION_BUDGET_USD = 0.0
+
+    captured: dict[str, object] = {}
+    pii_output = "Reach me at test@example.com for a status update on the task outcome."
+
+    class _StubLlama:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def create_completion(self, **kwargs):
+            captured.update(kwargs)
+            return {"choices": [{"text": pii_output}]}
+
+    monkeypatch.setattr(controller_service_module, "Settings", lambda: _Settings)
+    monkeypatch.setitem(sys.modules, "llama_cpp", types.SimpleNamespace(Llama=_StubLlama))
+
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+        memory = build_recording_memory(tmp_dir)
+        service = ControllerService(
+            memory_manager=memory,
+            hardware_service=StubHardwareService(),
+            model_registry=PresentModelRegistry(),
+        )
+
+        raw_input = "My email is test@example.com"
+        result = service.run(user_input=raw_input)
+
+        assert result["final_state"] == "ARCHIVE"
+
+        prompt = str(captured.get("prompt", ""))
+        assert "User: My email is test@example.com" not in prompt
+        assert "[EMAIL_REDACTED]" in prompt
+
+        task_state = memory.get_task_state(result["task_id"])
+        assert isinstance(task_state, dict)
+        messages = task_state.get("messages", [])
+        assistant_messages = [m for m in messages if m.get("role") == "assistant"]
+        assert assistant_messages
+        persisted_assistant = str(assistant_messages[-1].get("content", ""))
+        assert "test@example.com" not in persisted_assistant
+        assert "[EMAIL_REDACTED]" in persisted_assistant
+
+        assert len(memory.semantic_writes) == 1
+        semantic_text = str(memory.semantic_writes[0].get("text", ""))
+        assert "test@example.com" not in semantic_text
+        assert "[EMAIL_REDACTED]" in semantic_text

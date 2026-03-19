@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from backend.security.redactor import create_default_redactor
+
 from .base_node import BaseNode
 
 
@@ -11,6 +13,15 @@ class LLMWorkerNode(BaseNode):
 
     def execute(self, context: dict[str, Any]) -> dict[str, Any]:
         user_input = str(context.get("user_input", ""))
+        redact_queries = bool(context.get("redact_pii_queries", False))
+        redactor = create_default_redactor() if redact_queries else None
+
+        def _prompt_content(value: str) -> str:
+            text = str(value)
+            if redactor is None:
+                return text
+            return str(redactor.redact(text, mode="strict").redacted)
+
         prompt_lines: list[str] = [
             "You are the assistant in a single-turn exchange.",
             "Follow user formatting constraints exactly.",
@@ -30,14 +41,14 @@ class LLMWorkerNode(BaseNode):
                     continue
                 if role not in {"system", "user", "assistant"}:
                     continue
-                normalized_messages.append({"role": role, "content": content})
+                normalized_messages.append({"role": role, "content": _prompt_content(content)})
 
         if normalized_messages:
             for message in normalized_messages:
                 role_label = message["role"].capitalize()
                 prompt_lines.append(f"{role_label}: {message['content']}")
         else:
-            prompt_lines.append(f"User: {user_input}")
+            prompt_lines.append(f"User: {_prompt_content(user_input)}")
 
         prompt_lines.append("Assistant:")
         prompt = "\n".join(prompt_lines)

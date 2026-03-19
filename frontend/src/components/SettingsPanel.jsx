@@ -63,6 +63,8 @@ const EDITABLE_FIELDS = [
   'allow_external_search',
   'default_search_provider',
   'cache_enabled',
+  'redact_pii_queries',
+  'redact_pii_results',
   'allow_model_escalation',
   'escalation_provider',
   'allow_ollama_escalation',
@@ -80,6 +82,8 @@ function pickEditableSettings(settings) {
     allow_external_search: Boolean(settings?.allow_external_search),
     default_search_provider: String(settings?.default_search_provider ?? 'duckduckgo'),
     cache_enabled: Boolean(settings?.cache_enabled),
+    redact_pii_queries: Boolean(settings?.redact_pii_queries),
+    redact_pii_results: Boolean(settings?.redact_pii_results),
     allow_model_escalation: Boolean(settings?.allow_model_escalation),
     escalation_provider: String(settings?.escalation_provider ?? ''),
     allow_ollama_escalation: Boolean(settings?.allow_ollama_escalation),
@@ -513,6 +517,30 @@ function SettingsPanel({ isOpen, onClose }) {
                 disabled={saving}
               />
               Cache Enabled
+            </label>
+          </div>
+
+          <div style={{ marginBottom: 8 }}>
+            <label style={{ color: '#8fb6c2', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input
+                type="checkbox"
+                checked={Boolean(draftEditableSettings.redact_pii_queries)}
+                onChange={(event) => setDraftField('redact_pii_queries', event.target.checked)}
+                disabled={saving}
+              />
+              Redact PII Queries
+            </label>
+          </div>
+
+          <div style={{ marginBottom: 10 }}>
+            <label style={{ color: '#8fb6c2', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input
+                type="checkbox"
+                checked={Boolean(draftEditableSettings.redact_pii_results)}
+                onChange={(event) => setDraftField('redact_pii_results', event.target.checked)}
+                disabled={saving}
+              />
+              Redact PII Results
             </label>
           </div>
 

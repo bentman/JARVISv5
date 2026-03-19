@@ -105,6 +105,8 @@ class SettingsUpdateRequest(BaseModel):
 
     hardware_profile: str | None = None
     log_level: str | None = None
+    redact_pii_queries: bool | None = None
+    redact_pii_results: bool | None = None
     allow_external_search: bool | None = None
     default_search_provider: str | None = None
     cache_enabled: bool | None = None

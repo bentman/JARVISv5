@@ -178,6 +178,8 @@ def get_safe_config_projection(settings: Settings) -> SafeConfigProjection:
 EDITABLE_SETTINGS_ENV_KEYS: dict[str, str] = {
     "hardware_profile": "HARDWARE_PROFILE",
     "log_level": "LOG_LEVEL",
+    "redact_pii_queries": "REDACT_PII_QUERIES",
+    "redact_pii_results": "REDACT_PII_RESULTS",
     "allow_external_search": "ALLOW_EXTERNAL_SEARCH",
     "default_search_provider": "DEFAULT_SEARCH_PROVIDER",
     "cache_enabled": "CACHE_ENABLED",
@@ -240,7 +242,14 @@ def serialize_editable_setting_value(field_name: str, value: object) -> str:
         return normalize_escalation_provider(str(value))
     if field_name == "ollama_model":
         return str(value)
-    if field_name in {"allow_external_search", "cache_enabled", "allow_model_escalation", "allow_ollama_escalation"}:
+    if field_name in {
+        "redact_pii_queries",
+        "redact_pii_results",
+        "allow_external_search",
+        "cache_enabled",
+        "allow_model_escalation",
+        "allow_ollama_escalation",
+    }:
         return "true" if bool(value) else "false"
 
     raise ValueError(f"unsupported editable setting: {field_name}")

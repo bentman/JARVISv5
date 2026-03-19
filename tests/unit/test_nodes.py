@@ -312,6 +312,74 @@ def test_llm_worker_preserves_seed_stop_and_normalization_with_messages(monkeypa
     assert result["llm_output"] == "OK"
 
 
+def test_llm_worker_redacts_message_history_prompt_when_enabled(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class _StubLlama:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def create_completion(self, **kwargs):
+            captured.update(kwargs)
+            return {"choices": [{"text": "redacted path ok"}]}
+
+    monkeypatch.setitem(sys.modules, "llama_cpp", types.SimpleNamespace(Llama=_StubLlama))
+
+    node = LLMWorkerNode()
+    result = node.execute(
+        {
+            "user_input": "fallback input",
+            "llm_model_path": TEST_MODEL_PATH,
+            "redact_pii_queries": True,
+            "messages": [
+                {"role": "system", "content": "system context"},
+                {"role": "user", "content": "email me at test@example.com"},
+                {"role": "assistant", "content": "my backup is second@example.com"},
+            ],
+        }
+    )
+
+    prompt = str(captured.get("prompt", ""))
+    assert "User: email me at test@example.com" not in prompt
+    assert "Assistant: my backup is second@example.com" not in prompt
+    assert "[EMAIL_REDACTED]" in prompt
+    assert result["llm_output"] == "redacted path ok"
+
+
+def test_llm_worker_message_history_prompt_unchanged_when_redaction_disabled(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class _StubLlama:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def create_completion(self, **kwargs):
+            captured.update(kwargs)
+            return {"choices": [{"text": "raw path ok"}]}
+
+    monkeypatch.setitem(sys.modules, "llama_cpp", types.SimpleNamespace(Llama=_StubLlama))
+
+    node = LLMWorkerNode()
+    result = node.execute(
+        {
+            "user_input": "fallback input",
+            "llm_model_path": TEST_MODEL_PATH,
+            "redact_pii_queries": False,
+            "messages": [
+                {"role": "system", "content": "system context"},
+                {"role": "user", "content": "email me at test@example.com"},
+                {"role": "assistant", "content": "my backup is second@example.com"},
+            ],
+        }
+    )
+
+    prompt = str(captured.get("prompt", ""))
+    assert "User: email me at test@example.com" in prompt
+    assert "Assistant: my backup is second@example.com" in prompt
+    assert "[EMAIL_REDACTED]" not in prompt
+    assert result["llm_output"] == "raw path ok"
+
+
 def test_validator_node_marks_context_valid_for_substantive_output() -> None:
     node = ValidatorNode()
     result = node.execute({"llm_output": "This is valid output."})

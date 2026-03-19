@@ -135,17 +135,18 @@ class ControllerService:
             ControllerState.COMMIT.value,
             ControllerState.ARCHIVE.value,
         ]
+        settings = Settings()
 
         context: dict[str, Any] = {
             "user_input": user_input,
             "task_id": resolved_task_id,
             "memory_manager": self.memory,
             "generation_seed": self.generation_seed,
+            "redact_pii_queries": bool(getattr(settings, "REDACT_PII_QUERIES", False)),
         }
         if tool_call is not None:
             context["tool_call"] = tool_call
         task_started_ns = time.perf_counter_ns()
-        settings = Settings()
 
         router_node = RouterNode()
         context_builder_node = ContextBuilderNode()
@@ -569,6 +570,11 @@ class ControllerService:
 
             if not str(context.get("llm_output", "")).strip() and context.get("llm_error"):
                 context["llm_output"] = str(context["llm_error"])
+
+            if bool(getattr(settings, "REDACT_PII_RESULTS", False)):
+                redactor = create_default_redactor()
+                redacted_result = redactor.redact(str(context.get("llm_output", "")), mode="strict")
+                context["llm_output"] = str(redacted_result.redacted)
 
             llm_text = str(context.get("llm_output", "")).strip()
             if llm_text:
