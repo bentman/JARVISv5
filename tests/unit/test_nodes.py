@@ -58,12 +58,44 @@ def test_router_node_sets_research_intent() -> None:
     assert result["intent"] == "research"
 
 
+def test_router_node_sets_planning_intent() -> None:
+    node = RouterNode()
+    context = {"user_input": "Please plan my week and make a task list"}
+
+    result = node.execute(context)
+    assert result["intent"] == "planning"
+
+
+def test_router_node_sets_writing_intent() -> None:
+    node = RouterNode()
+    context = {"user_input": "Write a draft email for me"}
+
+    result = node.execute(context)
+    assert result["intent"] == "writing"
+
+
 def test_router_node_keeps_code_precedence_over_research() -> None:
     node = RouterNode()
     context = {"user_input": "write code and research alternatives"}
 
     result = node.execute(context)
     assert result["intent"] == "code"
+
+
+def test_router_node_keeps_code_precedence_over_planning() -> None:
+    node = RouterNode()
+    context = {"user_input": "please plan and write code"}
+
+    result = node.execute(context)
+    assert result["intent"] == "code"
+
+
+def test_router_node_keeps_research_precedence_over_writing() -> None:
+    node = RouterNode()
+    context = {"user_input": "search and write a summary"}
+
+    result = node.execute(context)
+    assert result["intent"] == "research"
 
 
 def test_router_node_is_deterministic_for_same_input() -> None:

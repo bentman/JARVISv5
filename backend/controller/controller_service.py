@@ -443,7 +443,10 @@ class ControllerService:
                             role=role,
                         )
 
-                constrained_plan = build_constrained_plan(user_input)
+                constrained_plan = build_constrained_plan(
+                    user_input,
+                    intent=str(context.get("intent", "")),
+                )
                 plan_mode = str(constrained_plan.get("mode", "linear"))
                 plan_subtasks_raw = constrained_plan.get("subtasks", [])
                 plan_subtasks = (
@@ -481,6 +484,7 @@ class ControllerService:
                 else:
                     execution_inputs = [str(context.get("user_input", ""))]
 
+                context["planning_subtask_failures"] = []
                 aggregated_subtask_outputs: list[str] = []
                 for index, execution_input in enumerate(execution_inputs, start=1):
                     if planning_mode == "planned":
@@ -538,6 +542,29 @@ class ControllerService:
 
                     if planning_mode == "planned":
                         subtask_output = str(context.get("llm_output", "")).strip()
+                        if not subtask_output:
+                            context["planning_subtask_failures"].append(
+                                {
+                                    "subtask_index": int(index),
+                                    "subtask_input_preview": str(execution_input)[:120],
+                                    "reason": str(context.get("llm_error") or "empty_output"),
+                                }
+                            )
+                        subtask_status = "completed" if subtask_output else "empty_output"
+                        subtask_payload: dict[str, Any] = {
+                            "subtask_index": int(index),
+                            "subtask_count": int(len(execution_inputs)),
+                            "subtask_input_preview": str(execution_input)[:120],
+                            "subtask_output_preview": subtask_output[:120],
+                            "subtask_output_empty": not bool(subtask_output),
+                            "status": subtask_status,
+                        }
+                        self.memory.log_decision(
+                            task_id=resolved_task_id,
+                            action_type="dag_subtask_event",
+                            content=json.dumps(subtask_payload, sort_keys=True, separators=(",", ":")),
+                            status=subtask_status,
+                        )
                         if subtask_output:
                             aggregated_subtask_outputs.append(subtask_output)
 

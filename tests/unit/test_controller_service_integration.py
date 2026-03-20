@@ -133,7 +133,7 @@ def test_controller_escalation_registry_is_populated_with_real_providers() -> No
 
 
 def test_controller_service_run_executes_nodes_and_handles_llm_gracefully() -> None:
-    with tempfile.TemporaryDirectory() as tmp_dir:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
         service = ControllerService(
             memory_manager=build_memory(tmp_dir),
             hardware_service=StubHardwareService(),
@@ -177,7 +177,7 @@ def test_controller_semantic_write_occurs_once_on_successful_validated_flow(monk
     monkeypatch.setattr(LLMWorkerNode, "execute", _stub_llm_execute)
     monkeypatch.setattr(ValidatorNode, "execute", _stub_validator_execute)
 
-    with tempfile.TemporaryDirectory() as tmp_dir:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
         memory = build_recording_memory(tmp_dir)
         service = ControllerService(
             memory_manager=memory,
@@ -801,7 +801,7 @@ def test_controller_service_run_planned_mode_aggregates_subtask_outputs() -> Non
             context["llm_stream_chunks"] = [context["llm_output"]]
             return context
 
-    with tempfile.TemporaryDirectory() as tmp_dir:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
         service = ControllerService(
             memory_manager=build_memory(tmp_dir),
             hardware_service=StubHardwareService(),
@@ -834,6 +834,7 @@ def test_controller_service_run_planned_mode_aggregates_subtask_outputs() -> Non
             "draft approach",
         ]
         assert context.get("planning_aggregated_parts") == 3
+        assert context.get("planning_subtask_failures") == []
         llm_output = str(context.get("llm_output", ""))
         assert "[Part 1]" in llm_output
         assert "answer::This is a long prompt designed to trigger planning and produce multiple segments" in llm_output
@@ -841,6 +842,106 @@ def test_controller_service_run_planned_mode_aggregates_subtask_outputs() -> Non
         assert "answer::collect requirements" in llm_output
         assert "[Part 3]" in llm_output
         assert "answer::draft approach" in llm_output
+
+        with sqlite3.connect(service.memory.episodic.db_path) as conn:
+            subtask_rows = conn.execute(
+                """
+                SELECT status, content
+                FROM decisions
+                WHERE task_id = ? AND action_type = 'dag_subtask_event'
+                ORDER BY id ASC
+                """,
+                (result["task_id"],),
+            ).fetchall()
+
+            dag_rows = conn.execute(
+                """
+                SELECT status, content
+                FROM decisions
+                WHERE task_id = ? AND action_type = 'dag_node_event'
+                ORDER BY id ASC
+                """,
+                (result["task_id"],),
+            ).fetchall()
+
+        assert len(subtask_rows) == 3
+        for idx, (status, content) in enumerate(subtask_rows, start=1):
+            payload = json.loads(content)
+            assert status == payload["status"]
+            assert payload["subtask_index"] == idx
+            assert payload["subtask_count"] == 3
+            assert isinstance(payload["subtask_input_preview"], str)
+            assert isinstance(payload["subtask_output_preview"], str)
+            assert isinstance(payload["subtask_output_empty"], bool)
+
+        # Workflow telemetry surface remains tied to dag_node_event shape only.
+        assert dag_rows
+        dag_payload = json.loads(dag_rows[0][1])
+        assert "event_type" in dag_payload
+        assert "subtask_index" not in dag_payload
+
+
+def test_controller_service_planned_mode_records_empty_subtask_failure_and_still_validates(monkeypatch) -> None:
+    class StubPlanningLLMModelRegistry(StubModelRegistry):
+        def select_model(self, profile: str, hardware: str, role: str) -> dict | None:
+            _ = profile
+            _ = hardware
+            _ = role
+            return {"id": "stub-model", "path": "models/stub.gguf"}
+
+        def ensure_model_present(self, model: dict) -> str:
+            _ = model
+            return "models/stub.gguf"
+
+    def _stub_constrained_plan(user_input: str, intent: str | None = "") -> dict:
+        _ = user_input
+        _ = intent
+        return {
+            "mode": "planned",
+            "subtasks": ["first step", "second step"],
+            "max_subtasks": 3,
+        }
+
+    from backend.workflow.nodes.llm_worker_node import LLMWorkerNode
+
+    def _stub_llm_execute(self, context: dict) -> dict:
+        _ = self
+        subtask_input = str(context.get("user_input", ""))
+        if subtask_input == "first step":
+            context["llm_output"] = ""
+            context["llm_stream_chunks"] = [""]
+        else:
+            context["llm_output"] = "This is a sufficiently long assistant response for validator pass."
+            context["llm_stream_chunks"] = [context["llm_output"]]
+        return context
+
+    monkeypatch.setattr(controller_service_module, "build_constrained_plan", _stub_constrained_plan)
+    monkeypatch.setattr(LLMWorkerNode, "execute", _stub_llm_execute)
+
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=StubPlanningLLMModelRegistry(),
+        )
+
+        result = service.run(user_input="planned test input")
+
+    assert result["final_state"] == "ARCHIVE"
+    context = result["context"]
+    assert context.get("planning_mode") == "planned"
+
+    failures = context.get("planning_subtask_failures")
+    assert isinstance(failures, list)
+    assert len(failures) == 1
+    failure = failures[0]
+    assert failure.get("subtask_index") == 1
+    assert failure.get("subtask_input_preview") == "first step"
+    assert failure.get("reason") == "empty_output"
+
+    # Terminal validation still executes after subtask failure.
+    assert context.get("validation_status") == "passed"
+    assert context.get("is_valid") is True
 
 
 def test_controller_service_upload_planned_mode_collapses_redundant_subtask_outputs(monkeypatch) -> None:
@@ -855,8 +956,9 @@ def test_controller_service_upload_planned_mode_collapses_redundant_subtask_outp
             _ = model
             return "models/stub.gguf"
 
-    def _stub_constrained_plan(user_input: str) -> dict:
+    def _stub_constrained_plan(user_input: str, intent: str | None = "") -> dict:
         _ = user_input
+        _ = intent
         return {
             "mode": "planned",
             "subtasks": [
@@ -910,7 +1012,7 @@ def test_controller_service_upload_planned_mode_collapses_redundant_subtask_outp
 
 
 def test_controller_service_run_linear_mode_preserved_for_short_prompt() -> None:
-    with tempfile.TemporaryDirectory() as tmp_dir:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
         service = ControllerService(
             memory_manager=build_memory(tmp_dir),
             hardware_service=StubHardwareService(),
@@ -924,7 +1026,21 @@ def test_controller_service_run_linear_mode_preserved_for_short_prompt() -> None
         assert context.get("planning_mode") == "linear"
         assert context.get("planning_subtasks") == ["short prompt"]
         assert context.get("planning_max_subtasks") == 3
+        assert context.get("planning_subtask_failures") == []
         assert "planning_aggregated_parts" not in context
+
+        with sqlite3.connect(service.memory.episodic.db_path) as conn:
+            subtask_rows = conn.execute(
+                """
+                SELECT status, content
+                FROM decisions
+                WHERE task_id = ? AND action_type = 'dag_subtask_event'
+                ORDER BY id ASC
+                """,
+                (result["task_id"],),
+            ).fetchall()
+
+        assert subtask_rows == []
 
 
 def test_controller_service_fail_closed_on_validator_quality_failure() -> None:
@@ -1189,6 +1305,40 @@ def test_controller_service_preserves_code_intent_graph_without_search_web() -> 
         ]
         assert "search_web" not in context["workflow_execution_order"]
         assert "tool_name" not in context
+
+
+def test_controller_planning_intent_short_input_forces_planned_mode() -> None:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=StubModelRegistry(),
+        )
+
+        result = service.run(user_input="Please plan my week")
+
+        assert result["final_state"] in {"ARCHIVE", "FAILED"}
+        context = result["context"]
+        assert context.get("intent") == "planning"
+        assert context.get("planning_mode") == "planned"
+        assert context.get("planning_subtasks") == ["Please plan my week"]
+
+
+def test_controller_writing_intent_short_input_stays_linear_mode() -> None:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=StubModelRegistry(),
+        )
+
+        result = service.run(user_input="Write a short email")
+
+        assert result["final_state"] in {"ARCHIVE", "FAILED"}
+        context = result["context"]
+        assert context.get("intent") == "writing"
+        assert context.get("planning_mode") == "linear"
+        assert context.get("planning_subtask_failures") == []
 
 
 def test_controller_service_research_does_not_overwrite_explicit_tool_call() -> None:

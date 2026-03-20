@@ -14,6 +14,34 @@ _RESEARCH_MARKERS = (
     "citations",
 )
 
+_PLANNING_MARKERS = (
+    "plan",
+    "planning",
+    "break down",
+    "breakdown",
+    "steps",
+    "step by step",
+    "tasks",
+    "task list",
+    "schedule",
+    "outline",
+    "agenda",
+)
+
+_WRITING_MARKERS = (
+    "write",
+    "writing",
+    "draft",
+    "compose",
+    "letter",
+    "email",
+    "report",
+    "essay",
+    "document",
+    "summarize",
+    "summary",
+)
+
 
 class RouterNode(BaseNode):
     def execute(self, context: dict[str, Any]) -> dict[str, Any]:
@@ -22,6 +50,10 @@ class RouterNode(BaseNode):
             intent = "code"
         elif any(marker in user_input for marker in _RESEARCH_MARKERS):
             intent = "research"
+        elif any(marker in user_input for marker in _PLANNING_MARKERS):
+            intent = "planning"
+        elif any(marker in user_input for marker in _WRITING_MARKERS):
+            intent = "writing"
         else:
             intent = "chat"
 

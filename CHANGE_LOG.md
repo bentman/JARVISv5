@@ -15,6 +15,82 @@
 
 ## Entries
 
+- 2026-03-20 09:59
+  - Summary: Completed T19.6 milestone-close validation, confirming integrated M19 behavior across routing, planning trigger behavior, explicit graph selection, planned subtask trace logging, and planned subtask failure diagnostics.
+  - Scope: `backend/controller/controller_service.py`, `tests/unit/test_controller_service_integration.py`.
+  - Notes:
+    - Focused closeout validation surfaced a controller wiring gap and this same T19.6 closeout task corrected constrained-planning intent pass-through (`intent` now forwarded into `build_constrained_plan(...)`).
+    - Post-closeout correction validation passed for focused M19 surfaces and backend unit harness.
+  - Evidence:
+    - `backend\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_nodes.py tests/unit/test_plan_compiler.py tests/unit/test_controller_service_integration.py -q`
+      - PASS excerpt: `89 passed in 55.98s`
+    - `backend\\.venv\\Scripts\\python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT=PASS_WITH_SKIPS`
+
+- 2026-03-20 09:31
+  - Summary: Completed T19.5 planned-mode subtask failure diagnostic task by adding execution-context subtask failure diagnostics while preserving existing planned/linear execution behavior.
+  - Scope: `backend/controller/controller_service.py`, `tests/unit/test_controller_service_integration.py`.
+  - Notes:
+    - `planning_subtask_failures` is now initialized at execute-phase start.
+    - Planned mode now records empty-subtask diagnostics with `subtask_index`, `subtask_input_preview`, and `reason`.
+    - Linear mode preserves `planning_subtask_failures` as `[]`.
+    - Terminal validation still executes after a planned subtask failure.
+  - Evidence:
+    - `backend\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_controller_service_integration.py -q`
+      - PASS excerpt: `42 passed in 51.71s`
+    - `backend\\.venv\\Scripts\\python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `PASS WITH SKIPS: unit: 412 tests, 1 skipped`
+
+- 2026-03-20 09:11
+  - Summary: Completed T19.4 by adding planned-mode per-subtask episodic trace logging (`dag_subtask_event`) in controller execution without changing workflow telemetry/API/frontend surfaces.
+  - Scope: `backend/controller/controller_service.py`, `tests/unit/test_controller_service_integration.py`.
+  - Notes:
+    - Planned-mode execution now emits one `dag_subtask_event` record per subtask with minimal subtask payload fields.
+    - Linear mode does not emit `dag_subtask_event` records.
+    - `/workflow/{task_id}` behavior remains unchanged in M19 (no subtask-event surfacing).
+  - Evidence:
+    - `backend\.venv\Scripts\python.exe -m pytest tests/unit/test_controller_service_integration.py -q`
+      - PASS excerpt: `41 passed in 56.42s`
+    - `backend\.venv\Scripts\python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+
+- 2026-03-20 08:27
+  - Summary: Completed T19.3 planning-trigger refinement by making `planning` intent force planned mode while retaining heuristic planning trigger for non-planning intents.
+  - Scope: `backend/workflow/plan_compiler.py`, `tests/unit/test_plan_compiler.py`.
+  - Notes:
+    - `planning` intent now deterministically enters planned mode.
+    - Non-planning intents still use heuristic trigger (`len >= 80` and decomposed segment count >= 2).
+    - Deterministic fallback behavior remains intact.
+  - Evidence:
+    - `backend\.venv\Scripts\python.exe -m pytest tests/unit/test_plan_compiler.py tests/unit/test_controller_service_integration.py -q`
+      - PASS excerpt: `54 passed in 51.27s`
+    - `backend\.venv\Scripts\python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+
+- 2026-03-20 07:46
+  - Summary: Completed T19.2 explicit graph-selection no-op task by adding `SUPPORTED_INTENTS` and making `compile_plan_to_workflow_graph()` branch explicitly on supported intents while preserving existing graph shape.
+  - Scope: `backend/workflow/plan_compiler.py`, `tests/unit/test_plan_compiler.py`.
+  - Notes:
+    - `SUPPORTED_INTENTS` now explicitly covers `chat`, `code`, `research`, `planning`, and `writing`.
+    - Graph topology/ordering remains unchanged for all supported intents and deterministic fallback intents in M19.
+  - Evidence:
+    - `backend\.venv\Scripts\python.exe -m pytest tests/unit/test_plan_compiler.py -q`
+      - PASS excerpt: `8 passed in 0.25s`
+    - `backend\.venv\Scripts\python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+
+- 2026-03-20 07:32
+  - Summary: Completed T19.1 RouterNode intent expansion by adding `planning` and `writing` intent routing with deterministic marker checks while preserving existing behavior.
+  - Scope: `backend/workflow/nodes/router_node.py`, `tests/unit/test_nodes.py`.
+  - Notes:
+    - Intent precedence is now `code -> research -> planning -> writing -> chat`.
+    - Existing `code` and `research` precedence and `chat` fallback remain preserved.
+  - Evidence:
+    - `backend\.venv\Scripts\python.exe -m pytest tests/unit/test_nodes.py -q`
+      - PASS excerpt: `32 passed in 1.19s`
+    - `backend\.venv\Scripts\python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+
 - 2026-03-19 10:55
   - Summary: Completed T18.6 milestone-close validation by adding one integrated API-level semantic delete/search flow test that verifies semantic search exposes `metadata.id`, delete returns the expected `200` contract, deleted entries disappear, and non-deleted entries remain retrievable after delete + rebuild.
   - Scope: `tests/unit/test_api_memory_search.py` (test-only).

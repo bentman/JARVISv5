@@ -25,6 +25,16 @@
 
 ## Inventory
 
+- Capability: Milestone 19 — Intent Expansion, Constrained Planning Modes, Planned Subtask Telemetry/Diagnostics, and Integrated Validation Surface
+  - 2026-03-20 10:05
+  - State: Verified
+  - Location: `backend/workflow/nodes/router_node.py`, `backend/workflow/plan_compiler.py`, `backend/controller/controller_service.py`, `tests/unit/test_nodes.py`, `tests/unit/test_plan_compiler.py`, `tests/unit/test_controller_service_integration.py`
+  - Validation: `backend\.venv\Scripts\python.exe -m pytest tests/unit/test_nodes.py tests/unit/test_plan_compiler.py tests/unit/test_controller_service_integration.py -q`; `backend\.venv\Scripts\python.exe scripts/validate_backend.py --scope unit`
+  - Notes:
+    - RouterNode artifacts include `planning` and `writing` intent routing with deterministic precedence (`code -> research -> planning -> writing -> chat`).
+    - Plan compiler artifacts include explicit supported-intent branching with unchanged workflow graph shape, plus constrained planning that forces planned mode for `planning` intent while retaining heuristic planning trigger behavior for non-planning intents.
+    - Controller/runtime artifacts include planned-mode episodic `dag_subtask_event` logging and `planning_subtask_failures` diagnostics for empty planned subtasks; integrated M19 validation coverage is present in the listed test surfaces.
+
 - Capability: Milestone 18 — Semantic Delete/Retrieval Settings/Context Observability Surface with Milestone-Close Validation
   - 2026-03-19 11:23
   - State: Verified
