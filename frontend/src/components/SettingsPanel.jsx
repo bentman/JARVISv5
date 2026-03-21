@@ -57,15 +57,33 @@ function renderObjectRows(data) {
   ))
 }
 
+function pickCurrentValues(source, keys) {
+  const entries = keys
+    .filter((key) => Object.prototype.hasOwnProperty.call(source || {}, key))
+    .map((key) => [key, source[key]])
+  return Object.fromEntries(entries)
+}
+
+function omitKeys(source, keysToOmit) {
+  const omitSet = new Set(keysToOmit)
+  return Object.fromEntries(Object.entries(source || {}).filter(([key]) => !omitSet.has(key)))
+}
+
+function renderCurrentValuesSection(data) {
+  return (
+    <details style={{ marginTop: 10 }}>
+      <summary style={{ cursor: 'pointer', color: '#8fb6c2', fontWeight: 600 }}>Current values</summary>
+      <div style={{ marginTop: 8 }}>{renderObjectRows(data)}</div>
+    </details>
+  )
+}
+
 const EDITABLE_FIELDS = [
   'hardware_profile',
   'log_level',
   'allow_external_search',
   'default_search_provider',
   'cache_enabled',
-  'retrieval_max_results',
-  'retrieval_min_score',
-  'retrieval_time_decay_tau_hours',
   'redact_pii_queries',
   'redact_pii_results',
   'allow_model_escalation',
@@ -77,6 +95,10 @@ const EDITABLE_FIELDS = [
 const HARDWARE_PROFILE_OPTIONS = ['light', 'medium', 'heavy', 'test', 'npu-optimized']
 const LOG_LEVEL_OPTIONS = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
 const DEFAULT_SEARCH_PROVIDER_OPTIONS = ['searxng', 'duckduckgo', 'tavily']
+const SYSTEM_CURRENT_KEYS = ['app_name', 'debug', 'model_fetch', 'model_path', 'data_path']
+const SEARCH_PRIVACY_CURRENT_KEYS = ['searxng_url', 'allow_paid_search']
+const MODEL_ESCALATION_CURRENT_KEYS = ['escalation_configured_providers']
+const OLLAMA_CURRENT_KEYS = ['ollama_model_options']
 
 function pickEditableSettings(settings) {
   return {
@@ -85,9 +107,6 @@ function pickEditableSettings(settings) {
     allow_external_search: Boolean(settings?.allow_external_search),
     default_search_provider: String(settings?.default_search_provider ?? 'duckduckgo'),
     cache_enabled: Boolean(settings?.cache_enabled),
-    retrieval_max_results: String(settings?.retrieval_max_results ?? 10),
-    retrieval_min_score: String(settings?.retrieval_min_score ?? 0),
-    retrieval_time_decay_tau_hours: String(settings?.retrieval_time_decay_tau_hours ?? 24),
     redact_pii_queries: Boolean(settings?.redact_pii_queries),
     redact_pii_results: Boolean(settings?.redact_pii_results),
     allow_model_escalation: Boolean(settings?.allow_model_escalation),
@@ -128,7 +147,7 @@ function budgetLimitsEqual(a, b) {
   return a.daily_limit_usd === b.daily_limit_usd && a.monthly_limit_usd === b.monthly_limit_usd
 }
 
-function SettingsPanel({ isOpen, onClose }) {
+function SettingsPanel({ isOpen, onClose, isDocked = false }) {
   const [settings, setSettings] = useState(null)
   const [serverEditableSettings, setServerEditableSettings] = useState(null)
   const [draftEditableSettings, setDraftEditableSettings] = useState(null)
@@ -404,10 +423,23 @@ function SettingsPanel({ isOpen, onClose }) {
   const includeCurrentOllamaModelOption =
     draftOllamaModel.length > 0 && !configuredOllamaModelOptionSet.has(draftOllamaModel)
   const hasConfiguredOllamaModelOptions = configuredOllamaModelOptions.length > 0
+  const systemCurrentValues = pickCurrentValues(settings, SYSTEM_CURRENT_KEYS)
+  const searchPrivacyCurrentValues = pickCurrentValues(settings, SEARCH_PRIVACY_CURRENT_KEYS)
+  const modelEscalationCurrentValues = pickCurrentValues(settings, MODEL_ESCALATION_CURRENT_KEYS)
+  const ollamaCurrentValues = pickCurrentValues(settings, OLLAMA_CURRENT_KEYS)
+  const dailyBudgetCurrentValues = omitKeys(budget?.daily || {}, ['limit_usd'])
+  const monthlyBudgetCurrentValues = omitKeys(budget?.monthly || {}, ['limit_usd'])
 
-  return (
-    <div
-      style={{
+  const containerStyle = isDocked
+    ? {
+        position: 'relative',
+        width: '100%',
+        height: '100%',
+        background: '#0a0e1a',
+        padding: 14,
+        overflowY: 'auto',
+      }
+    : {
         position: 'fixed',
         top: 0,
         right: 0,
@@ -420,8 +452,10 @@ function SettingsPanel({ isOpen, onClose }) {
         padding: 14,
         overflowY: 'auto',
         zIndex: 1000,
-      }}
-    >
+      }
+
+  return (
+    <div style={containerStyle}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <div style={{ fontWeight: 700, fontSize: 18 }}>Settings & Budget</div>
         <button
@@ -454,186 +488,164 @@ function SettingsPanel({ isOpen, onClose }) {
         <div style={{ marginBottom: 14 }}>
           <div style={{ fontWeight: 600, marginBottom: 6 }}>Settings (Editable)</div>
 
-          <div style={{ marginBottom: 8 }}>
-            <div style={{ color: '#8fb6c2', marginBottom: 4 }}>Hardware Profile</div>
-            <select
-              value={draftEditableSettings.hardware_profile}
-              onChange={(event) => setDraftField('hardware_profile', event.target.value)}
-              disabled={saving}
-              style={{ width: '100%', padding: '6px 8px', borderRadius: 6 }}
-            >
-              {HARDWARE_PROFILE_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </div>
+          <div style={{ marginBottom: 12, border: '1px solid #00d4ff22', borderRadius: 8, padding: 10 }}>
+            <div style={{ fontWeight: 600, marginBottom: 8, color: '#8fb6c2' }}>System</div>
 
-          <div style={{ marginBottom: 8 }}>
-            <div style={{ color: '#8fb6c2', marginBottom: 4 }}>Log Level</div>
-            <select
-              value={draftEditableSettings.log_level}
-              onChange={(event) => setDraftField('log_level', event.target.value)}
-              disabled={saving}
-              style={{ width: '100%', padding: '6px 8px', borderRadius: 6 }}
-            >
-              {LOG_LEVEL_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div style={{ marginBottom: 8 }}>
-            <label style={{ color: '#8fb6c2', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <input
-                type="checkbox"
-                checked={Boolean(draftEditableSettings.allow_external_search)}
-                onChange={(event) => setDraftField('allow_external_search', event.target.checked)}
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ color: '#8fb6c2', marginBottom: 4 }}>Hardware Profile</div>
+              <select
+                value={draftEditableSettings.hardware_profile}
+                onChange={(event) => setDraftField('hardware_profile', event.target.value)}
                 disabled={saving}
-              />
-              Allow External Search
-            </label>
-          </div>
+                style={{ width: '100%', padding: '6px 8px', borderRadius: 6 }}
+              >
+                {HARDWARE_PROFILE_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <div style={{ marginBottom: 8 }}>
-            <div style={{ color: '#8fb6c2', marginBottom: 4 }}>Default Search Provider</div>
-            <select
-              value={draftEditableSettings.default_search_provider}
-              onChange={(event) => setDraftField('default_search_provider', event.target.value)}
-              disabled={saving}
-              style={{ width: '100%', padding: '6px 8px', borderRadius: 6 }}
-            >
-              {DEFAULT_SEARCH_PROVIDER_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div style={{ marginBottom: 10 }}>
-            <label style={{ color: '#8fb6c2', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <input
-                type="checkbox"
-                checked={Boolean(draftEditableSettings.cache_enabled)}
-                onChange={(event) => setDraftField('cache_enabled', event.target.checked)}
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ color: '#8fb6c2', marginBottom: 4 }}>Log Level</div>
+              <select
+                value={draftEditableSettings.log_level}
+                onChange={(event) => setDraftField('log_level', event.target.value)}
                 disabled={saving}
-              />
-              Cache Enabled
-            </label>
+                style={{ width: '100%', padding: '6px 8px', borderRadius: 6 }}
+              >
+                {LOG_LEVEL_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={{ color: '#8fb6c2', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(draftEditableSettings.cache_enabled)}
+                  onChange={(event) => setDraftField('cache_enabled', event.target.checked)}
+                  disabled={saving}
+                />
+                Cache Enabled
+              </label>
+            </div>
+
+            {renderCurrentValuesSection(systemCurrentValues)}
           </div>
 
-          <div style={{ marginBottom: 8 }}>
-            <div style={{ color: '#8fb6c2', marginBottom: 4 }}>Retrieval Max Results</div>
-            <input
-              type="number"
-              min="1"
-              step="1"
-              value={draftEditableSettings.retrieval_max_results}
-              onChange={(event) => setDraftField('retrieval_max_results', event.target.value)}
-              disabled={saving}
-              style={{ width: '100%', padding: '6px 8px', borderRadius: 6 }}
-            />
-          </div>
+          <div style={{ marginBottom: 12, border: '1px solid #00d4ff22', borderRadius: 8, padding: 10 }}>
+            <div style={{ fontWeight: 600, marginBottom: 8, color: '#8fb6c2' }}>Search & Privacy</div>
 
-          <div style={{ marginBottom: 8 }}>
-            <div style={{ color: '#8fb6c2', marginBottom: 4 }}>Retrieval Min Score</div>
-            <input
-              type="number"
-              min="0"
-              max="1"
-              step="0.01"
-              value={draftEditableSettings.retrieval_min_score}
-              onChange={(event) => setDraftField('retrieval_min_score', event.target.value)}
-              disabled={saving}
-              style={{ width: '100%', padding: '6px 8px', borderRadius: 6 }}
-            />
-          </div>
+            <div style={{ marginBottom: 8 }}>
+              <label style={{ color: '#8fb6c2', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(draftEditableSettings.allow_external_search)}
+                  onChange={(event) => setDraftField('allow_external_search', event.target.checked)}
+                  disabled={saving}
+                />
+                Allow External Search
+              </label>
+            </div>
 
-          <div style={{ marginBottom: 10 }}>
-            <div style={{ color: '#8fb6c2', marginBottom: 4 }}>Retrieval Time Decay Tau Hours</div>
-            <input
-              type="number"
-              min="0.01"
-              step="0.01"
-              value={draftEditableSettings.retrieval_time_decay_tau_hours}
-              onChange={(event) => setDraftField('retrieval_time_decay_tau_hours', event.target.value)}
-              disabled={saving}
-              style={{ width: '100%', padding: '6px 8px', borderRadius: 6 }}
-            />
-          </div>
-
-          <div style={{ marginBottom: 8 }}>
-            <label style={{ color: '#8fb6c2', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <input
-                type="checkbox"
-                checked={Boolean(draftEditableSettings.redact_pii_queries)}
-                onChange={(event) => setDraftField('redact_pii_queries', event.target.checked)}
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ color: '#8fb6c2', marginBottom: 4 }}>Default Search Provider</div>
+              <select
+                value={draftEditableSettings.default_search_provider}
+                onChange={(event) => setDraftField('default_search_provider', event.target.value)}
                 disabled={saving}
-              />
-              Redact PII Queries
-            </label>
+                style={{ width: '100%', padding: '6px 8px', borderRadius: 6 }}
+              >
+                {DEFAULT_SEARCH_PROVIDER_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: 8 }}>
+              <label style={{ color: '#8fb6c2', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(draftEditableSettings.redact_pii_queries)}
+                  onChange={(event) => setDraftField('redact_pii_queries', event.target.checked)}
+                  disabled={saving}
+                />
+                Redact PII Queries
+              </label>
+            </div>
+
+            <div>
+              <label style={{ color: '#8fb6c2', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(draftEditableSettings.redact_pii_results)}
+                  onChange={(event) => setDraftField('redact_pii_results', event.target.checked)}
+                  disabled={saving}
+                />
+                Redact PII Results
+              </label>
+            </div>
+
+            {renderCurrentValuesSection(searchPrivacyCurrentValues)}
           </div>
 
-          <div style={{ marginBottom: 10 }}>
-            <label style={{ color: '#8fb6c2', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <input
-                type="checkbox"
-                checked={Boolean(draftEditableSettings.redact_pii_results)}
-                onChange={(event) => setDraftField('redact_pii_results', event.target.checked)}
-                disabled={saving}
-              />
-              Redact PII Results
-            </label>
-          </div>
+          <div style={{ marginBottom: 12, border: '1px solid #00d4ff22', borderRadius: 8, padding: 10 }}>
+            <div style={{ fontWeight: 600, marginBottom: 8, color: '#8fb6c2' }}>Model Escalation</div>
 
-          <div style={{ marginBottom: 8 }}>
-            <label style={{ color: '#8fb6c2', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <input
-                type="checkbox"
-                checked={Boolean(draftEditableSettings.allow_model_escalation)}
-                onChange={(event) => setDraftField('allow_model_escalation', event.target.checked)}
-                disabled={saving}
-              />
-              Allow Model Escalation
-            </label>
-          </div>
+            <div style={{ marginBottom: 8 }}>
+              <label style={{ color: '#8fb6c2', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(draftEditableSettings.allow_model_escalation)}
+                  onChange={(event) => setDraftField('allow_model_escalation', event.target.checked)}
+                  disabled={saving}
+                />
+                Allow Model Escalation
+              </label>
+            </div>
 
-          <div style={{ marginBottom: 8 }}>
-            <div style={{ color: '#8fb6c2', marginBottom: 4 }}>Escalation Provider</div>
-            <select
-              value={draftEditableSettings.escalation_provider}
-              onChange={(event) => setDraftField('escalation_provider', event.target.value)}
-              disabled={
-                saving ||
-                !Boolean(draftEditableSettings.allow_model_escalation) ||
-                !hasConfiguredEscalationProviders
-              }
-              style={{ width: '100%', padding: '6px 8px', borderRadius: 6 }}
-            >
-              {includeCurrentEscalationProviderOption ? (
-                <option value={draftEscalationProvider}>{draftEscalationProvider}</option>
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ color: '#8fb6c2', marginBottom: 4 }}>Escalation Provider</div>
+              <select
+                value={draftEditableSettings.escalation_provider}
+                onChange={(event) => setDraftField('escalation_provider', event.target.value)}
+                disabled={
+                  saving ||
+                  !Boolean(draftEditableSettings.allow_model_escalation) ||
+                  !hasConfiguredEscalationProviders
+                }
+                style={{ width: '100%', padding: '6px 8px', borderRadius: 6 }}
+              >
+                {includeCurrentEscalationProviderOption ? (
+                  <option value={draftEscalationProvider}>{draftEscalationProvider}</option>
+                ) : null}
+                <option value="">(none)</option>
+                {configuredEscalationProviders.map((provider) => (
+                  <option key={provider} value={provider}>
+                    {provider}
+                  </option>
+                ))}
+              </select>
+              {!hasConfiguredEscalationProviders ? (
+                <div style={{ color: '#8fb6c2', marginTop: 4, fontSize: 12 }}>
+                  No configured escalation providers available.
+                </div>
               ) : null}
-              <option value="">(none)</option>
-              {configuredEscalationProviders.map((provider) => (
-                <option key={provider} value={provider}>
-                  {provider}
-                </option>
-              ))}
-            </select>
-            {!hasConfiguredEscalationProviders ? (
-              <div style={{ color: '#8fb6c2', marginTop: 4, fontSize: 12 }}>
-                No configured escalation providers available.
-              </div>
-            ) : null}
-          </div>
+            </div>
 
-          <div style={{ marginBottom: 10 }}>
-            <div style={{ color: '#8fb6c2', marginBottom: 4 }}>Escalation Budget (USD)</div>
-            <div>{String(settings?.escalation_budget_usd ?? '0')}</div>
+            <div>
+              <div style={{ color: '#8fb6c2', marginBottom: 4 }}>Escalation Budget (USD)</div>
+              <div>{String(settings?.escalation_budget_usd ?? '0')}</div>
+            </div>
+
+            {renderCurrentValuesSection(modelEscalationCurrentValues)}
           </div>
 
           <div style={{ marginBottom: 8, marginTop: 12 }}>
@@ -684,6 +696,8 @@ function SettingsPanel({ isOpen, onClose }) {
                 Read-only. Update in .env and restart backend to apply changes.
               </div>
             </div>
+
+            {renderCurrentValuesSection(ollamaCurrentValues)}
           </div>
 
           {isDirty ? <div style={{ color: '#f59e0b', marginBottom: 8 }}>Unsaved changes</div> : null}
@@ -706,7 +720,7 @@ function SettingsPanel({ isOpen, onClose }) {
             )
           ) : null}
 
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, marginTop: 12, paddingTop: 10, borderTop: '1px solid #00d4ff22' }}>
             <button
               type="button"
               onClick={handleSave}
@@ -740,13 +754,6 @@ function SettingsPanel({ isOpen, onClose }) {
               Cancel
             </button>
           </div>
-
-          {settings ? (
-            <div style={{ marginTop: 12 }}>
-              <div style={{ fontWeight: 600, marginBottom: 6 }}>Settings (Current Snapshot)</div>
-              {renderObjectRows(settings)}
-            </div>
-          ) : null}
         </div>
       ) : null}
 
@@ -827,15 +834,17 @@ function SettingsPanel({ isOpen, onClose }) {
             </div>
           ) : null}
 
-          <div style={{ marginBottom: 10 }}>
-            <div style={{ fontWeight: 600, color: '#8fb6c2', marginBottom: 4 }}>Daily</div>
-            {renderObjectRows(budget.daily || {})}
-          </div>
+          <details style={{ marginBottom: 10 }}>
+            <summary style={{ cursor: 'pointer', color: '#8fb6c2', fontWeight: 600 }}>Daily current values</summary>
+            <div style={{ marginTop: 8 }}>{renderObjectRows(dailyBudgetCurrentValues)}</div>
+          </details>
 
-          <div>
-            <div style={{ fontWeight: 600, color: '#8fb6c2', marginBottom: 4 }}>Monthly</div>
-            {budget.monthly == null ? <div style={{ color: '#8fb6c2' }}>N/A</div> : renderObjectRows(budget.monthly)}
-          </div>
+          <details>
+            <summary style={{ cursor: 'pointer', color: '#8fb6c2', fontWeight: 600 }}>Monthly current values</summary>
+            <div style={{ marginTop: 8 }}>
+              {budget.monthly == null ? <div style={{ color: '#8fb6c2' }}>N/A</div> : renderObjectRows(monthlyBudgetCurrentValues)}
+            </div>
+          </details>
         </div>
       ) : null}
     </div>

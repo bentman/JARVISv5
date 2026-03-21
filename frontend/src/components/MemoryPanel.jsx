@@ -19,7 +19,7 @@ function getResultKey(result, index) {
   return `${source}-${timestamp}-${index}`
 }
 
-function MemoryPanel({ isOpen, onClose, onReferenceResult }) {
+function MemoryPanel({ isOpen, onClose, onReferenceResult, isDocked = false }) {
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -103,9 +103,16 @@ function MemoryPanel({ isOpen, onClose, onReferenceResult }) {
     return true
   })
 
-  return (
-    <div
-      style={{
+  const containerStyle = isDocked
+    ? {
+        position: 'relative',
+        width: '100%',
+        height: '100%',
+        background: '#0a0e1a',
+        padding: 14,
+        overflowY: 'auto',
+      }
+    : {
         position: 'fixed',
         top: 0,
         right: 0,
@@ -118,8 +125,10 @@ function MemoryPanel({ isOpen, onClose, onReferenceResult }) {
         padding: 14,
         overflowY: 'auto',
         zIndex: 1000,
-      }}
-    >
+      }
+
+  return (
+    <div style={containerStyle}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <div style={{ fontWeight: 700, fontSize: 18 }}>Memory Search</div>
         <button

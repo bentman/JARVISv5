@@ -15,6 +15,16 @@
 
 ## Entries
 
+- 2026-03-21 05:37
+  - Summary: Completed a frontend UX-enhancement consolidation pass by reorganizing the header into a cleaner two-row layout, unifying Memory/Workflow/Settings into a right-docked one-panel-at-a-time experience, and refining Settings organization with grouped editable sections plus compact grouped current-values subsections.
+  - Scope: `frontend/src/App.jsx`, `frontend/src/components/MemoryPanel.jsx`, `frontend/src/components/SettingsPanel.jsx`.
+  - Notes:
+    - Settings current-values groups were curated to avoid duplicate hot-configurable/read-only repeats, and Save/Cancel was clarified as footer controls for the editable form.
+    - This entry is frontend-only UX work; no backend/API contract changes were introduced in this enhancement sequence.
+  - Evidence:
+    - `npm --prefix frontend run build`
+      - PASS excerpt: `✓ built in 727ms`
+
 - 2026-03-20 09:59
   - Summary: Completed T19.6 milestone-close validation, confirming integrated M19 behavior across routing, planning trigger behavior, explicit graph selection, planned subtask trace logging, and planned subtask failure diagnostics.
   - Scope: `backend/controller/controller_service.py`, `tests/unit/test_controller_service_integration.py`.
