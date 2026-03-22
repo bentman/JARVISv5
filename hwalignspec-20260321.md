@@ -79,7 +79,11 @@ v3 originated this taxonomy and tied it to memory thresholds (GPUs ≥8GB → he
 
 **Critical gap:** v5 uses `urllib.request.urlretrieve` for downloads. This is synchronous, has no progress reporting, no retry, and no integrity check. v3 and v4 both used `huggingface_hub.hf_hub_download`, which handles redirects, authentication (for gated models), resumable downloads, and caching. `huggingface_hub` is already in the ecosystem (v3/v4 used it; it supports both sync and async). For voice model provisioning — where Whisper and Piper ONNX files come from Hugging Face — `urllib` is insufficient. An adapter from `urllib` → `huggingface_hub` is the correct migration path, not a rewrite of `ModelRegistry`.
 
-**STT/TTS model entries in `models.yaml`:** `whisper-stt` and `piper-tts` catalog entries exist but are `enabled: false` and have placeholder paths (`models/whisper.gguf`, `models/piper.onnx`) that do not reflect the actual file structures used by whisper.cpp or Piper ONNX. The v3/v4 paths (`ggml-base.en.bin`, `en_US-lessac-medium.onnx` + `.onnx.json`) are the correct reference.
+**STT/TTS model entries in `models.yaml`:** `whisper-stt` and `piper-tts` catalog entries exist but are `enabled: false` with placeholder paths that are wrong for both the legacy whisper.cpp path and the current faster-whisper path.
+
+**Piper TTS:** The v3/v4 paths (`en_US-lessac-medium.onnx` + `.onnx.json` from `rhasspy/piper-voices`) remain the correct reference. The existing `path:` field pattern in the catalog is correct for Piper — a single `.onnx` file path, with a companion entry for `.onnx.json`. Direct HF URLs work with `huggingface_hub` download. This side is a straightforward catalog text correction.
+
+**Whisper STT (faster-whisper):** The artifact shape is fundamentally incompatible with the current catalog schema. `faster-whisper` models are multi-file directories, not single files. The current `path:` field in `models.yaml` models a single file path. A directory-type model needs either: (a) a new `model_dir` field alongside `path`, or (b) a convention where `path` points to the directory and `ensure_model_present()` is taught to handle directory targets. Either approach requires a schema and code decision, not just a YAML text edit. This means S1 (pure YAML fix) is **insufficient** for the STT entry — it must be split or deferred.
 
 ---
 
@@ -95,10 +99,13 @@ v3 originated this taxonomy and tied it to memory thresholds (GPUs ≥8GB → he
 - For GPU-accelerated ONNX (DirectML on Windows, CUDA via onnxruntime-gpu), a different wheel is needed. v3 detected `DmlExecutionProvider` and `ROCMExecutionProvider` — these require `onnxruntime-directml` or `onnxruntime-gpu` respectively.
 - **Verdict:** CPU ONNX is sufficient for Piper TTS at medium quality. If NPU-accelerated Piper is desired, an `onnxruntime-directml` or provider-specific package must be added. This is deferred until voice stack is built.
 
-### Whisper
-- v3 used `whisper.cpp` (C binary + `ggml-base.en.bin`). v4 referenced same. v5 catalog has a `whisper.gguf` path — this does not correspond to any real whisper.cpp model format. The actual format is `ggml-*.bin`. This is a **catalog error** that will cause voice provisioning to fail when voice is implemented.
-- `requirements.txt` has no `openai-whisper`, `faster-whisper`, or whisper.cpp Python binding. The backend `voice/__init__.py` is empty.
-- **Verdict:** The Whisper path has no implementation and a wrong catalog entry. Both must be corrected before voice work begins.
+### Whisper / STT — faster-whisper path (revised)
+- v3 used `whisper.cpp` (`ggml-base.en.bin`, C binary). v4 referenced the same. v5 catalog has a `whisper.gguf` path — wrong format for both whisper.cpp and faster-whisper.
+- The intended STT path is now `faster-whisper`, which uses **CTranslate2 format** — a multi-file directory, not a single `.bin` or `.gguf` file. This is a fundamentally different artifact shape than what v3/v4 expected and what the current catalog models.
+- CTranslate2 model directories contain: `model.bin`, `config.json`, `tokenizer.json`, `vocabulary.json`, `preprocessor_config.json`. The base model directory is hosted at `Systran/faster-whisper-base` on HF.
+- `faster-whisper` auto-downloads from HF by name (`WhisperModel("base")`) or loads from a local directory path. There is no single-file download URL that produces a ready-to-use faster-whisper artifact.
+- `requirements.txt` has no `faster-whisper` or `ctranslate2`. The backend `voice/__init__.py` is empty.
+- **Verdict:** The Whisper/STT path has no implementation, a wrong catalog entry, and a wrong artifact shape assumption. The catalog schema itself needs extension — a `model_dir` field for directory-type models — before the STT entry can be correct. This is not a simple catalog text fix; it requires a schema decision. See §10 for revised S1.
 
 ### `huggingface_hub`
 - Present in v3/v4 as a direct dependency. Absent from v5 `requirements.txt`. Required for Piper and Whisper model downloads from gated or non-direct-URL sources.
@@ -136,7 +143,7 @@ The v4 `ModelManager` pattern (sync, lock-per-filename, `hf_hub_download`) is th
 
 **ONNX coupling:** Piper TTS outputs audio via ONNX inference. `onnxruntime` is already installed. The Piper Python wrapper (`piper-tts` PyPI package) wraps onnxruntime and handles the `.onnx` + `.onnx.json` pair. It must be added to `requirements.txt` for the voice stack.
 
-**Whisper coupling:** `faster-whisper` (wraps CTranslate2 and whisper.cpp-compatible models in GGUF/CTranslate2 format) is the most practical Python-callable STT backend. It is compatible with `ggml-*.bin` model files. `openai-whisper` is an alternative but heavier.
+**Whisper coupling:** `faster-whisper` (wraps CTranslate2) is the most practical Python-callable STT backend. It is **not** compatible with `ggml-*.bin` whisper.cpp files — this is a critical distinction. faster-whisper requires models in CTranslate2 directory format (a directory containing `model.bin`, `config.json`, `tokenizer.json`, `vocabulary.json`, `preprocessor_config.json`). These are pre-converted and hosted on HF under `Systran/faster-whisper-*` repos (e.g. `Systran/faster-whisper-base`). `WhisperModel("base")` auto-downloads the correct directory from HF when online; local loading takes a directory path, not a file path. See §4 and §10 revisions for catalog and S1 implications.
 
 ---
 
@@ -208,13 +215,57 @@ The `_normalize_hardware()` vocabulary bridge in `ModelRegistry` should be promo
 
 ---
 
-## 10. Recommended First Execution Slice: S1 — Catalog Correction
+## 10. Recommended First Execution Slice: Revised — Split S1 into S1a (Piper, zero-risk) and S1b (STT schema decision)
+
+### S1a — Piper TTS Catalog Correction (YAML only, zero-risk)
 
 **Scope:** `models/models.yaml` only. No code changes.
 
 **Corrections:**
-1. `whisper-stt`: change `path` to `models/ggml-base.en.bin`, change `download_url` to `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin`, keep `enabled: false`.
-2. `piper-tts`: change `path` to `models/en_US-lessac-medium.onnx`, add a companion entry `piper-tts-config` with `path: models/en_US-lessac-medium.onnx.json` and same HF URL from `rhasspy/piper-voices`, both `enabled: false`.
-3. Add correct `model_id` fields to both entries (`ggerganov/whisper.cpp`, `rhasspy/piper-voices`) as metadata for future `huggingface_hub` provisioning.
+1. `piper-tts`: change `path` to `models/en_US-lessac-medium.onnx`, add `model_id: rhasspy/piper-voices`, change `download_url` to `https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx`, keep `enabled: false`.
+2. Add a companion entry `piper-tts-config` with `path: models/en_US-lessac-medium.onnx.json`, same `model_id`, `download_url` pointing to `.onnx.json`, `enabled: false`, `roles: ["tts-config"]`.
 
-**Why first:** It is zero-risk (YAML, no tests break), corrects a latent data error that would cause hard failures when voice work begins, and establishes the correct reference point for all subsequent voice and provisioning slices. Every later slice (S2–S5) depends on the catalog being accurate.
+**Why first:** Zero-risk YAML-only change. Piper's artifact shape (single file + companion JSON) is a clean fit for the existing catalog schema. This can be done immediately without any schema or code decisions. It unblocks Piper provisioning as soon as the voice stack begins.
+
+---
+
+### S1b — STT Catalog Schema Decision (design decision required before YAML)
+
+**Scope:** Requires a decision on how `models.yaml` represents directory-type models before any YAML edit to the `whisper-stt` entry.
+
+**The problem:** `faster-whisper` model artifacts are multi-file directories (`model.bin`, `config.json`, `tokenizer.json`, `vocabulary.json`, `preprocessor_config.json`). The current catalog `path:` field models a single file. `ensure_model_present()` checks `Path(model_path).exists()` and downloads to that path — both assumptions break for a directory target.
+
+**Decision options:**
+- **Option A:** Add a `model_dir` field to the catalog schema for directory-type models. `ensure_model_present()` checks `Path(model_dir).is_dir()`. Download uses `huggingface_hub.snapshot_download(repo_id=..., local_dir=model_dir)` to fetch the full CTranslate2 directory. `path` remains for single-file models; `model_dir` is the directory-model path.
+- **Option B:** Treat `path` as a directory path for STT entries and teach `ensure_model_present()` to detect directory targets (e.g. path has no extension or has a sentinel like `/`). Less clean, risks ambiguity.
+
+**Recommended:** Option A. It is additive, explicit, and prevents the `path` semantics from becoming overloaded. The `model_dir` field is ignored by existing `select_model()` and `ensure_model_present()` until the STT provisioning path is implemented.
+
+**Correct `whisper-stt` catalog entry (after S1b schema decision):**
+```yaml
+- id: "whisper-base"
+  enabled: false
+  roles: ["stt"]
+  supported_hardware: ["gpu-cuda", "gpu", "cpu", "npu"]
+  min_profile: "light"
+  max_profile: "heavy"
+  priority: 50
+  model_dir: "models/faster-whisper-base"
+  model_id: "Systran/faster-whisper-base"
+  # No download_url: directory models use huggingface_hub.snapshot_download
+```
+
+**Why separate from S1a:** S1b requires code changes to `ensure_model_present()` and the catalog schema, making it a different risk tier than a pure YAML correction. It should be done as its own slice immediately before the voice stack is scaffolded (i.e., between S4 and S5), not as a zero-risk catalog fix.
+
+---
+
+### Revised Migration Slice Table
+
+| Slice | What | Risk |
+|-------|------|------|
+| **S1a** | Piper TTS catalog correction: correct paths, model_id, download_url, companion config entry | Zero — YAML only |
+| **S2** | VRAM-aware profile narrowing gate in `get_hardware_profile()` | Low — additive |
+| **S3** | Promote `_normalize_hardware()` to shared module-level function | Low — additive |
+| **S4** | Add `huggingface_hub>=0.x` to `requirements.txt`; add HF-based provisioning for Piper | Low — additive |
+| **S1b** | STT catalog schema: add `model_dir` field; update `ensure_model_present()` for directory targets; add `whisper-base` entry with `Systran/faster-whisper-base` | Medium — schema + code |
+| **S5** | Voice stack scaffolding: STT provider (faster-whisper), TTS provider (piper-tts), controller voice path, `/voice` routes | High — new subsystem, M20 |
