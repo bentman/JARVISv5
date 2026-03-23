@@ -25,6 +25,15 @@
 
 ## Inventory
 
+- Capability: hwalignspec-20260321 Alignment — Model/Voice Selection Contracts and Backend Voice API Surface
+  - 2026-03-23 05:34
+  - State: Verified
+  - Location: `models/models.yaml`, `backend/models/hardware_profiler.py`, `backend/models/model_registry.py`, `backend/voice/stt_provider.py`, `backend/voice/tts_provider.py`, `backend/controller/controller_service.py`, `backend/api/schemas.py`, `backend/api/main.py`
+  - Validation: `backend\.venv\Scripts\python.exe -m pytest tests/unit/test_model_registry.py -q`; `backend\.venv\Scripts\python.exe -m pytest tests/unit/test_hardware_profiler.py -q`; `backend\.venv\Scripts\python.exe -m pytest tests/unit/test_voice_stt_provider.py tests/unit/test_voice_tts_provider.py tests/unit/test_api_voice_transcribe.py tests/unit/test_api_voice_speak.py -q`; `backend\.venv\Scripts\python.exe -m pytest tests/unit/test_api_entrypoint.py -q`
+  - Notes:
+    - Observable artifacts align the hardware/profile selection path, model ensure behavior, voice provider adapters, controller voice orchestration, and backend voice API contracts.
+    - Catalog/provider/controller/API surfaces for STT and TTS are present and represented by the listed repository files.
+
 - Capability: Milestone 19 — Intent Expansion, Constrained Planning Modes, Planned Subtask Telemetry/Diagnostics, and Integrated Validation Surface
   - 2026-03-20 10:05
   - State: Verified

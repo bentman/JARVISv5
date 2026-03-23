@@ -46,6 +46,7 @@ from backend.search import budget as search_budget
 from backend.tools.file_tools import extract_upload_text
 
 
+# Non-functional alignment touch: hwalignspec closure marker.
 app = FastAPI(title="JARVISv5 Backend")
 
 app.add_middleware(

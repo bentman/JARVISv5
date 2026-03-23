@@ -15,6 +15,13 @@
 
 ## Entries
 
+- 2026-03-23 00:17
+  - Summary: Added a logging-integrity corrective note clarifying that the `2026-03-22 21:34` S1a record is a corrective/clarifying entry for the earlier `2026-03-22 07:42` S1a record, not a separate second completion.
+  - Scope: `CHANGE_LOG.md`.
+  - Evidence:
+    - `findstr /n "2026-03-22 21:34" CHANGE_LOG.md`
+      - PASS excerpt: `- 2026-03-22 21:34`
+
 - 2026-03-23 00:05
   - Summary: Completed backend-only S5b TTS vertical slice by adding fail-closed `POST /voice/speak` with typed schema, controller `speak()` path, and Piper provider adapter integration.
   - Scope: `backend/voice/tts_provider.py`, `backend/voice/__init__.py`, `backend/controller/controller_service.py`, `backend/api/schemas.py`, `backend/api/main.py`, `tests/unit/test_voice_tts_provider.py`, `tests/unit/test_api_voice_speak.py`, `tests/unit/test_controller_service_integration.py`.

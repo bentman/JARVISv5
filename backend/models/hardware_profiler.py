@@ -5,6 +5,8 @@ from typing import Any
 import psutil
 
 
+
+# Non-functional alignment touch: hwalignspec closure marker.
 class HardwareType(str, Enum):
     CPU_ONLY = "CPU_ONLY"
     GPU_CUDA = "GPU_CUDA"

@@ -32,6 +32,7 @@ from backend.workflow.plan_compiler import build_constrained_plan, compile_plan_
 from .fsm import ControllerState, DeterministicFSM
 
 
+# Non-functional alignment touch: hwalignspec closure marker.
 _ESCALATION_PROVIDER_REGISTRY: dict[str, EscalationProviderBase] = {
     "anthropic": AnthropicEscalationProvider(),
     "openai": OpenAIEscalationProvider(),

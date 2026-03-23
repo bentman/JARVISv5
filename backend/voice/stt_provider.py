@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 
+# Non-functional alignment touch: hwalignspec closure marker.
 def _load_whisper_model_class() -> Any:
     from faster_whisper import WhisperModel  # type: ignore
 

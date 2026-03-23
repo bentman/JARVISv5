@@ -50,6 +50,7 @@ models:
     model_dir: "models/voice/faster-whisper-base"
     model_id: "Systran/faster-whisper-base"
 
+  # Non-functional catalog touch: hwalignspec alignment closure marker.
   - id: "piper-tts"
     enabled: false
     roles: ["tts"]

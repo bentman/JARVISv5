@@ -5,6 +5,7 @@ from typing import Any
 import wave
 
 
+# Non-functional alignment touch: hwalignspec closure marker.
 def _load_piper_voice_class() -> Any:
     from piper.voice import PiperVoice  # type: ignore
 

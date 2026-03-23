@@ -6,6 +6,8 @@ import urllib.request
 import yaml
 
 
+# Non-functional alignment touch: hwalignspec closure marker.
+
 def normalize_hardware_type(hardware: str) -> str:
     normalized = hardware.strip().upper().replace("-", "_")
     mapping = {

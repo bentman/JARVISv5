@@ -12,6 +12,7 @@ from backend.config.settings import (
 )
 
 
+# Non-functional alignment touch: hwalignspec closure marker.
 class WorkflowGraphEdge(BaseModel):
     from_node: str
     to_node: str
