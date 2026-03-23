@@ -21,6 +21,7 @@ from backend.models.providers import (
 )
 from backend.models.hardware_profiler import HardwareService
 from backend.models.model_registry import ModelRegistry
+from backend.voice import FasterWhisperSTTProvider
 from backend.security.redactor import create_default_redactor
 from backend.retrieval.retrieval_types import RetrievalConfig
 from backend.workflow import ContextBuilderNode, LLMWorkerNode, RouterNode, SearchWebNode, ToolCallNode, ValidatorNode
@@ -766,3 +767,26 @@ class ControllerService:
                 "archived": False,
                 "error": str(exc),
             }
+
+    def transcribe(self, audio_path: str) -> dict[str, Any]:
+        profile = self.hardware.get_hardware_profile()
+        hardware_type = self.hardware.detect_hardware_type().value
+
+        selected_model = self.registry.select_model(
+            profile=profile,
+            hardware=hardware_type,
+            role="stt",
+        )
+        if selected_model is None:
+            raise RuntimeError("stt_model_not_available")
+
+        model_dir = self.registry.ensure_model_present(selected_model)
+        provider = FasterWhisperSTTProvider(model_dir=model_dir)
+        transcript = provider.transcribe_file(audio_path)
+
+        return {
+            "transcript": transcript,
+            "model_id": str(selected_model.get("id", "")),
+            "profile": str(profile),
+            "hardware": str(hardware_type),
+        }

@@ -57,6 +57,17 @@ class TaskResponse(BaseModel):
     failure: TaskFailureMetadata | None = None
 
 
+class VoiceTranscribeRequest(BaseModel):
+    audio_path: str
+
+
+class VoiceTranscribeResponse(BaseModel):
+    transcript: str
+    model_id: str
+    profile: str
+    hardware: str
+
+
 class MemorySearchItem(BaseModel):
     source: str
     content: str

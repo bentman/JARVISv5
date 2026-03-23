@@ -83,6 +83,19 @@ class StubModelRegistry(ModelRegistry):
         return None
 
 
+class StubSTTModelRegistry(StubModelRegistry):
+    def select_model(self, profile: str, hardware: str, role: str) -> dict | None:
+        _ = profile
+        _ = hardware
+        if role != "stt":
+            return None
+        return {"id": "whisper-base", "model_dir": "models/faster-whisper-base"}
+
+    def ensure_model_present(self, model: dict) -> str:
+        _ = model
+        return "models/faster-whisper-base"
+
+
 class PresentModelRegistry(StubModelRegistry):
     def select_model(self, profile: str, hardware: str, role: str) -> dict | None:
         _ = profile
@@ -1821,3 +1834,24 @@ def test_controller_wires_retrieval_settings_into_context_builder_retrieval_conf
     assert getattr(retrieval_config, "max_results") == 17
     assert getattr(retrieval_config, "min_final_score_threshold") == 0.4
     assert getattr(retrieval_config, "time_decay_tau_hours") == 36.0
+
+
+def test_controller_transcribe_uses_stt_model_selection_and_provider(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "backend.voice.stt_provider.FasterWhisperSTTProvider.transcribe_file",
+        lambda self, audio_path: f"transcript::{audio_path}",
+    )
+
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=StubSTTModelRegistry(),
+        )
+
+        result = service.transcribe("tests/fixtures/sample.wav")
+
+    assert result["transcript"] == "transcript::tests/fixtures/sample.wav"
+    assert result["model_id"] == "whisper-base"
+    assert result["profile"] == "light"
+    assert result["hardware"] == "CPU_ONLY"

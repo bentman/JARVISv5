@@ -6,6 +6,22 @@ import urllib.request
 import yaml
 
 
+def normalize_hardware_type(hardware: str) -> str:
+    normalized = hardware.strip().upper().replace("-", "_")
+    mapping = {
+        "GPU_CUDA": "gpu-cuda",
+        "GPU_GENERAL": "gpu",
+        "NPU_APPLE": "npu",
+        "NPU_INTEL": "npu",
+        "QUALCOMM_NPU": "npu",
+        "CPU_ONLY": "cpu",
+        "GPU": "gpu",
+        "NPU": "npu",
+        "CPU": "cpu",
+    }
+    return mapping.get(normalized, hardware.strip().lower())
+
+
 class ModelRegistry:
     def __init__(self, catalog_path: str = "models/models.yaml") -> None:
         self.catalog_path = Path(catalog_path)
@@ -35,21 +51,6 @@ class ModelRegistry:
         }
         return mapping.get(normalized, normalized)
 
-    def _normalize_hardware(self, hardware: str) -> str:
-        normalized = hardware.strip().upper().replace("-", "_")
-        mapping = {
-            "GPU_CUDA": "gpu-cuda",
-            "GPU_GENERAL": "gpu",
-            "NPU_APPLE": "npu",
-            "NPU_INTEL": "npu",
-            "QUALCOMM_NPU": "npu",
-            "CPU_ONLY": "cpu",
-            "GPU": "gpu",
-            "NPU": "npu",
-            "CPU": "cpu",
-        }
-        return mapping.get(normalized, hardware.strip().lower())
-
     def _profile_rank(self, profile: str) -> int:
         order = {
             "test": 0,
@@ -78,21 +79,77 @@ class ModelRegistry:
             return filename
         return ""
 
-    def ensure_model_present(self, model: dict[str, Any]) -> str:
-        model_path = self._coerce_model_path(model)
-        if not model_path:
-            raise RuntimeError("Selected model does not define a usable path")
+    def _coerce_model_dir(self, model: dict[str, Any]) -> str:
+        model_dir = model.get("model_dir")
+        if isinstance(model_dir, str) and model_dir:
+            return model_dir
+        return ""
 
-        path = Path(model_path)
-        if path.exists():
+    def _coerce_model_target(self, model: dict[str, Any]) -> tuple[str, str]:
+        model_dir = self._coerce_model_dir(model)
+        if model_dir:
+            return "dir", model_dir
+        model_path = self._coerce_model_path(model)
+        if model_path:
+            return "file", model_path
+        return "", ""
+
+    def ensure_model_present_hf(self, model_id: str, target_dir: Path) -> None:
+        try:
+            from huggingface_hub import snapshot_download
+        except Exception as exc:
+            raise RuntimeError(
+                "Directory model fetch requires huggingface_hub; install dependency before enabling MODEL_FETCH=missing for model_dir entries"
+            ) from exc
+
+        snapshot_download(repo_id=model_id, local_dir=str(target_dir))
+
+    def ensure_model_present(self, model: dict[str, Any]) -> str:
+        target_type, model_target = self._coerce_model_target(model)
+        if not model_target:
+            raise RuntimeError("Selected model does not define a usable path or model_dir")
+
+        path = Path(model_target)
+        if target_type == "dir":
+            if path.exists() and path.is_dir():
+                print(f"[model-fetch] using existing model directory: {path}")
+                return str(path)
+        elif path.exists():
             print(f"[model-fetch] using existing model: {path}")
             return str(path)
 
         fetch_mode = os.getenv("MODEL_FETCH", "never").strip().lower()
         if fetch_mode != "missing":
-            raise RuntimeError(
-                f"Model file missing and MODEL_FETCH={fetch_mode}: {path}"
-            )
+            if target_type == "dir":
+                raise RuntimeError(
+                    f"Model directory missing and MODEL_FETCH={fetch_mode}: {path}"
+                )
+            raise RuntimeError(f"Model file missing and MODEL_FETCH={fetch_mode}: {path}")
+
+        if target_type == "dir":
+            model_id = model.get("model_id")
+            if not isinstance(model_id, str) or not model_id.strip():
+                raise RuntimeError(
+                    f"Model directory missing and model_id is not set: {path}"
+                )
+
+            path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                print(
+                    f"[model-fetch] downloading missing model directory: {model_id} -> {path}"
+                )
+                self.ensure_model_present_hf(model_id.strip(), path)
+                if not path.exists() or not path.is_dir():
+                    raise RuntimeError(
+                        f"Model directory download did not produce a directory: {path}"
+                    )
+                print(f"[model-fetch] directory download complete: {path}")
+            except Exception as exc:
+                raise RuntimeError(
+                    f"Model directory download failed for {path}: {exc}"
+                ) from exc
+
+            return str(path)
 
         download_url = model.get("download_url")
         if not isinstance(download_url, str) or not download_url.strip():
@@ -117,7 +174,7 @@ class ModelRegistry:
 
     def select_model(self, profile: str, hardware: str, role: str) -> dict[str, Any] | None:
         normalized_profile = self._normalize_profile(profile)
-        normalized_hardware = self._normalize_hardware(hardware)
+        normalized_hardware = normalize_hardware_type(hardware)
         allowed_hardware = set(self._allowed_hardware(normalized_hardware))
 
         enabled_models = [
@@ -142,11 +199,11 @@ class ModelRegistry:
             supported = model.get("supported_hardware")
             if isinstance(supported, list):
                 normalized_supported = {
-                    self._normalize_hardware(str(item)) for item in supported
+                    normalize_hardware_type(str(item)) for item in supported
                 }
             else:
                 legacy = str(model.get("hardware_type", ""))
-                normalized_supported = {self._normalize_hardware(legacy)} if legacy else set()
+                normalized_supported = {normalize_hardware_type(legacy)} if legacy else set()
 
             if normalized_supported & allowed_hardware:
                 hardware_models.append(model)
@@ -172,7 +229,8 @@ class ModelRegistry:
             return None
 
         selected = dict(sorted_models[0])
-        selected["path"] = self._coerce_model_path(selected)
+        _, selected_target = self._coerce_model_target(selected)
+        selected["path"] = selected_target
         selected["normalized_profile"] = normalized_profile
         selected["normalized_hardware"] = normalized_hardware
         return selected

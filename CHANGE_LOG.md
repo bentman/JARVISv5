@@ -15,6 +15,90 @@
 
 ## Entries
 
+- 2026-03-22 21:38
+  - Summary: Added missing S5b record for Dockerfile + requirements voice packaging, documenting backend image rebuild evidence that includes packaged `faster-whisper` and `piper-tts` dependencies.
+  - Scope: `backend/Dockerfile`, `backend/requirements.txt`.
+  - Notes:
+    - This is an append-only corrective log entry for a previously completed packaging slice.
+    - Build evidence confirms dependency install and image build; a later container-name conflict occurred during recreate and is runtime orchestration, not package resolution.
+  - Evidence:
+    - `docker compose up -d --build backend`
+      - PASS excerpt: `Successfully installed ... faster-whisper-1.2.1 ... piper-tts-1.4.1 ...`
+      - PASS excerpt: `Image jarvisv5-backend Built`
+
+- 2026-03-22 21:34
+  - Summary: Completed S1a Piper TTS catalog correction slice by aligning Piper artifact paths to the ONNX voice artifact shape and companion config artifact, while keeping all voice catalog entries disabled.
+  - Scope: `models/models.yaml`.
+  - Notes:
+    - Corrected `piper-tts.path` to `models/en_US-lessac-medium.onnx`.
+    - Corrected `piper-tts-config.path` to `models/en_US-lessac-medium.onnx.json`.
+    - Kept `model_id`/`download_url` aligned to `rhasspy/piper-voices` and kept both entries disabled.
+  - Evidence:
+    - `backend\\.venv\\Scripts\\python.exe -c "import yaml, pathlib; p=pathlib.Path('models/models.yaml'); yaml.safe_load(p.read_text(encoding='utf-8')); print('models_yaml_parse_ok')"`
+      - PASS excerpt: `models_yaml_parse_ok`
+    - `backend\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_model_registry.py -q`
+      - PASS excerpt: `13 passed in 0.20s`
+
+- 2026-03-22 19:52
+  - Summary: Completed S5a as an STT-only vertical slice by adding fail-closed `POST /voice/transcribe` and wiring controller/provider transcription through the existing `role="stt"` + `model_dir` provisioning contract.
+  - Scope: `backend/voice/stt_provider.py`, `backend/voice/__init__.py`, `backend/controller/controller_service.py`, `backend/api/schemas.py`, `backend/api/main.py`, `tests/unit/test_voice_stt_provider.py`, `tests/unit/test_api_voice_transcribe.py`, `tests/unit/test_controller_service_integration.py`.
+  - Notes:
+    - No TTS changes and no frontend changes were included in this slice.
+  - Evidence:
+    - `backend\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_voice_stt_provider.py -q`
+      - PASS excerpt: `3 passed in 0.04s`
+    - `backend\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_api_voice_transcribe.py -q`
+      - PASS excerpt: `2 passed in 8.52s`
+    - `backend\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_controller_service_integration.py -q -k transcribe`
+      - PASS excerpt: `1 passed, 44 deselected in 1.31s`
+    - `backend\\.venv\\Scripts\\python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+
+- 2026-03-22 19:19
+  - Summary: Completed S4 by adding an explicit Hugging Face directory-provisioning adapter path for `model_dir` targets in model ensure behavior, while preserving existing file-based provisioning unchanged.
+  - Scope: `backend/models/model_registry.py`, `tests/unit/test_model_registry.py`.
+  - Evidence:
+    - `backend\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_model_registry.py -q`
+      - PASS excerpt: `13 passed in 0.18s`
+    - `backend\\.venv\\Scripts\\python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+
+- 2026-03-22 18:40
+  - Summary: Completed S3 by promoting hardware normalization to a shared module-level utility, exporting it for future consumers, and updating `ModelRegistry` call sites to use that shared utility while preserving model-selection behavior.
+  - Scope: `backend/models/model_registry.py`, `backend/models/__init__.py`, `tests/unit/test_model_registry.py`.
+  - Evidence:
+    - `backend\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_model_registry.py -q`
+      - PASS excerpt: `12 passed in 0.27s`
+    - `backend\\.venv\\Scripts\\python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+
+- 2026-03-22 18:22
+  - Summary: Completed S2 VRAM-aware profile narrowing by preserving RAM-primary hardware profile selection and adding a deterministic downward cap only for known insufficient GPU VRAM; unknown VRAM plus CPU-only and NPU behaviors remained unchanged.
+  - Scope: `backend/models/hardware_profiler.py`, `tests/unit/test_hardware_profiler.py`.
+  - Evidence:
+    - `backend\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_hardware_profiler.py -q`
+      - PASS excerpt: `11 passed in 4.12s`
+    - `backend\\.venv\\Scripts\\python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+
+- 2026-03-22 08:16
+  - Summary: Completed S1b directory-style STT catalog/runtime support by adding `model_dir` contract handling in model selection/ensure behavior, updating the disabled future STT catalog entry to `model_dir` + `model_id`, and preserving existing file-based model behavior.
+  - Scope: `models/models.yaml`, `backend/models/model_registry.py`, `tests/unit/test_model_registry.py`.
+  - Evidence:
+    - `backend\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_model_registry.py -q`
+      - PASS excerpt: `10 passed in 0.17s`
+    - `backend\\.venv\\Scripts\\python.exe scripts/validate_backend.py --scope unit`
+      - PASS excerpt: `UNIT: PASS_WITH_SKIPS`
+
+- 2026-03-22 07:42
+  - Summary: Completed S1a Piper TTS catalog correction in `models/models.yaml` by fixing Piper artifact fields to the ONNX voice source, adding the companion `.onnx.json` config entry, and then adjusting both Piper artifact paths under `models/voice/`; both Piper entries remained disabled.
+  - Scope: `models/models.yaml`.
+  - Evidence:
+    - `backend\\.venv\\Scripts\\python.exe -c "import yaml, pathlib; p=pathlib.Path('models/models.yaml'); yaml.safe_load(p.read_text(encoding='utf-8')); print('models_yaml_parse_ok')"`
+      - PASS excerpt: `models_yaml_parse_ok`
+    - `backend\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_model_registry.py -q`
+      - PASS excerpt: `6 passed in 0.14s`
+
 - 2026-03-21 05:37
   - Summary: Completed a frontend UX-enhancement consolidation pass by reorganizing the header into a cleaner two-row layout, unifying Memory/Workflow/Settings into a right-docked one-panel-at-a-time experience, and refining Settings organization with grouped editable sections plus compact grouped current-values subsections.
   - Scope: `frontend/src/App.jsx`, `frontend/src/components/MemoryPanel.jsx`, `frontend/src/components/SettingsPanel.jsx`.

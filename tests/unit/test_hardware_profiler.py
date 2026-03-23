@@ -86,3 +86,79 @@ def test_resource_manager_check_resource_exhaustion_runs() -> None:
         "high_memory_pressure",
         "cpu_exhaustion",
     }
+
+
+def test_get_hardware_profile_caps_down_when_known_gpu_vram_insufficient(
+    monkeypatch,
+) -> None:
+    service = HardwareService()
+
+    monkeypatch.setattr(service, "detect_hardware_type", lambda: HardwareType.GPU_CUDA)
+    service._gpu_info = [{"memory_total_mb": 3072.0}]
+
+    class _VM:
+        total = 64 * (1024**3)
+
+    monkeypatch.setattr("backend.models.hardware_profiler.psutil.virtual_memory", lambda: _VM())
+
+    assert service.get_hardware_profile() == "light"
+
+
+def test_get_hardware_profile_keeps_baseline_when_gpu_vram_sufficient(
+    monkeypatch,
+) -> None:
+    service = HardwareService()
+
+    monkeypatch.setattr(service, "detect_hardware_type", lambda: HardwareType.GPU_CUDA)
+    service._gpu_info = [{"memory_total_mb": 12288.0}]
+
+    class _VM:
+        total = 64 * (1024**3)
+
+    monkeypatch.setattr("backend.models.hardware_profiler.psutil.virtual_memory", lambda: _VM())
+
+    assert service.get_hardware_profile() == "heavy"
+
+
+def test_get_hardware_profile_unknown_gpu_vram_is_fail_safe_baseline(
+    monkeypatch,
+) -> None:
+    service = HardwareService()
+
+    monkeypatch.setattr(service, "detect_hardware_type", lambda: HardwareType.GPU_GENERAL)
+    service._gpu_info = [{"memory_total_mb": 0.0}]
+
+    class _VM:
+        total = 64 * (1024**3)
+
+    monkeypatch.setattr("backend.models.hardware_profiler.psutil.virtual_memory", lambda: _VM())
+
+    assert service.get_hardware_profile() == "heavy"
+
+
+def test_get_hardware_profile_cpu_only_unchanged_by_vram_gate(monkeypatch) -> None:
+    service = HardwareService()
+
+    monkeypatch.setattr(service, "detect_hardware_type", lambda: HardwareType.CPU_ONLY)
+    service._gpu_info = [{"memory_total_mb": 1024.0}]
+
+    class _VM:
+        total = 24 * (1024**3)
+
+    monkeypatch.setattr("backend.models.hardware_profiler.psutil.virtual_memory", lambda: _VM())
+
+    assert service.get_hardware_profile() == "medium"
+
+
+def test_get_hardware_profile_npu_unchanged_by_vram_gate(monkeypatch) -> None:
+    service = HardwareService()
+
+    monkeypatch.setattr(service, "detect_hardware_type", lambda: HardwareType.NPU_INTEL)
+    service._gpu_info = [{"memory_total_mb": 1024.0}]
+
+    class _VM:
+        total = 64 * (1024**3)
+
+    monkeypatch.setattr("backend.models.hardware_profiler.psutil.virtual_memory", lambda: _VM())
+
+    assert service.get_hardware_profile() == "npu-optimized"

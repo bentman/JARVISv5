@@ -24,6 +24,8 @@ from backend.api.schemas import (
     SettingsUpdateRequest,
     TaskFailureMetadata,
     TaskResponse,
+    VoiceTranscribeRequest,
+    VoiceTranscribeResponse,
     WorkflowNodeEvent,
     WorkflowTelemetryResponse,
 )
@@ -510,6 +512,34 @@ def create_task(request: TaskRequest) -> TaskResponse:
         final_state=str(result.get("final_state", "")),
         llm_output=str(context.get("llm_output", "")),
         failure=failure,
+    )
+
+
+@app.post("/voice/transcribe", response_model=VoiceTranscribeResponse)
+def voice_transcribe(request: VoiceTranscribeRequest) -> VoiceTranscribeResponse:
+    normalized_audio_path = str(request.audio_path).strip()
+    if not normalized_audio_path:
+        raise HTTPException(status_code=422, detail="audio_path_required")
+
+    settings = Settings()
+    memory = _build_memory_manager(settings)
+    service = ControllerService(
+        memory_manager=memory,
+        generation_seed=settings.GENERATION_SEED,
+    )
+
+    try:
+        result = service.transcribe(normalized_audio_path)
+    except RuntimeError as exc:
+        if str(exc) == "stt_model_not_available":
+            raise HTTPException(status_code=503, detail="stt_unavailable") from exc
+        raise HTTPException(status_code=500, detail="voice_transcribe_unavailable") from exc
+
+    return VoiceTranscribeResponse(
+        transcript=str(result.get("transcript", "")),
+        model_id=str(result.get("model_id", "")),
+        profile=str(result.get("profile", "")),
+        hardware=str(result.get("hardware", "")),
     )
 
 

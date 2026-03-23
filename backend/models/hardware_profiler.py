@@ -253,10 +253,41 @@ class HardwareService:
 
         total_ram_gb = psutil.virtual_memory().total / (1024**3)
         if total_ram_gb >= 32:
-            return "heavy"
-        if total_ram_gb >= 16:
+            profile = "heavy"
+        elif total_ram_gb >= 16:
+            profile = "medium"
+        else:
+            profile = "light"
+
+        return self._apply_gpu_vram_profile_cap(profile=profile, hardware_type=hardware_type)
+
+    def _known_max_gpu_vram_gb(self) -> float | None:
+        max_vram_gb = 0.0
+        for gpu in self._gpu_info:
+            try:
+                memory_total_mb = float(gpu.get("memory_total_mb", 0.0))
+            except Exception:
+                continue
+            if memory_total_mb > 0.0:
+                max_vram_gb = max(max_vram_gb, memory_total_mb / 1024.0)
+
+        if max_vram_gb <= 0.0:
+            return None
+        return max_vram_gb
+
+    def _apply_gpu_vram_profile_cap(self, profile: str, hardware_type: HardwareType) -> str:
+        if hardware_type not in {HardwareType.GPU_CUDA, HardwareType.GPU_GENERAL}:
+            return profile
+
+        max_vram_gb = self._known_max_gpu_vram_gb()
+        if max_vram_gb is None:
+            return profile
+
+        if max_vram_gb < 4.0:
+            return "light"
+        if max_vram_gb < 8.0 and profile == "heavy":
             return "medium"
-        return "light"
+        return profile
 
     def get_optimized_model_config(self, model_type: HardwareType | None = None) -> dict[str, Any]:
         hardware_type = model_type or self.detect_hardware_type()

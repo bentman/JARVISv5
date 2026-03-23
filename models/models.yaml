@@ -47,7 +47,8 @@ models:
     min_profile: "light"
     max_profile: "heavy"
     priority: 50
-    path: "models/whisper.gguf"
+    model_dir: "models/voice/faster-whisper-base"
+    model_id: "Systran/faster-whisper-base"
 
   - id: "piper-tts"
     enabled: false
@@ -56,4 +57,17 @@ models:
     min_profile: "light"
     max_profile: "heavy"
     priority: 60
-    path: "models/piper.onnx"
+    path: "models/en_US-lessac-medium.onnx"
+    model_id: "rhasspy/piper-voices"
+    download_url: "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx"
+
+  - id: "piper-tts-config"
+    enabled: false
+    roles: ["tts-config"]
+    supported_hardware: ["cpu", "gpu", "npu"]
+    min_profile: "light"
+    max_profile: "heavy"
+    priority: 60
+    path: "models/en_US-lessac-medium.onnx.json"
+    model_id: "rhasspy/piper-voices"
+    download_url: "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json"
