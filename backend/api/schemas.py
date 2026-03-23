@@ -68,6 +68,17 @@ class VoiceTranscribeResponse(BaseModel):
     hardware: str
 
 
+class VoiceSpeakRequest(BaseModel):
+    text: str
+
+
+class VoiceSpeakResponse(BaseModel):
+    audio_path: str
+    model_id: str
+    profile: str
+    hardware: str
+
+
 class MemorySearchItem(BaseModel):
     source: str
     content: str

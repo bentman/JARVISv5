@@ -15,6 +15,24 @@
 
 ## Entries
 
+- 2026-03-23 00:05
+  - Summary: Completed backend-only S5b TTS vertical slice by adding fail-closed `POST /voice/speak` with typed schema, controller `speak()` path, and Piper provider adapter integration.
+  - Scope: `backend/voice/tts_provider.py`, `backend/voice/__init__.py`, `backend/controller/controller_service.py`, `backend/api/schemas.py`, `backend/api/main.py`, `tests/unit/test_voice_tts_provider.py`, `tests/unit/test_api_voice_speak.py`, `tests/unit/test_controller_service_integration.py`.
+  - Notes:
+    - Scope was limited to backend route/schema/controller/provider and focused backend tests for the new TTS slice.
+    - Existing `/task` and `/voice/transcribe` behavior was preserved and re-validated.
+  - Evidence:
+    - `backend\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_voice_tts_provider.py -q`
+      - PASS excerpt: `3 passed in 0.04s`
+    - `backend\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_api_voice_speak.py -q`
+      - PASS excerpt: `2 passed in 8.29s`
+    - `backend\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_controller_service_integration.py -q -k speak`
+      - PASS excerpt: `2 passed, 45 deselected in 1.28s`
+    - `backend\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_api_voice_transcribe.py -q`
+      - PASS excerpt: `2 passed in 8.14s`
+    - `backend\\.venv\\Scripts\\python.exe -m pytest tests/unit/test_api_entrypoint.py -q`
+      - PASS excerpt: `3 passed in 14.81s`
+
 - 2026-03-22 21:38
   - Summary: Added missing S5b record for Dockerfile + requirements voice packaging, documenting backend image rebuild evidence that includes packaged `faster-whisper` and `piper-tts` dependencies.
   - Scope: `backend/Dockerfile`, `backend/requirements.txt`.

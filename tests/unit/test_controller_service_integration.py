@@ -96,6 +96,36 @@ class StubSTTModelRegistry(StubModelRegistry):
         return "models/faster-whisper-base"
 
 
+class StubTTSModelRegistry(StubModelRegistry):
+    def select_model(self, profile: str, hardware: str, role: str) -> dict | None:
+        _ = profile
+        _ = hardware
+        if role == "tts":
+            return {"id": "piper-tts", "path": "models/en_US-lessac-medium.onnx"}
+        if role == "tts-config":
+            return {"id": "piper-tts-config", "path": "models/en_US-lessac-medium.onnx.json"}
+        return None
+
+    def ensure_model_present(self, model: dict) -> str:
+        model_id = str(model.get("id", ""))
+        if model_id == "piper-tts":
+            return "models/en_US-lessac-medium.onnx"
+        if model_id == "piper-tts-config":
+            return "models/en_US-lessac-medium.onnx.json"
+        raise RuntimeError("unexpected_model")
+
+
+class StubTTSMissingConfigRegistry(StubModelRegistry):
+    def select_model(self, profile: str, hardware: str, role: str) -> dict | None:
+        _ = profile
+        _ = hardware
+        if role == "tts":
+            return {"id": "piper-tts", "path": "models/en_US-lessac-medium.onnx"}
+        if role == "tts-config":
+            return None
+        return None
+
+
 class PresentModelRegistry(StubModelRegistry):
     def select_model(self, profile: str, hardware: str, role: str) -> dict | None:
         _ = profile
@@ -1855,3 +1885,41 @@ def test_controller_transcribe_uses_stt_model_selection_and_provider(monkeypatch
     assert result["model_id"] == "whisper-base"
     assert result["profile"] == "light"
     assert result["hardware"] == "CPU_ONLY"
+
+
+def test_controller_speak_uses_tts_model_selection_and_provider(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "backend.voice.tts_provider.PiperTTSProvider.synthesize_to_file",
+        lambda self, text, output_path: f"{output_path}::{text}",
+    )
+
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+        monkeypatch.setenv("DATA_PATH", str(Path(tmp_dir)))
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=StubTTSModelRegistry(),
+        )
+
+        result = service.speak("hello tts")
+
+    assert result["audio_path"].endswith("::hello tts")
+    assert result["model_id"] == "piper-tts"
+    assert result["profile"] == "light"
+    assert result["hardware"] == "CPU_ONLY"
+
+
+def test_controller_speak_fail_closed_when_tts_config_missing(monkeypatch) -> None:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_dir:
+        monkeypatch.setenv("DATA_PATH", str(Path(tmp_dir)))
+        service = ControllerService(
+            memory_manager=build_memory(tmp_dir),
+            hardware_service=StubHardwareService(),
+            model_registry=StubTTSMissingConfigRegistry(),
+        )
+
+        try:
+            service.speak("hello tts")
+            assert False, "expected RuntimeError"
+        except RuntimeError as exc:
+            assert str(exc) == "tts_config_not_available"

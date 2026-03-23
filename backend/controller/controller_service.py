@@ -2,6 +2,7 @@ import json
 import time
 from typing import Any
 from uuid import uuid4
+from pathlib import Path
 
 from backend.config.api_keys import ApiKeyRegistry
 from backend.config.settings import Settings
@@ -21,7 +22,7 @@ from backend.models.providers import (
 )
 from backend.models.hardware_profiler import HardwareService
 from backend.models.model_registry import ModelRegistry
-from backend.voice import FasterWhisperSTTProvider
+from backend.voice import FasterWhisperSTTProvider, PiperTTSProvider
 from backend.security.redactor import create_default_redactor
 from backend.retrieval.retrieval_types import RetrievalConfig
 from backend.workflow import ContextBuilderNode, LLMWorkerNode, RouterNode, SearchWebNode, ToolCallNode, ValidatorNode
@@ -787,6 +788,53 @@ class ControllerService:
         return {
             "transcript": transcript,
             "model_id": str(selected_model.get("id", "")),
+            "profile": str(profile),
+            "hardware": str(hardware_type),
+        }
+
+    def speak(self, text: str) -> dict[str, Any]:
+        normalized_text = str(text).strip()
+        if not normalized_text:
+            raise RuntimeError("tts_text_required")
+
+        profile = self.hardware.get_hardware_profile()
+        hardware_type = self.hardware.detect_hardware_type().value
+
+        selected_tts_model = self.registry.select_model(
+            profile=profile,
+            hardware=hardware_type,
+            role="tts",
+        )
+        if selected_tts_model is None:
+            raise RuntimeError("tts_model_not_available")
+
+        selected_tts_config = self.registry.select_model(
+            profile=profile,
+            hardware=hardware_type,
+            role="tts-config",
+        )
+        if selected_tts_config is None:
+            raise RuntimeError("tts_config_not_available")
+
+        try:
+            tts_model_path = self.registry.ensure_model_present(selected_tts_model)
+        except Exception as exc:
+            raise RuntimeError("tts_model_not_available") from exc
+
+        try:
+            tts_config_path = self.registry.ensure_model_present(selected_tts_config)
+        except Exception as exc:
+            raise RuntimeError("tts_config_not_available") from exc
+
+        provider = PiperTTSProvider(model_path=tts_model_path, config_path=tts_config_path)
+
+        data_path = Path(Settings().DATA_PATH)
+        output_path = data_path / "voice" / f"tts-{uuid4().hex}.wav"
+        synthesized_path = provider.synthesize_to_file(normalized_text, str(output_path))
+
+        return {
+            "audio_path": str(synthesized_path),
+            "model_id": str(selected_tts_model.get("id", "")),
             "profile": str(profile),
             "hardware": str(hardware_type),
         }

@@ -26,6 +26,8 @@ from backend.api.schemas import (
     TaskResponse,
     VoiceTranscribeRequest,
     VoiceTranscribeResponse,
+    VoiceSpeakRequest,
+    VoiceSpeakResponse,
     WorkflowNodeEvent,
     WorkflowTelemetryResponse,
 )
@@ -537,6 +539,39 @@ def voice_transcribe(request: VoiceTranscribeRequest) -> VoiceTranscribeResponse
 
     return VoiceTranscribeResponse(
         transcript=str(result.get("transcript", "")),
+        model_id=str(result.get("model_id", "")),
+        profile=str(result.get("profile", "")),
+        hardware=str(result.get("hardware", "")),
+    )
+
+
+@app.post("/voice/speak", response_model=VoiceSpeakResponse)
+def voice_speak(request: VoiceSpeakRequest) -> VoiceSpeakResponse:
+    normalized_text = str(request.text).strip()
+    if not normalized_text:
+        raise HTTPException(status_code=422, detail="tts_text_required")
+
+    settings = Settings()
+    memory = _build_memory_manager(settings)
+    service = ControllerService(
+        memory_manager=memory,
+        generation_seed=settings.GENERATION_SEED,
+    )
+
+    try:
+        result = service.speak(normalized_text)
+    except RuntimeError as exc:
+        if str(exc) in {
+            "tts_model_not_available",
+            "tts_config_not_available",
+            "piper_dependency_unavailable",
+            "tts_synthesis_failed",
+        }:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="voice_speak_unavailable") from exc
+
+    return VoiceSpeakResponse(
+        audio_path=str(result.get("audio_path", "")),
         model_id=str(result.get("model_id", "")),
         profile=str(result.get("profile", "")),
         hardware=str(result.get("hardware", "")),
