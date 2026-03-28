@@ -2,7 +2,7 @@
 
 [![Not Real Magic](https://img.shields.io/badge/ai-Not_Real_Magic-purple)](#)
 [![Stability: Mostly](https://img.shields.io/badge/stability-Mostly-yellow)](#)
-[![Status: Evolving](https://img.shields.io/badge/status-Actively_Evolving-green)](#)
+[![Status: Molting](https://img.shields.io/badge/status-Molting-orange)](#)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ---
@@ -13,7 +13,7 @@
 - Still not flying the suit.
 - But slightly more than just a chatbot duct-taped to a system utility.
 
-JARVISv5 is the latest incarnation of a system that has been rewritten more times than a tax code loophole. It’s now a modular, agent‑ready, locally‑runnable, “please‑don’t-break-this-time” architecture built around clean phases, explicit approvals, and the ongoing dream that one day it will behave predictably. This version is the first to have an actual system inventory, real workflow boundaries, and fewer “accidental features” than previous releases. It’s still not a magical AI but it is finally organized enough that future‑me won’t file a missing‑person report on past‑me.
+JARVISv5 is an incarnation of a system that has been rewritten more times than a tax code loophole. It’s now a modular, agent‑ready, locally‑runnable, “please‑don’t-break-this-time” architecture built around clean phases, explicit approvals, and the ongoing dream that one day it will behave predictably. This version is the first to have an actual system inventory, real workflow boundaries, and fewer “accidental features” than previous releases. Loops execute, memory persists, validation exists — and things mostly happen in the right order. The first version that actually behaved like a system instead of a project. Not polished, not autonomous, but no longer falling apart between ideas. It actually works, just without the intended voice capabilities. It’s still not a magical AI but it is finally organized enough that future‑me won’t file a missing‑person report on past‑me.
 
 > _A personal project that keeps getting rebuilt because apparently that’s my hobby now._
 
